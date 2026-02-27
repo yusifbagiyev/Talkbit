@@ -5,7 +5,6 @@ import { getInitials, getAvatarColor } from "../utils/chatUtils";
 function ForwardPanel({ conversations, onForward, onClose }) {
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef(null);
   const debounceRef = useRef(null);
 
@@ -38,11 +37,9 @@ function ForwardPanel({ conversations, onForward, onClose }) {
 
     if (value.trim().length < 2) {
       setSearchResults(null);
-      setIsSearching(false);
       return;
     }
 
-    setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await apiGet(
@@ -52,8 +49,6 @@ function ForwardPanel({ conversations, onForward, onClose }) {
       } catch (err) {
         console.error("Forward search failed:", err);
         setSearchResults([]);
-      } finally {
-        setIsSearching(false);
       }
     }, 300);
   }
@@ -111,9 +106,7 @@ function ForwardPanel({ conversations, onForward, onClose }) {
         </div>
 
         <div className="forward-list">
-          {isSearching ? (
-            <div className="forward-loading">Searching...</div>
-          ) : displayList.length === 0 ? (
+          {displayList.length === 0 ? (
             <div className="forward-empty">No chats found</div>
           ) : (
             <>

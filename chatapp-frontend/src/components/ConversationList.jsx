@@ -45,8 +45,6 @@ function ConversationList({
   const [searchMode, setSearchMode] = useState(false);
   // searchResults — backend-dən gələn nəticələr: { users: [], channels: [] }
   const [searchResults, setSearchResults] = useState(null);
-  // searchLoading — API çağırılarkən true (loading spinner üçün)
-  const [searchLoading, setSearchLoading] = useState(false);
   // Debounce timer ref — hər keystroke-da əvvəlki timer-i sıfırlamaq üçün
   const searchTimerRef = useRef(null);
 
@@ -79,12 +77,10 @@ function ConversationList({
     // 2 hərfdən az → nəticələri sıfırla
     if (searchText.length < 2) {
       setSearchResults(null);
-      setSearchLoading(false);
       return;
     }
 
     // 300ms debounce — istifadəçi yazmağı dayandırdıqdan sonra API çağır
-    setSearchLoading(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
         // Hər iki endpoint-i paralel çağır (users + channels)
@@ -99,8 +95,6 @@ function ConversationList({
       } catch (err) {
         console.error("Search failed:", err);
         setSearchResults({ users: [], channels: [] });
-      } finally {
-        setSearchLoading(false);
       }
     }, 300);
 
@@ -180,7 +174,6 @@ function ConversationList({
     setSearchMode(false);
     onSearchChange(""); // Input-u təmizlə
     setSearchResults(null);
-    setSearchLoading(false);
   }
 
   // handleSelectUser — search nəticəsindən user-ə klik
@@ -210,10 +203,6 @@ function ConversationList({
   // --- Search nəticələrinin render funksiyası ---
   // Bütün nəticələr (conversations, users, channels) birləşdirilir, dublikatlar çıxarılır
   function renderSearchResults() {
-    if (searchLoading) {
-      return <div className="loading-state">Searching...</div>;
-    }
-
     // Client-side: mövcud conversations arasında axtarış
     const matchedConversations = searchText.length >= 2
       ? conversations.filter((c) =>
