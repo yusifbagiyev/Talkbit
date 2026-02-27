@@ -270,29 +270,31 @@
   z-index: 10;
   background: var(--white);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
   min-width: 180px;
-  padding: 4px;
+  padding: 6px 0;
   overflow: hidden;
 }
 
-/* Filter dropdown item — hər seçim */
+/* Filter dropdown item — context menu ilə eyni stil */
 .filter-dropdown-item {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 16px;
   border: none;
-  background: none;
+  background: transparent;
   cursor: pointer;
   font-size: 13px;
   color: var(--gray-700);
   white-space: nowrap;
   font-family: inherit;
-  border-radius: 6px;
+  text-align: left;
+  transition: background var(--transition-fast);
 }
 .filter-dropdown-item:hover {
-  background: var(--gray-50);
+  background: #F7F7F7;
 }
 
 /* ===================================
@@ -303,9 +305,10 @@
 .conv-context-menu {
   position: fixed;
   background: var(--white);
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 6px 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
   z-index: 1000;
   min-width: 200px;
   overflow: hidden;
@@ -328,7 +331,7 @@
 }
 
 .conv-context-item:hover {
-  background: var(--gray-50);
+  background: #F7F7F7;
 }
 
 /* ===================================

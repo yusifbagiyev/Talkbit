@@ -1034,11 +1034,18 @@ function Chat() {
     setForwardMessage(null);
 
     try {
-      const endpoint = getChatEndpoint(
-        targetChat.id,
-        targetChat.type,
-        "/messages",
-      );
+      // Yeni user (conversation yoxdur) → əvvəlcə conversation yarat
+      let chatId = targetChat.id;
+      let chatType = targetChat.type;
+      if (targetChat.isNewUser) {
+        const result = await apiPost("/api/conversations", {
+          otherUserId: targetChat.userId,
+        });
+        chatId = result.conversationId;
+        chatType = 0;
+      }
+
+      const endpoint = getChatEndpoint(chatId, chatType, "/messages");
       if (!endpoint) return;
 
       if (fwd.isMultiSelect) {
@@ -1058,7 +1065,7 @@ function Chat() {
       loadConversations();
 
       // Əgər forward edilən chat hazırda açıqdırsa, mesajları da yenilə
-      if (selectedChat && selectedChat.id === targetChat.id) {
+      if (selectedChat && selectedChat.id === chatId) {
         const data = await apiGet(
           `${getChatEndpoint(selectedChat.id, selectedChat.type, "/messages")}?pageSize=${MESSAGE_PAGE_SIZE}`,
         );

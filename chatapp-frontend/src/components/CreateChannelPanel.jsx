@@ -505,15 +505,9 @@ function CreateChannelPanel({ onCancel, onChannelCreated, currentUser }) {
               autoFocus
             />
             <div
-              className={`create-channel-name-status${
-                nameError ? " error" : nameChecking && channelName.trim().length >= 2 ? " checking" : ""
-              }`}
+              className={`create-channel-name-status${nameError ? " error" : ""}`}
             >
-              {nameError
-                ? nameError
-                : nameChecking && channelName.trim().length >= 2
-                  ? "Checking..."
-                  : "\u00A0"}
+              {nameError || "\u00A0"}
             </div>
           </div>
         </div>

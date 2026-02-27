@@ -8,9 +8,12 @@ function ForwardPanel({ conversations, onForward, onClose }) {
   const searchInputRef = useRef(null);
   const debounceRef = useRef(null);
 
-  // Panel açılanda search input-a focus ver
+  // Panel açılanda search input-a focus ver + unmount cleanup
   useEffect(() => {
     searchInputRef.current?.focus();
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   // Overlay-ə klik → panel bağlansın
@@ -42,10 +45,25 @@ function ForwardPanel({ conversations, onForward, onClose }) {
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await apiGet(
-          `/api/unified-conversations?pageSize=50&search=${encodeURIComponent(value.trim())}`
-        );
-        setSearchResults(data.items);
+        const q = encodeURIComponent(value.trim());
+        // Conversations + users paralel axtarış
+        const [convData, users] = await Promise.all([
+          apiGet(`/api/unified-conversations?pageSize=50&search=${q}`),
+          apiGet(`/api/users/search?q=${q}`),
+        ]);
+        const convItems = convData.items || [];
+        // Mövcud conversation-ı olan user-ləri çıxar (dublikat olmasın)
+        const convOtherUserIds = new Set(convItems.map((c) => c.otherUserId).filter(Boolean));
+        const newUsers = (users || [])
+          .filter((u) => !convOtherUserIds.has(u.id))
+          .map((u) => ({
+            id: u.id,
+            name: u.fullName,
+            type: 0,
+            isNewUser: true,
+            userId: u.id,
+          }));
+        setSearchResults([...convItems, ...newUsers]);
       } catch (err) {
         console.error("Forward search failed:", err);
         setSearchResults([]);
@@ -57,6 +75,7 @@ function ForwardPanel({ conversations, onForward, onClose }) {
   const displayList = searchResults !== null ? searchResults : conversations;
 
   function getSubtitle(item) {
+    if (item.isNewUser) return "User";
     if (item.type === 1) return `${item.memberCount || 0} members`;
     if (item.type === 2) return item.positionName || item.departmentName || "User";
     return item.otherUserPosition || item.otherUserRole || "User";
