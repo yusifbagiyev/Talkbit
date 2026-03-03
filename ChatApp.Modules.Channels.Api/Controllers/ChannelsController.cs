@@ -7,6 +7,7 @@ using ChatApp.Modules.Channels.Application.Queries.GetPublicChannels;
 using ChatApp.Modules.Channels.Application.Queries.GetUserChannels;
 using ChatApp.Modules.Channels.Application.Queries.CheckChannelName;
 using ChatApp.Modules.Channels.Application.Queries.SearchChannels;
+using ChatApp.Modules.Channels.Application.Queries.GetSharedChannels;
 using ChatApp.Shared.Infrastructure.Authorization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -399,6 +400,32 @@ namespace ChatApp.Modules.Channels.Api.Controllers
                 return BadRequest(new { error = result.Error });
 
             return Ok(new { markedCount = result.Value, message = "All messages marked as read" });
+        }
+
+
+        /// <summary>
+        /// Gets channels shared between current user and another user
+        /// </summary>
+        [HttpGet("shared/{otherUserId:guid}")]
+        [RequirePermission("Channels.Read")]
+        [ProducesResponseType(typeof(List<SharedChannelDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetSharedChannels(
+            [FromRoute] Guid otherUserId,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            var result = await _mediator.Send(
+                new GetSharedChannelsQuery(userId, otherUserId),
+                cancellationToken);
+
+            if (result.IsFailure)
+                return BadRequest(new { error = result.Error });
+
+            return Ok(result.Value);
         }
 
 

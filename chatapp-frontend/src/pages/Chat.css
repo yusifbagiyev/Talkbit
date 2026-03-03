@@ -223,9 +223,14 @@
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
+  border-color: #00ace3;
   background: var(--white);
-  box-shadow: 0 0 0 3px rgba(47, 198, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 172, 227, 0.1);
+}
+
+/* Focus olduqda search ikonunun rəngi */
+.search-wrapper:focus-within .search-icon {
+  color: #00ace3;
 }
 
 .search-input::placeholder {
@@ -939,6 +944,11 @@
 .header-action-btn:hover {
   background: var(--gray-100);
   color: var(--gray-700);
+}
+
+.header-action-btn.active {
+  background: rgba(0, 172, 227, 0.1);
+  color: #00ace3;
 }
 
 /* ===================================
@@ -2361,9 +2371,14 @@
 }
 
 .forward-search-input:focus {
-  border-color: var(--primary-color);
+  border-color: #00ace3;
   background: var(--white);
-  box-shadow: 0 0 0 3px rgba(47, 198, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 172, 227, 0.1);
+}
+
+/* Focus olduqda forward search ikonunun rəngi */
+.forward-search-wrapper:focus-within .forward-search-icon {
+  color: #00ace3;
 }
 
 .forward-search-input::placeholder {
@@ -3434,6 +3449,1343 @@
 
 .add-member-company {
   /* Company wrapper — heç bir stil lazım deyil */
+}
+
+/* ===================================
+   DETAIL SIDEBAR — Bitrix24 Style
+   =================================== */
+
+.detail-sidebar {
+  width: 380px;
+  min-width: 380px;
+  background: #eef2f4;
+  border-left: 1px solid var(--gray-200);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Header — X button solda, title ortada */
+.ds-header {
+  height: 56px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ds-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ds-close:hover {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.ds-header-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+/* More button + dropdown */
+.ds-more-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ds-more-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ds-more-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.ds-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  width: max-content;
+  min-width: 160px;
+  background: var(--white);
+  border-radius: 8px;
+  padding: 6px 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.ds-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-family: inherit;
+  text-align: left;
+}
+
+.ds-dropdown-item:hover {
+  background: #f7f7f7;
+}
+
+.ds-dropdown-danger {
+  color: var(--error-color);
+}
+
+/* Scrollable body — boz arxa fon (kartlar ağ görünsün) */
+.ds-body {
+  flex: 1;
+  overflow-y: auto;
+  background: #eef2f4;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Kart — ağ arxa fon, border-radius */
+.ds-card {
+  background: var(--white);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Kart içi ayırıcı xətt */
+.ds-card-divider {
+  height: 1px;
+  background: var(--gray-100);
+  margin: 0 16px;
+}
+
+/* Profile — vertikal: avatar → ad → position → create group */
+.ds-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 16px;
+  gap: 4px;
+}
+
+.ds-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ds-avatar-notes {
+  background: #2fc6f6;
+}
+
+.ds-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  text-align: center;
+}
+
+.ds-role {
+  font-size: 13px;
+  color: var(--gray-400);
+}
+
+/* Create group chat button */
+/* Members preview — avatar stack */
+.ds-members-preview {
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.ds-members-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.ds-members-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 600;
+  border: 2px solid var(--white);
+  margin-left: -8px;
+}
+
+.ds-members-avatar:first-child {
+  margin-left: 0;
+}
+
+.ds-members-more {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--gray-400);
+  font-weight: 500;
+}
+
+.ds-members-add-btn {
+  margin-left: 6px;
+  padding: 4px 10px;
+  background: #d3f4ff;
+  color: #008dba;
+  border: none;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ds-members-add-btn:hover {
+  background: #b8ecfa;
+}
+
+/* Sound toggle row */
+.ds-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+
+.ds-toggle-icon {
+  color: #00789e;
+  flex-shrink: 0;
+}
+
+.ds-toggle-label {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: #00789e;
+}
+
+/* Toggle switch — Bitrix24 stil */
+.ds-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.ds-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.ds-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--gray-300);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.25s;
+}
+
+.ds-switch-track::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 2px;
+  top: 2px;
+  background: var(--white);
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ds-switch input:checked + .ds-switch-track {
+  background: #2fc6f6;
+}
+
+.ds-switch input:checked + .ds-switch-track::before {
+  transform: translateX(20px);
+}
+
+.ds-icon {
+  color: var(--gray-400);
+  flex-shrink: 0;
+}
+
+/* Info rows */
+.ds-info-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 16px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  color: var(--gray-500);
+  font-size: 15px;
+}
+
+.ds-info-clickable .ds-icon {
+  color: #00789e;
+}
+
+.ds-info-clickable {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ds-info-clickable:hover {
+  background: transparent;
+}
+
+.ds-info-label {
+  flex: 1;
+  font-size: 15px;
+  color: var(--gray-600);
+}
+
+.ds-info-link {
+  flex: 1;
+  font-size: 15px;
+  color: #00789e;
+  font-weight: 500;
+}
+
+.ds-chevron {
+  color: var(--gray-300);
+  flex-shrink: 0;
+}
+
+.ds-badge {
+  font-size: 11px;
+  color: var(--white);
+  background: #c9ccd0;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* Favorites panel — sidebar-ın üzərinə gəlir */
+.ds-favorites-panel {
+  position: absolute;
+  inset: 0;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.ds-favorites-header {
+  height: 56px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ds-favorites-back {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ds-favorites-back:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.ds-favorites-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+/* Search butonu — sağ tərəfdə */
+.ds-favorites-search-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ds-favorites-search-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+/* Aktiv olduqda rəngli */
+.ds-favorites-search-btn.active {
+  background: rgba(0, 172, 227, 0.1);
+  color: #00ace3;
+}
+
+/* Search input — headerdə title əvəzinə görünür */
+.ds-favorites-search-input {
+  flex: 1;
+  height: 32px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--gray-900);
+  background: var(--gray-50);
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.ds-favorites-search-input:focus {
+  border-color: #00ace3;
+  background: var(--white);
+}
+
+.ds-favorites-search-input::placeholder {
+  color: var(--gray-400);
+}
+
+/* Highlight — axtarış uyğunluğu sarı fon ilə */
+.ds-favorites-text mark {
+  background: #ffe066;
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.ds-favorites-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ds-favorites-date {
+  font-size: 11px;
+  text-align: center;
+  padding: 8px 16px;
+}
+
+.ds-favorites-date span {
+  display: inline-block;
+  background: #cccccc;
+  color: var(--white);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
+/* Mesajlar arası boşluq — gap ilə idarə olunur */
+
+.ds-favorites-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 0 12px;
+  background: #f5f7f8;
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+}
+
+.ds-favorites-avatar {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+
+.ds-favorites-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ds-favorites-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ds-favorites-sender {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin-bottom: 2px;
+}
+
+.ds-favorites-text {
+  display: block;
+  font-size: 12px;
+  color: var(--gray-600);
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* More menu — hover-də görünür */
+.ds-favorites-more-wrap {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.ds-favorites-item:hover .ds-favorites-more-wrap,
+.ds-favorites-more-wrap:has(.ds-dropdown) {
+  opacity: 1;
+}
+
+.ds-favorites-more-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #f5f7f8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ds-favorites-more-btn:hover {
+  color: var(--gray-600);
+}
+
+.ds-favorites-more-wrap .ds-dropdown {
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+}
+
+.ds-favorites-empty {
+  text-align: center;
+  color: var(--gray-400);
+  font-size: 13px;
+  padding: 40px 16px;
+}
+
+/* ===== All links panel — link card stilləri ===== */
+.ds-link-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 0 12px;
+  background: #F5F7F8;
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+}
+
+.ds-link-icon-wrap {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 10px;
+  background: #E8F4F8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00ace3;
+}
+
+.ds-link-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ds-link-domain {
+  display: block;
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-bottom: 2px;
+}
+
+.ds-link-url {
+  display: block;
+  font-size: 12px;
+  color: #00ace3;
+  text-decoration: none;
+  word-break: break-all;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.ds-link-url:hover {
+  text-decoration: underline;
+}
+
+.ds-link-url mark {
+  background: #FFE066;
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.ds-link-sender {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ds-link-sender-avatar {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.ds-link-sender-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ds-link-sender-name {
+  font-size: 11px;
+  color: var(--gray-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* More menu — link item üzərində hover */
+.ds-link-item:hover .ds-favorites-more-wrap,
+.ds-link-item .ds-favorites-more-wrap:has(.ds-dropdown) {
+  opacity: 1;
+}
+
+/* ===== Chats with user panel — shared chat stilləri ===== */
+.ds-shared-chat-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-100);
+  transition: background var(--transition-fast);
+}
+
+.ds-shared-chat-item:last-child {
+  border-bottom: none;
+}
+
+.ds-shared-chat-item:hover {
+  background: var(--gray-50);
+}
+
+.ds-shared-chat-avatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.ds-shared-chat-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ds-shared-chat-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ds-shared-chat-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-shared-chat-type {
+  font-size: 12px;
+  color: var(--gray-400);
+  margin-top: 2px;
+}
+
+.ds-shared-chat-date {
+  font-size: 12px;
+  color: var(--gray-400);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Files and media */
+.ds-files-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ds-files-header {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px 10px;
+  cursor: pointer;
+}
+
+.ds-files-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: #00789e;
+}
+
+.ds-files-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 0 16px 16px;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.ds-file-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--gray-50);
+  border-radius: 8px;
+  padding: 12px 8px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ds-file-item:hover {
+  background: var(--gray-100);
+}
+
+.ds-file-icon {
+  width: 40px;
+  height: 48px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+}
+
+.ds-file-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.ds-file-name {
+  font-size: 11px;
+  color: var(--gray-600);
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+}
+
+.ds-files-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--gray-400);
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+/* Files & Media Panel — Tab-lar */
+.ds-fm-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--gray-200);
+  padding: 0 16px;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.ds-fm-tab {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-400);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  text-align: center;
+}
+
+.ds-fm-tab:hover {
+  color: var(--gray-600);
+}
+
+.ds-fm-tab.active {
+  color: #00ace3;
+  border-bottom-color: #00ace3;
+}
+
+/* Files & Media Panel — Media Grid */
+.ds-fm-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 0 12px;
+}
+
+.ds-fm-media-grid .ds-favorites-date {
+  grid-column: 1 / -1;
+}
+
+.ds-fm-grid-break {
+  grid-column: 1 / -1;
+  height: 0;
+}
+
+.ds-fm-media-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.ds-fm-media-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--transition-fast);
+}
+
+.ds-fm-media-item:hover .ds-fm-media-img {
+  transform: scale(1.04);
+}
+
+/* Göndərən avatar — sol alt küncündə */
+.ds-fm-media-sender {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.ds-fm-media-sender-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* More butonu — sağ üst, yalnız hover zamanı görünür */
+.ds-fm-media-more-wrap {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.ds-fm-media-item:hover .ds-fm-media-more-wrap {
+  opacity: 1;
+}
+
+.ds-fm-media-more-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+
+.ds-fm-media-more-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Files & Media Panel — Files List */
+.ds-fm-file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  border-radius: 8px;
+  margin: 0 8px;
+}
+
+.ds-fm-file-item:hover {
+  background: var(--gray-50);
+}
+
+.ds-fm-file-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #e8f4f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00ace3;
+  flex-shrink: 0;
+}
+
+.ds-fm-file-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds-fm-file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-fm-file-name mark {
+  background: #fff3b0;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
+.ds-fm-file-meta {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+/* Add chat members — floating popup */
+.ds-am-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.ds-am-popup {
+  position: absolute;
+  top: 36%;
+  right: 200px;
+  transform: translateY(-50%);
+  width: 360px;
+  min-height: 500px;
+  max-height: 80vh;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: ds-am-fade-in 150ms ease;
+}
+
+@keyframes ds-am-fade-in {
+  from { opacity: 0; transform: translateY(-50%) scale(0.96); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.ds-am-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+}
+
+.ds-am-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.ds-am-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.ds-am-close:hover {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.ds-am-search-area {
+  padding: 0 16px 8px;
+}
+
+.ds-am-add-user-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--white);
+  color: #008dba;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-fast);
+}
+
+.ds-am-add-user-btn:hover {
+  border-color: #00ace3;
+}
+
+.ds-am-search-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #00ace3;
+  border-radius: 8px;
+  background: var(--white);
+  align-items: center;
+  min-height: 40px;
+}
+
+.ds-am-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #d3f4ff;
+  color: #008dba;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ds-am-chip svg {
+  flex-shrink: 0;
+}
+
+.ds-am-chip-remove {
+  background: none;
+  border: none;
+  color: #008dba;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  line-height: 1;
+}
+
+.ds-am-search-input {
+  flex: 1;
+  min-width: 60px;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  background: transparent;
+}
+
+.ds-am-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 8px;
+  font-size: 13px;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.ds-am-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--gray-300);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.ds-am-checkbox:checked {
+  background: #00ace3;
+  border-color: #00ace3;
+}
+
+.ds-am-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+.ds-am-section-title {
+  padding: 4px 16px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ds-am-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+  max-height: 320px;
+}
+
+.ds-am-empty {
+  text-align: center;
+  color: var(--gray-400);
+  font-size: 13px;
+  padding: 24px 16px;
+}
+
+.ds-am-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ds-am-user:hover {
+  background: var(--gray-50);
+}
+
+.ds-am-user.selected {
+  background: #e8f7fc;
+}
+
+.ds-am-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ds-am-user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.ds-am-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ds-am-user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-800);
+}
+
+.ds-am-user-role {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.ds-am-check {
+  flex-shrink: 0;
+}
+
+.ds-am-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.ds-am-invite-btn {
+  padding: 8px 24px;
+  background: #00ace3;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.ds-am-invite-btn:hover:not(:disabled) {
+  background: #0098cc;
+}
+
+.ds-am-invite-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ds-am-cancel-btn {
+  padding: 8px 20px;
+  background: var(--white);
+  color: var(--gray-600);
+  border: 1px solid var(--gray-200);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ds-am-cancel-btn:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
 }
 
 /* ===================================

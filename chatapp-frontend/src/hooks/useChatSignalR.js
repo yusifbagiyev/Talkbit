@@ -61,6 +61,10 @@ export default function useChatSignalR(
 
         // ── Yeni conversation (ilk mesaj) — listdə yoxdur → yarat və başa əlavə et ──
         if (!exists) {
+          // Öz mesajımızın echo-su — conversation-ı handleSendMessage yaradacaq,
+          // burada yaratma (yanlış ad və unread count olar)
+          if (message.senderId === userId) return prev;
+
           const newConv = {
             id: message.conversationId,
             name: message.senderFullName,

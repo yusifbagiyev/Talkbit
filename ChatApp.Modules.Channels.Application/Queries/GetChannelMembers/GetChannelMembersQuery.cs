@@ -24,7 +24,7 @@ namespace ChatApp.Modules.Channels.Application.Queries.GetChannelMembers
         {
             try
             {
-                var channel = await _unitOfWork.Channels.GetByIdAsync(
+                var channel = await _unitOfWork.Channels.GetByIdWithMembersAsync(
                     request.ChannelId,
                     cancellationToken);
 

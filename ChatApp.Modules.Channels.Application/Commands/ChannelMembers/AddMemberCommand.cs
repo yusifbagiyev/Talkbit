@@ -59,27 +59,12 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                     cancellationToken)
                     ?? throw new NotFoundException($"Channel with ID {request.ChannelId} not found");
 
-                // Check if user is already an active member
-                if (channel.UserHasAccessToChannel(request.UserId))
-                {
-                    return Result.Failure("User is already a member of this channel");
-                }
+                // Domain yalnız qaydaları yoxlayır (duplicate, icazə və s.)
+                channel.ValidateAddMember(request.UserId, request.AddedBy);
 
-                // Əvvəl çıxmış qeyri-aktiv üzvlüyü sil (unique constraint: ChannelId + UserId)
-                var existingInactive = await _unitOfWork.ChannelMembers.GetMemberAsync(
-                    request.ChannelId, request.UserId, cancellationToken);
-
-                if (existingInactive != null)
-                {
-                    await _unitOfWork.ChannelMembers.DeleteAsync(existingInactive, cancellationToken);
-                    await _unitOfWork.SaveChangesAsync(cancellationToken);
-                }
-
-                // Yeni üzv əlavə et
+                // Persistence: child entity öz repository-si vasitəsilə əlavə olunur
                 var newMember = new ChannelMember(request.ChannelId, request.UserId, MemberRole.Member);
-                channel.AddMember(newMember);
-
-                await _unitOfWork.Channels.UpdateAsync(channel, cancellationToken);
+                await _unitOfWork.ChannelMembers.AddAsync(newMember, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // Publish event

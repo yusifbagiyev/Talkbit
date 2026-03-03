@@ -27,6 +27,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         public async Task<Channel?> GetByIdWithMembersAsync(Guid id, CancellationToken cancellationToken = default)
         {
             return await _context.Channels
+                .AsNoTracking()
                 .Include(c => c.Members)
                 .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         }
@@ -330,6 +331,29 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                 .Where(m => m.ChannelId == channelId && m.IsActive)
                 .Select(m => m.UserId)
                 .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<SharedChannelDto>> GetSharedChannelsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken = default)
+        {
+            // İki istifadəçinin ortaq olduğu kanalları tapır (INTERSECT)
+            return await (
+                from channel in _context.Channels
+                where _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId1 && m.IsActive)
+                   && _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId2 && m.IsActive)
+                let lastMessage = _context.ChannelMessages
+                    .Where(msg => msg.ChannelId == channel.Id)
+                    .OrderByDescending(msg => msg.CreatedAtUtc)
+                    .Select(msg => (DateTime?)msg.CreatedAtUtc)
+                    .FirstOrDefault()
+                orderby lastMessage descending
+                select new SharedChannelDto(
+                    channel.Id,
+                    channel.Name,
+                    channel.AvatarUrl,
+                    channel.Type,
+                    lastMessage
+                )
+            ).ToListAsync(cancellationToken);
         }
 
         public async Task<bool> ExistsAsync(Expression<Func<Channel, bool>> predicate, CancellationToken cancellationToken = default)

@@ -53,6 +53,8 @@ import PinnedBar, { PinnedExpanded } from "../components/PinnedBar"; // pinlənm
 import {
   groupMessagesByDate, // mesajları tarixə görə qruplaşdır
   getChatEndpoint, // chat tipinə görə doğru API endpoint-i qaytar
+  getAvatarColor, // avatar rəngi (hash-based)
+  getInitials, // addan 2 hərf (avatar mətni)
   MESSAGE_PAGE_SIZE, // bir dəfədə neçə mesaj yükləmək
   CONVERSATION_PAGE_SIZE, // söhbət siyahısı səhifə ölçüsü
   HIGHLIGHT_DURATION_MS, // mesaj vurğulama müddəti (millisaniyə)
@@ -61,6 +63,7 @@ import {
 } from "../utils/chatUtils";
 
 import "./Chat.css";
+
 
 // Chat komponenti — əsas chat səhifəsi
 // .NET ekvivalenti: @page "/" ilə ChatPage.razor
@@ -80,6 +83,32 @@ function Chat() {
 
   // Channel yaratma paneli — true olduqda chat-panel-da CreateChannelPanel görsənir
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addMemberSearch, setAddMemberSearch] = useState(""); // Add member search mətni
+  const [addMemberSearchActive, setAddMemberSearchActive] = useState(false); // Search input açıq/bağlı
+  const [addMemberSelected, setAddMemberSelected] = useState(new Set()); // Seçilmiş istifadəçi id-ləri
+  const [addMemberInviting, setAddMemberInviting] = useState(false); // INVITE prosesi davam edir
+  const [addMemberSearchResults, setAddMemberSearchResults] = useState([]); // Backend axtarış nəticələri
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showSidebarMenu, setShowSidebarMenu] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favMenuId, setFavMenuId] = useState(null); // Favorite mesajın more menu-su açıq olan mesaj id-si
+  const [favSearchOpen, setFavSearchOpen] = useState(false); // Favorites search input açıq/bağlı
+  const [favSearchText, setFavSearchText] = useState(""); // Favorites axtarış mətni
+  const [showAllLinks, setShowAllLinks] = useState(false); // All links paneli açıq/bağlı
+  const [linksMenuId, setLinksMenuId] = useState(null); // Link mesajın more menu-su açıq olan mesaj id-si
+  const [linksSearchOpen, setLinksSearchOpen] = useState(false); // Links search input açıq/bağlı
+  const [linksSearchText, setLinksSearchText] = useState(""); // Links axtarış mətni
+  const [showChatsWithUser, setShowChatsWithUser] = useState(false); // Chats with user paneli açıq/bağlı
+  const [chatsWithUserData, setChatsWithUserData] = useState([]); // Ortaq kanallar siyahısı
+  // "sidebar" → sidebar-dan açılıb (back butonu, conv dəyişsə bağlanır)
+  // "context" → ConversationList-dən açılıb (X butonu, conv dəyişsə bağlanmır)
+  const [chatsWithUserSource, setChatsWithUserSource] = useState(null);
+  const [showFilesMedia, setShowFilesMedia] = useState(false); // Files & Media paneli açıq/bağlı
+  const [filesMediaTab, setFilesMediaTab] = useState("media"); // Aktiv tab: "media" / "files"
+  const [filesMenuId, setFilesMenuId] = useState(null); // Fayl more menu açıq olan id
+  const [filesSearchOpen, setFilesSearchOpen] = useState(false); // Files search input açıq/bağlı
+  const [filesSearchText, setFilesSearchText] = useState(""); // Files axtarış mətni
 
   // Mesajlar siyahısı — aktiv chatın mesajları
   // Backend DESC qaytarır (yeni → köhnə), biz tersine çeviririk
@@ -143,6 +172,11 @@ function Chat() {
 
   // emojiPanelRef — emoji panel-i (kənar klik bağlama üçün)
   const emojiPanelRef = useRef(null);
+  const sidebarMenuRef = useRef(null);
+  const favMenuRef = useRef(null);
+  const linksMenuRef = useRef(null);
+  const filesMenuRef = useRef(null);
+  const addMemberRef = useRef(null); // Add member panel click-outside ref
 
   // replyTo — reply ediləcək mesaj (null = reply yoxdur)
   const [replyTo, setReplyTo] = useState(null);
@@ -737,6 +771,46 @@ function Chat() {
     handleSelectChat(newConversation);
   }
 
+  // handleOpenChatsWithUser — ortaq kanalları yüklə və paneli aç
+  // source: "sidebar" (sidebar-dan) və ya "context" (ConversationList-dən)
+  async function handleOpenChatsWithUser(otherUserId, source = "sidebar") {
+    if (!otherUserId) return;
+    setChatsWithUserSource(source);
+    setShowChatsWithUser(true);
+    try {
+      const data = await apiGet(`/api/channels/shared/${otherUserId}`);
+      setChatsWithUserData(data || []);
+    } catch {
+      setChatsWithUserData([]);
+    }
+  }
+
+  // handleInviteMembers — seçilmiş istifadəçiləri channel-ə əlavə et
+  async function handleInviteMembers() {
+    if (addMemberSelected.size === 0 || !selectedChat) return;
+    setAddMemberInviting(true);
+    try {
+      for (const userId of addMemberSelected) {
+        await apiPost(`/api/channels/${selectedChat.id}/members`, { userId });
+      }
+      // Üzvləri yenidən yüklə
+      const members = await apiGet(`/api/channels/${selectedChat.id}/members`);
+      setChannelMembers((prev) => ({
+        ...prev,
+        [selectedChat.id]: members.reduce((map, m) => ({ ...map, [m.userId]: m }), {}),
+      }));
+      // Paneli bağla və state-ləri təmizlə
+      setShowAddMember(false);
+      setAddMemberSearch("");
+      setAddMemberSearchActive(false);
+      setAddMemberSelected(new Set());
+    } catch (err) {
+      console.error("Failed to invite members:", err);
+    } finally {
+      setAddMemberInviting(false);
+    }
+  }
+
   // handleSelectChat — istifadəçi sol siyahıdan bir chata klikləyəndə çağırılır
   // chat.type: 0 = DM Conversation, 1 = Channel, 2 = DepartmentUser
   async function handleSelectChat(chat) {
@@ -797,6 +871,31 @@ function Chat() {
     // unreadCount dərhal sıfırlanmır — IntersectionObserver mesajlar göründükcə 1-1 azaldır
     setPinBarExpanded(false);
     setCurrentPinIndex(0);
+    setShowFavorites(false);
+    setFavMenuId(null);
+    setFavSearchOpen(false);
+    setFavSearchText("");
+    setShowAllLinks(false);
+    setLinksMenuId(null);
+    setLinksSearchOpen(false);
+    setLinksSearchText("");
+    // Chats with user — source-a görə bağlama qərarı:
+    // "sidebar" → conversation dəyişdikdə bağlanır
+    // "context" → conversation dəyişdikdə bağlanmır
+    if (chatsWithUserSource === "sidebar") {
+      setShowChatsWithUser(false);
+      setChatsWithUserData([]);
+      setChatsWithUserSource(null);
+    }
+    setShowFilesMedia(false);
+    setFilesMediaTab("media");
+    setFilesMenuId(null);
+    setFilesSearchOpen(false);
+    setFilesSearchText("");
+    setShowAddMember(false);
+    setAddMemberSearch("");
+    setAddMemberSearchActive(false);
+    setAddMemberSelected(new Set());
     setSelectMode(false);
     setSelectedMessages(new Set());
     setReplyTo(null);
@@ -1005,7 +1104,7 @@ function Chat() {
             setChannelMembers((prev) => ({
               ...prev,
               [chat.id]: members.reduce((map, m) => {
-                map[m.userId] = { fullName: m.fullName, avatarUrl: m.avatarUrl };
+                map[m.userId] = { fullName: m.fullName, avatarUrl: m.avatarUrl, role: m.role };
                 return map;
               }, {}),
             }));
@@ -1469,6 +1568,111 @@ function Chat() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [emojiOpen]);
 
+  // Sidebar more menu — kənarına klikləndikdə bağla
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (
+        sidebarMenuRef.current &&
+        !sidebarMenuRef.current.contains(e.target)
+      ) {
+        setShowSidebarMenu(false);
+      }
+    }
+    if (showSidebarMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSidebarMenu]);
+
+  // Favorite mesaj more menu — click-outside
+  useEffect(() => {
+    if (!favMenuId) return;
+    function handleClickOutside(e) {
+      if (favMenuRef.current && !favMenuRef.current.contains(e.target)) {
+        setFavMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [favMenuId]);
+
+  // Links more menu — click-outside
+  useEffect(() => {
+    if (!linksMenuId) return;
+    function handleClickOutside(e) {
+      if (linksMenuRef.current && !linksMenuRef.current.contains(e.target)) {
+        setLinksMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [linksMenuId]);
+
+  // Files more menu — click-outside
+  useEffect(() => {
+    if (!filesMenuId) return;
+    function handleClickOutside(e) {
+      if (filesMenuRef.current && !filesMenuRef.current.contains(e.target)) {
+        setFilesMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [filesMenuId]);
+
+  // Add member panel — click-outside bağlama
+  useEffect(() => {
+    if (!showAddMember) return;
+    function handleClickOutside(e) {
+      if (addMemberRef.current && !addMemberRef.current.contains(e.target)) {
+        setShowAddMember(false);
+        setAddMemberSearch("");
+        setAddMemberSearchActive(false);
+        setAddMemberSelected(new Set());
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showAddMember]);
+
+  // Add member panel — debounced backend user search
+  useEffect(() => {
+    const query = addMemberSearch.trim();
+    if (query.length < 2) {
+      setAddMemberSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const data = await apiGet(`/api/users/search?q=${encodeURIComponent(query)}`);
+        setAddMemberSearchResults(data || []);
+      } catch {
+        setAddMemberSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [addMemberSearch]);
+
+  // Sidebar açılanda channel members yüklə
+  useEffect(() => {
+    if (!showSidebar || !selectedChat || selectedChat.type !== 1) return;
+    // Həmişə yenidən fetch et — closure stale state problemini aradan qaldırır
+    (async () => {
+      try {
+        const members = await apiGet(`/api/channels/${selectedChat.id}/members`);
+        setChannelMembers((prev) => ({
+          ...prev,
+          [selectedChat.id]: members.reduce((map, m) => {
+            map[m.userId] = { fullName: m.fullName, avatarUrl: m.avatarUrl, role: m.role };
+            return map;
+          }, {}),
+        }));
+      } catch (err) {
+        console.error("Failed to load channel members for sidebar:", err);
+      }
+    })();
+  }, [showSidebar, selectedChat?.id]);
+
   // stopTypingSignal — typing siqnalını dərhal dayandır
   // Mesaj göndəriləndə / conversation dəyişdirildikdə çağırılır
   function stopTypingSignal() {
@@ -1619,6 +1823,72 @@ function Chat() {
     });
   }, [selectedMessages, messages, user.id]);
 
+  // URL regex — mesaj content-indən linkləri çıxarmaq üçün
+  // Hər mesajdan bütün URL-ləri tapır, hər URL üçün ayrı obyekt qaytarır
+  const linkMessages = useMemo(() => {
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+    const results = [];
+    for (const msg of messages) {
+      if (!msg.content) continue;
+      const urls = msg.content.match(urlRegex);
+      if (!urls) continue;
+      for (const url of urls) {
+        let domain = "";
+        try { domain = new URL(url).hostname; } catch { domain = url; }
+        results.push({
+          id: msg.id,
+          url,
+          domain,
+          senderFullName: msg.senderFullName,
+          senderAvatarUrl: msg.senderAvatarUrl,
+          createdAtUtc: msg.createdAtUtc,
+        });
+      }
+    }
+    // Yeni → köhnə sıralaması (DESC)
+    return results.sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc));
+  }, [messages]);
+
+  // fileMessages — mesajlardan fayl olan mesajları çıxarır
+  // Media (şəkil) və Files (digər fayllar) olaraq ayrılır
+  const fileMessages = useMemo(() => {
+    const results = [];
+    for (const msg of messages) {
+      if (!msg.fileId || msg.isDeleted) continue;
+      const isImage = msg.fileContentType?.startsWith("image/");
+      results.push({
+        id: msg.id,
+        fileId: msg.fileId,
+        fileName: msg.fileName,
+        fileContentType: msg.fileContentType,
+        fileSizeInBytes: msg.fileSizeInBytes,
+        fileUrl: msg.fileUrl,
+        thumbnailUrl: msg.thumbnailUrl,
+        isImage,
+        senderFullName: msg.senderFullName,
+        senderAvatarUrl: msg.senderAvatarUrl,
+        createdAtUtc: msg.createdAtUtc,
+      });
+    }
+    return results.sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc));
+  }, [messages]);
+
+  // Add member paneli üçün — DM conversationlardan artıq üzv olmayanları göstər
+  const addMemberUsers = useMemo(() => {
+    if (!showAddMember || !selectedChat) return [];
+    const existingIds = channelMembers[selectedChat.id]
+      ? new Set(Object.keys(channelMembers[selectedChat.id]))
+      : new Set();
+    return conversations
+      .filter((c) => c.type === 0 && !c.isNotes && c.otherUserId && !existingIds.has(c.otherUserId))
+      .map((c) => ({
+        id: c.otherUserId,
+        fullName: c.name,
+        avatarUrl: c.avatarUrl,
+        position: c.otherUserPosition || "User",
+      }));
+  }, [showAddMember, selectedChat, conversations, channelMembers]);
+
   // --- STABLE CALLBACK-LƏR ---
   // useCallback([]) — dependency yoxdur, funksiya referansı sabit qalır
   // React.memo ilə birlikdə MessageBubble-ın lazımsız yenidən render-inin qarşısını alır
@@ -1722,6 +1992,10 @@ function Chat() {
           onToggleReadLater={handleToggleReadLater}
           onHide={handleHideConversation}
           onLeaveChannel={handleLeaveChannel}
+          onFindChatsWithUser={(otherUserId) => {
+            setShowSidebar(true);
+            handleOpenChatsWithUser(otherUserId, "context");
+          }}
         />
 
         {/* chat-panel — sağ panel, mesajlar */}
@@ -1735,12 +2009,15 @@ function Chat() {
             />
           ) : selectedChat ? (
             <>
-              {/* ChatHeader — chat adı, online status */}
+              {/* ChatHeader — chat adı, online status, action düymələr */}
               <ChatHeader
                 selectedChat={selectedChat}
                 onlineUsers={onlineUsers}
                 pinnedMessages={pinnedMessages}
                 onTogglePinExpand={() => setPinBarExpanded((v) => !v)}
+                onOpenAddMember={() => setShowAddMember(true)}
+                onToggleSidebar={() => setShowSidebar((v) => !v)}
+                sidebarOpen={showSidebar}
               />
 
               {/* loadingOlder — yuxarı scroll edəndə köhnə mesajlar yüklənirkən spinner */}
@@ -1949,6 +2226,1073 @@ function Chat() {
             </div>
           )}
         </div>
+
+        {/* Detail Sidebar — Bitrix24 stilində sağ panel */}
+        {showSidebar && selectedChat && (
+          <div className="detail-sidebar">
+            {/* Header — X close + About chat + ... more */}
+            <div className="ds-header">
+              <button className="ds-close" onClick={() => { setShowSidebar(false); setShowFavorites(false); setFavSearchOpen(false); setFavSearchText(""); setShowAllLinks(false); setLinksSearchOpen(false); setLinksSearchText(""); setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); setShowFilesMedia(false); setFilesSearchOpen(false); setFilesSearchText(""); }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <span className="ds-header-title">About chat</span>
+              <div className="ds-more-wrap" ref={sidebarMenuRef}>
+                <button
+                  className="ds-more-btn"
+                  onClick={() => setShowSidebarMenu((v) => !v)}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="5" cy="12" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="19" cy="12" r="2" />
+                  </svg>
+                </button>
+                {showSidebarMenu && (
+                  <div className="ds-dropdown">
+                    <button className="ds-dropdown-item" onClick={() => { handleTogglePin(selectedChat); setShowSidebarMenu(false); }}>
+                      {selectedChat.isPinned ? "Unpin" : "Pin"}
+                    </button>
+
+                    {selectedChat.isNotes ? (
+                      <>
+                        <button className="ds-dropdown-item" onClick={() => setShowSidebarMenu(false)}>View profile</button>
+                        <button className="ds-dropdown-item" onClick={() => { handleHideConversation(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>Hide</button>
+                      </>
+                    ) : selectedChat.type === 0 ? (
+                      <>
+                        <button className="ds-dropdown-item" onClick={() => setShowSidebarMenu(false)}>View profile</button>
+                        <button className="ds-dropdown-item" onClick={() => { setShowSidebarMenu(false); handleOpenChatsWithUser(selectedChat.otherUserId, "sidebar"); }}>Find chats with this user</button>
+                        <button className="ds-dropdown-item" onClick={() => { handleHideConversation(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>Hide</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => setShowSidebarMenu(false)}>Delete</button>
+                      </>
+                    ) : (
+                      <>
+                        {channelMembers[selectedChat.id]?.[user.id]?.role >= 2 && (
+                          <button className="ds-dropdown-item" onClick={() => { setShowAddMember(true); setShowSidebarMenu(false); }}>Add members</button>
+                        )}
+                        {channelMembers[selectedChat.id]?.[user.id]?.role >= 2 && (
+                          <button className="ds-dropdown-item" onClick={() => setShowSidebarMenu(false)}>Edit</button>
+                        )}
+                        <button className="ds-dropdown-item" onClick={() => { handleHideConversation(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>Hide</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { handleLeaveChannel(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>Leave</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => setShowSidebarMenu(false)}>Delete</button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="ds-body">
+              {/* Profil kartı — vertikal: avatar → ad → position → create group → sound */}
+              <div className="ds-card">
+                <div className="ds-profile">
+                  {selectedChat.isNotes ? (
+                    <div className="ds-avatar ds-avatar-notes">
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="ds-avatar" style={{ background: getAvatarColor(selectedChat.name) }}>
+                      {getInitials(selectedChat.name)}
+                    </div>
+                  )}
+                  <div className="ds-name">{selectedChat.name}</div>
+                  {/* Channel — üzv avatarları */}
+                  {selectedChat.type === 1 ? (
+                    channelMembers[selectedChat.id] ? (
+                      <div className="ds-members-preview" role="button" tabIndex={0}>
+                        <div className="ds-members-avatars">
+                          {Object.entries(channelMembers[selectedChat.id]).slice(0, 4).map(([uid, m]) => (
+                            <div
+                              key={uid}
+                              className="ds-members-avatar"
+                              style={{ background: getAvatarColor(m.fullName) }}
+                              title={m.fullName}
+                            >
+                              {getInitials(m.fullName)}
+                            </div>
+                          ))}
+                          {Object.keys(channelMembers[selectedChat.id]).length > 4 && (
+                            <span className="ds-members-more">
+                              +{Object.keys(channelMembers[selectedChat.id]).length - 4}
+                            </span>
+                          )}
+                          <button className="ds-members-add-btn" onClick={() => setShowAddMember(true)}>+ Add</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="ds-role">{selectedChat.memberCount || 0} members</div>
+                    )
+                  ) : (
+                    <div className="ds-role">
+                      {selectedChat.isNotes
+                        ? "Visible to you only"
+                        : selectedChat.otherUserPosition || selectedChat.otherUserRole || "User"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Sound toggle — Notes üçün görünmür */}
+                {!selectedChat.isNotes && (
+                  <div className="ds-toggle-row">
+                      <svg className="ds-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                      <span className="ds-toggle-label">Sound</span>
+                      <label className="ds-switch">
+                        <input
+                          type="checkbox"
+                          checked={!selectedChat.isMuted}
+                          onChange={() => handleToggleMute(selectedChat)}
+                        />
+                        <span className="ds-switch-track" />
+                      </label>
+                    </div>
+                )}
+              </div>
+
+              {/* Info kartı */}
+              <div className="ds-card">
+                {/* Chat tipi — User / Group chat */}
+                <div className="ds-info-row">
+                  <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <span className="ds-info-label">
+                    {selectedChat.isNotes
+                      ? "A scratchpad to keep important messages, files and links in one place."
+                      : selectedChat.type === 1 ? "Group chat" : "User"}
+                  </span>
+                </div>
+
+                {/* Favorite messages */}
+                <div
+                  className="ds-info-row ds-info-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setShowFavorites(true)}
+                >
+                  <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                  <span className="ds-info-link">Favorite messages</span>
+                  <span className="ds-badge">{pinnedMessages.length}</span>
+                </div>
+
+                {/* All links */}
+                <div
+                  className="ds-info-row ds-info-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setShowAllLinks(true)}
+                >
+                  <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  <span className="ds-info-link">All links</span>
+                  <span className="ds-badge">{linkMessages.length}</span>
+                </div>
+
+                {/* Chats with user — yalnız DM (type=0) üçün */}
+                {selectedChat.type === 0 && !selectedChat.isNotes && (
+                  <div
+                    className="ds-info-row ds-info-clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenChatsWithUser(selectedChat.otherUserId, "sidebar")}
+                  >
+                      <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M15 3H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1v2l2.6-2H15a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+                        <path d="M19 9v4a2 2 0 0 1-2 2h-1.4L13 17v-2h-3v1a2 2 0 0 0 2 2h4.4L19 20v-2h1a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-1z" />
+                      </svg>
+                      <span className="ds-info-link">Chats with user</span>
+                      <svg className="ds-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </div>
+                )}
+              </div>
+
+              {/* Files and media — klikləndikdə panel açılır */}
+              <div className="ds-card ds-files-card" onClick={() => setShowFilesMedia(true)}>
+                <div className="ds-files-header">
+                  <span className="ds-files-title">Files and media</span>
+                  <svg className="ds-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Favorite messages paneli — sidebar-ın üstünə gəlir */}
+            {showFavorites && (
+              <div className="ds-favorites-panel">
+                <div className="ds-favorites-header">
+                  <button className="ds-favorites-back" onClick={() => { setShowFavorites(false); setFavMenuId(null); setFavSearchOpen(false); setFavSearchText(""); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  {/* Search açıqdırsa input göstər, deyilsə title göstər */}
+                  {favSearchOpen ? (
+                    <input
+                      className="ds-favorites-search-input"
+                      type="text"
+                      placeholder="Search favorites..."
+                      value={favSearchText}
+                      onChange={(e) => setFavSearchText(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setFavSearchOpen(false);
+                          setFavSearchText("");
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="ds-favorites-title">Favorite messages</span>
+                  )}
+                  {/* Search açıqdırsa X (bağla), deyilsə search iconu */}
+                  {favSearchOpen ? (
+                    <button
+                      className="ds-favorites-search-btn active"
+                      title="Close search"
+                      onClick={() => { setFavSearchOpen(false); setFavSearchText(""); }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      className="ds-favorites-search-btn"
+                      title="Search"
+                      onClick={() => setFavSearchOpen(true)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="ds-favorites-list">
+                  {(() => {
+                    // Axtarış mətninə görə filterlə
+                    const query = favSearchText.trim().toLowerCase();
+                    const filtered = query
+                      ? pinnedMessages.filter((m) => m.content?.toLowerCase().includes(query))
+                      : pinnedMessages;
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="ds-favorites-empty">
+                          {query ? "No matching messages" : "No favorite messages"}
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((msg, idx) => {
+                      const msgDate = new Date(msg.createdAtUtc).toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      });
+                      // filtered array-dəki əvvəlki mesajın tarixi ilə müqayisə et
+                      const prevDate = idx > 0
+                        ? new Date(filtered[idx - 1].createdAtUtc).toLocaleDateString("en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : null;
+                      const showDate = idx === 0 || msgDate !== prevDate;
+
+                      return (
+                        <div key={msg.id}>
+                          {showDate && (
+                            <div className="ds-favorites-date"><span>{msgDate}</span></div>
+                          )}
+                          <div
+                            className="ds-favorites-item"
+                            onClick={() => {
+                              handleScrollToMessage(msg.id);
+                              setFavMenuId(null);
+                            }}
+                          >
+                            <div
+                              className="ds-favorites-avatar"
+                              style={{ background: getAvatarColor(msg.senderFullName) }}
+                            >
+                              {msg.senderAvatarUrl ? (
+                                <img src={msg.senderAvatarUrl} alt="" className="ds-favorites-avatar-img" />
+                              ) : (
+                                getInitials(msg.senderFullName)
+                              )}
+                            </div>
+                            <div className="ds-favorites-body">
+                              <span className="ds-favorites-sender">{msg.senderFullName}</span>
+                              <span className="ds-favorites-text">
+                                {/* Axtarış varsa — uyğun gələn hissəni sarı highlight et */}
+                                {query && msg.content ? (() => {
+                                  const lowerContent = msg.content.toLowerCase();
+                                  const parts = [];
+                                  let lastIdx = 0;
+                                  let searchIdx = lowerContent.indexOf(query, lastIdx);
+                                  while (searchIdx !== -1) {
+                                    if (searchIdx > lastIdx) parts.push(msg.content.slice(lastIdx, searchIdx));
+                                    parts.push(<mark key={searchIdx}>{msg.content.slice(searchIdx, searchIdx + query.length)}</mark>);
+                                    lastIdx = searchIdx + query.length;
+                                    searchIdx = lowerContent.indexOf(query, lastIdx);
+                                  }
+                                  if (lastIdx < msg.content.length) parts.push(msg.content.slice(lastIdx));
+                                  return parts;
+                                })() : msg.content}
+                              </span>
+                            </div>
+                            {/* More menu — hover-də görünür */}
+                            <div
+                              className="ds-favorites-more-wrap"
+                              ref={favMenuId === msg.id ? favMenuRef : null}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                className="ds-favorites-more-btn"
+                                onClick={() => setFavMenuId(favMenuId === msg.id ? null : msg.id)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="5" cy="12" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="19" cy="12" r="2" />
+                                </svg>
+                              </button>
+                              {favMenuId === msg.id && (
+                                <div className="ds-dropdown">
+                                  <button
+                                    className="ds-dropdown-item"
+                                    onClick={() => {
+                                      handleScrollToMessage(msg.id);
+                                      setFavMenuId(null);
+                                    }}
+                                  >
+                                    View context
+                                  </button>
+                                  <button
+                                    className="ds-dropdown-item ds-dropdown-danger"
+                                    onClick={() => {
+                                      handlePinMessage({ ...msg, isPinned: true });
+                                      setFavMenuId(null);
+                                    }}
+                                  >
+                                    Remove from Favorites
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* All links paneli — sidebar-ın üstünə gəlir */}
+            {showAllLinks && (
+              <div className="ds-favorites-panel">
+                <div className="ds-favorites-header">
+                  <button className="ds-favorites-back" onClick={() => { setShowAllLinks(false); setLinksMenuId(null); setLinksSearchOpen(false); setLinksSearchText(""); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  {linksSearchOpen ? (
+                    <input
+                      className="ds-favorites-search-input"
+                      type="text"
+                      placeholder="Search links..."
+                      value={linksSearchText}
+                      onChange={(e) => setLinksSearchText(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setLinksSearchOpen(false);
+                          setLinksSearchText("");
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="ds-favorites-title">All links</span>
+                  )}
+                  {/* Search açıqdırsa X (bağla), deyilsə search iconu */}
+                  {linksSearchOpen ? (
+                    <button
+                      className="ds-favorites-search-btn active"
+                      title="Close search"
+                      onClick={() => { setLinksSearchOpen(false); setLinksSearchText(""); }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      className="ds-favorites-search-btn"
+                      title="Search"
+                      onClick={() => setLinksSearchOpen(true)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="ds-favorites-list">
+                  {(() => {
+                    const query = linksSearchText.trim().toLowerCase();
+                    const filtered = query
+                      ? linkMessages.filter((l) => l.url.toLowerCase().includes(query) || l.domain.toLowerCase().includes(query))
+                      : linkMessages;
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="ds-favorites-empty">
+                          {query ? "No matching links" : "No links shared"}
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((link, idx) => {
+                      const msgDate = new Date(link.createdAtUtc).toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      });
+                      const prevDate = idx > 0
+                        ? new Date(filtered[idx - 1].createdAtUtc).toLocaleDateString("en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })
+                        : null;
+                      const showDate = idx === 0 || msgDate !== prevDate;
+
+                      return (
+                        <div key={`${link.id}-${link.url}`}>
+                          {showDate && (
+                            <div className="ds-favorites-date"><span>{msgDate}</span></div>
+                          )}
+                          <div
+                            className="ds-link-item"
+                            onClick={() => handleScrollToMessage(link.id)}
+                          >
+                            {/* Link ikonu */}
+                            <div className="ds-link-icon-wrap">
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                              </svg>
+                            </div>
+                            {/* Link məlumatı */}
+                            <div className="ds-link-body">
+                              <span className="ds-link-domain">{link.domain}</span>
+                              <a
+                                className="ds-link-url"
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {query ? (() => {
+                                  const lower = link.url.toLowerCase();
+                                  const parts = [];
+                                  let last = 0;
+                                  let si = lower.indexOf(query, last);
+                                  while (si !== -1) {
+                                    if (si > last) parts.push(link.url.slice(last, si));
+                                    parts.push(<mark key={si}>{link.url.slice(si, si + query.length)}</mark>);
+                                    last = si + query.length;
+                                    si = lower.indexOf(query, last);
+                                  }
+                                  if (last < link.url.length) parts.push(link.url.slice(last));
+                                  return parts;
+                                })() : link.url}
+                              </a>
+                              {/* Göndərən */}
+                              <div className="ds-link-sender">
+                                <div
+                                  className="ds-link-sender-avatar"
+                                  style={{ background: getAvatarColor(link.senderFullName) }}
+                                >
+                                  {link.senderAvatarUrl ? (
+                                    <img src={link.senderAvatarUrl} alt="" className="ds-link-sender-avatar-img" />
+                                  ) : (
+                                    getInitials(link.senderFullName)
+                                  )}
+                                </div>
+                                <span className="ds-link-sender-name">{link.senderFullName}</span>
+                              </div>
+                            </div>
+                            {/* More menu */}
+                            <div
+                              className="ds-favorites-more-wrap"
+                              ref={linksMenuId === `${link.id}-${link.url}` ? linksMenuRef : null}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                className="ds-favorites-more-btn"
+                                onClick={() => setLinksMenuId(linksMenuId === `${link.id}-${link.url}` ? null : `${link.id}-${link.url}`)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="5" cy="12" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="19" cy="12" r="2" />
+                                </svg>
+                              </button>
+                              {linksMenuId === `${link.id}-${link.url}` && (
+                                <div className="ds-dropdown">
+                                  <button
+                                    className="ds-dropdown-item"
+                                    onClick={() => {
+                                      handleScrollToMessage(link.id);
+                                      setLinksMenuId(null);
+                                    }}
+                                  >
+                                    View context
+                                  </button>
+                                  <button
+                                    className="ds-dropdown-item"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(link.url);
+                                      setLinksMenuId(null);
+                                    }}
+                                  >
+                                    Copy link
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Chats with user paneli — sidebar-ın üstünə gəlir */}
+            {showChatsWithUser && (
+              <div className="ds-favorites-panel">
+                <div className="ds-favorites-header">
+                  {/* source-a görə back (←) və ya close (X) butonu */}
+                  {chatsWithUserSource === "context" ? (
+                    <button
+                      className="ds-favorites-back"
+                      onClick={() => { setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); setShowSidebar(false); }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      className="ds-favorites-back"
+                      onClick={() => { setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                      </svg>
+                    </button>
+                  )}
+                  <span className="ds-favorites-title">Chats with user</span>
+                </div>
+                <div className="ds-favorites-list">
+                  {chatsWithUserData.length === 0 ? (
+                    <div className="ds-favorites-empty">No shared chats</div>
+                  ) : (
+                    chatsWithUserData.map((ch) => {
+                      // Tarix formatı — bugün/dünən/tarix
+                      let dateStr = "";
+                      if (ch.lastMessageAtUtc) {
+                        const d = new Date(ch.lastMessageAtUtc);
+                        const now = new Date();
+                        const isToday = d.toDateString() === now.toDateString();
+                        const yesterday = new Date(now);
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        const isYesterday = d.toDateString() === yesterday.toDateString();
+                        if (isToday) {
+                          dateStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        } else if (isYesterday) {
+                          dateStr = "yesterday";
+                        } else if (d.getFullYear() === now.getFullYear()) {
+                          dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                        } else {
+                          dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                        }
+                      }
+
+                      // Channel tipinə görə mətn (ChannelType: Public=1, Private=2)
+                      const typeLabel = ch.type === 1 ? "Channel" : "Group chat";
+
+                      return (
+                        <div
+                          key={ch.id}
+                          className="ds-shared-chat-item"
+                          onClick={() => {
+                            // Kanalı conversations-da tap, varsa seç
+                            const existing = conversations.find((c) => c.id === ch.id);
+                            if (existing) {
+                              handleSelectChat(existing);
+                            } else {
+                              // Siyahıda yoxdursa → yeni conversation olaraq əlavə et və seç
+                              const newConv = {
+                                id: ch.id,
+                                name: ch.name,
+                                avatarUrl: ch.avatarUrl,
+                                type: 1,
+                                unreadCount: 0,
+                              };
+                              handleSelectChat(newConv);
+                            }
+                          }}
+                        >
+                          {/* Avatar */}
+                          <div
+                            className="ds-shared-chat-avatar"
+                            style={{ background: getAvatarColor(ch.name) }}
+                          >
+                            {ch.avatarUrl ? (
+                              <img src={ch.avatarUrl} alt="" className="ds-shared-chat-avatar-img" />
+                            ) : (
+                              getInitials(ch.name)
+                            )}
+                          </div>
+                          {/* Məlumat */}
+                          <div className="ds-shared-chat-body">
+                            <span className="ds-shared-chat-name">{ch.name}</span>
+                            <span className="ds-shared-chat-type">{typeLabel}</span>
+                          </div>
+                          {/* Tarix */}
+                          {dateStr && <span className="ds-shared-chat-date">{dateStr}</span>}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Files and media paneli */}
+            {showFilesMedia && (
+              <div className="ds-favorites-panel">
+                <div className="ds-favorites-header">
+                  <button className="ds-favorites-back" onClick={() => { setShowFilesMedia(false); setFilesMenuId(null); setFilesSearchOpen(false); setFilesSearchText(""); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  {filesSearchOpen ? (
+                    <input
+                      className="ds-favorites-search-input"
+                      type="text"
+                      placeholder="Search files..."
+                      value={filesSearchText}
+                      onChange={(e) => setFilesSearchText(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Escape") { setFilesSearchOpen(false); setFilesSearchText(""); } }}
+                    />
+                  ) : (
+                    <span className="ds-favorites-title">Files and media</span>
+                  )}
+                  {filesSearchOpen ? (
+                    <button className="ds-favorites-search-btn active" title="Close search" onClick={() => { setFilesSearchOpen(false); setFilesSearchText(""); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button className="ds-favorites-search-btn" title="Search" onClick={() => setFilesSearchOpen(true)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {/* Tab-lar: Media / Files */}
+                <div className="ds-fm-tabs">
+                  <button
+                    className={`ds-fm-tab${filesMediaTab === "media" ? " active" : ""}`}
+                    onClick={() => setFilesMediaTab("media")}
+                  >
+                    Media
+                  </button>
+                  <button
+                    className={`ds-fm-tab${filesMediaTab === "files" ? " active" : ""}`}
+                    onClick={() => setFilesMediaTab("files")}
+                  >
+                    Files
+                  </button>
+                </div>
+
+                <div className="ds-favorites-list">
+                  {(() => {
+                    const query = filesSearchText.trim().toLowerCase();
+                    // Tab-a görə filterlə
+                    const tabFiltered = filesMediaTab === "media"
+                      ? fileMessages.filter((f) => f.isImage)
+                      : fileMessages.filter((f) => !f.isImage);
+                    // Axtarışa görə filterlə
+                    const filtered = query
+                      ? tabFiltered.filter((f) => f.fileName?.toLowerCase().includes(query))
+                      : tabFiltered;
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="ds-favorites-empty">
+                          {query ? "No matching files" : filesMediaTab === "media" ? "No media yet" : "No files yet"}
+                        </div>
+                      );
+                    }
+
+                    if (filesMediaTab === "media") {
+                      // Media tab — şəkilləri grid formatında göstər, date divider ilə
+                      let lastDate = null;
+                      const elements = [];
+                      filtered.forEach((f, idx) => {
+                        const msgDate = new Date(f.createdAtUtc).toLocaleDateString("en-US", {
+                          weekday: "long", year: "numeric", month: "long", day: "numeric",
+                        });
+                        if (msgDate !== lastDate) {
+                          if (elements.length > 0) elements.push(<div key={`grid-end-${idx}`} className="ds-fm-grid-break" />);
+                          elements.push(<div key={`date-${idx}`} className="ds-favorites-date"><span>{msgDate}</span></div>);
+                          lastDate = msgDate;
+                        }
+                        elements.push(
+                          <div key={f.id} className="ds-fm-media-item">
+                            <img
+                              src={f.thumbnailUrl || f.fileUrl}
+                              alt={f.fileName}
+                              className="ds-fm-media-img"
+                              onClick={() => handleScrollToMessage(f.id)}
+                            />
+                            {/* Göndərən avatar */}
+                            <div
+                              className="ds-fm-media-sender"
+                              style={{ background: getAvatarColor(f.senderFullName) }}
+                              title={f.senderFullName}
+                            >
+                              {f.senderAvatarUrl ? (
+                                <img src={f.senderAvatarUrl} alt="" className="ds-fm-media-sender-img" />
+                              ) : (
+                                getInitials(f.senderFullName)
+                              )}
+                            </div>
+                            {/* More butonu */}
+                            <div
+                              className="ds-fm-media-more-wrap"
+                              ref={filesMenuId === f.id ? filesMenuRef : null}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                className="ds-fm-media-more-btn"
+                                onClick={() => setFilesMenuId(filesMenuId === f.id ? null : f.id)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="5" cy="12" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="19" cy="12" r="2" />
+                                </svg>
+                              </button>
+                              {filesMenuId === f.id && (
+                                <div className="ds-dropdown">
+                                  <button className="ds-dropdown-item" onClick={() => { handleScrollToMessage(f.id); setFilesMenuId(null); }}>
+                                    View context
+                                  </button>
+                                  <button className="ds-dropdown-item" onClick={() => {
+                                    const a = document.createElement("a");
+                                    a.href = f.fileUrl;
+                                    a.download = f.fileName || "file";
+                                    a.click();
+                                    setFilesMenuId(null);
+                                  }}>
+                                    Download file
+                                  </button>
+                                  <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => {
+                                    handleDeleteMessage(f.id);
+                                    setFilesMenuId(null);
+                                  }}>
+                                    Delete file
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      });
+                      return <div className="ds-fm-media-grid">{elements}</div>;
+                    }
+
+                    // Files tab — siyahı formatında
+                    return filtered.map((f, idx) => {
+                      const msgDate = new Date(f.createdAtUtc).toLocaleDateString("en-US", {
+                        weekday: "long", year: "numeric", month: "long", day: "numeric",
+                      });
+                      const prevDate = idx > 0
+                        ? new Date(filtered[idx - 1].createdAtUtc).toLocaleDateString("en-US", {
+                            weekday: "long", year: "numeric", month: "long", day: "numeric",
+                          })
+                        : null;
+                      const showDate = idx === 0 || msgDate !== prevDate;
+                      // Fayl ölçüsü formatı
+                      const sizeStr = f.fileSizeInBytes
+                        ? f.fileSizeInBytes < 1024 ? `${f.fileSizeInBytes} B`
+                          : f.fileSizeInBytes < 1048576 ? `${(f.fileSizeInBytes / 1024).toFixed(1)} KB`
+                          : `${(f.fileSizeInBytes / 1048576).toFixed(1)} MB`
+                        : "";
+
+                      return (
+                        <div key={f.id}>
+                          {showDate && <div className="ds-favorites-date"><span>{msgDate}</span></div>}
+                          <div className="ds-fm-file-item" onClick={() => handleScrollToMessage(f.id)}>
+                            {/* Fayl ikonu */}
+                            <div className="ds-fm-file-icon">
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                              </svg>
+                            </div>
+                            <div className="ds-fm-file-body">
+                              <span className="ds-fm-file-name">
+                                {query ? (() => {
+                                  const lower = (f.fileName || "").toLowerCase();
+                                  const parts = [];
+                                  let last = 0;
+                                  let si = lower.indexOf(query, last);
+                                  while (si !== -1) {
+                                    if (si > last) parts.push(f.fileName.slice(last, si));
+                                    parts.push(<mark key={si}>{f.fileName.slice(si, si + query.length)}</mark>);
+                                    last = si + query.length;
+                                    si = lower.indexOf(query, last);
+                                  }
+                                  if (last < f.fileName.length) parts.push(f.fileName.slice(last));
+                                  return parts;
+                                })() : f.fileName}
+                              </span>
+                              <span className="ds-fm-file-meta">{sizeStr} · {f.senderFullName}</span>
+                            </div>
+                            {/* More menu */}
+                            <div
+                              className="ds-favorites-more-wrap"
+                              ref={filesMenuId === f.id ? filesMenuRef : null}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button className="ds-favorites-more-btn" onClick={() => setFilesMenuId(filesMenuId === f.id ? null : f.id)}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="5" cy="12" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="19" cy="12" r="2" />
+                                </svg>
+                              </button>
+                              {filesMenuId === f.id && (
+                                <div className="ds-dropdown">
+                                  <button className="ds-dropdown-item" onClick={() => { handleScrollToMessage(f.id); setFilesMenuId(null); }}>View context</button>
+                                  <button className="ds-dropdown-item" onClick={() => {
+                                    const a = document.createElement("a");
+                                    a.href = f.fileUrl;
+                                    a.download = f.fileName || "file";
+                                    a.click();
+                                    setFilesMenuId(null);
+                                  }}>Download file</button>
+                                  <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { handleDeleteMessage(f.id); setFilesMenuId(null); }}>Delete file</button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* Add chat members popup — floating dialog sidebar-ın üstündə */}
+        {showAddMember && (
+          <div className="ds-am-overlay">
+            <div className="ds-am-popup" ref={addMemberRef}>
+              {/* Header */}
+              <div className="ds-am-header">
+                <span className="ds-am-title">Add chat members</span>
+                <button
+                  className="ds-am-close"
+                  onClick={() => { setShowAddMember(false); setAddMemberSearch(""); setAddMemberSearchActive(false); setAddMemberSelected(new Set()); }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Search sahəsi — chips + input / +Add user butonu */}
+              <div className="ds-am-search-area">
+                {addMemberSearchActive || addMemberSelected.size > 0 ? (
+                  <div className="ds-am-search-box">
+                    {[...addMemberSelected].map((uid) => {
+                      const u = addMemberUsers.find((x) => x.id === uid) || conversations.find((c) => c.otherUserId === uid);
+                      const name = u?.fullName || u?.name || "User";
+                      return (
+                        <span key={uid} className="ds-am-chip">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" /></svg>
+                          {name}
+                          <button
+                            className="ds-am-chip-remove"
+                            onClick={() => setAddMemberSelected((prev) => { const next = new Set(prev); next.delete(uid); return next; })}
+                          >×</button>
+                        </span>
+                      );
+                    })}
+                    <input
+                      className="ds-am-search-input"
+                      type="text"
+                      placeholder="Search..."
+                      value={addMemberSearch}
+                      onChange={(e) => setAddMemberSearch(e.target.value)}
+                      autoFocus
+                      onBlur={() => {
+                        if (!addMemberSearch.trim() && addMemberSelected.size === 0) {
+                          setAddMemberSearchActive(false);
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <button className="ds-am-add-user-btn" onClick={() => setAddMemberSearchActive(true)}>
+                    + Add user
+                  </button>
+                )}
+              </div>
+
+              {/* Show chat history */}
+              <label className="ds-am-checkbox-row">
+                <input type="checkbox" defaultChecked className="ds-am-checkbox" />
+                <span>Show chat history</span>
+              </label>
+
+              {/* Recent chats */}
+              <div className="ds-am-section-title">
+                {addMemberSearch.trim().length >= 2 ? "Search results" : "Recent chats"}
+              </div>
+
+              <div className="ds-am-list">
+                {(() => {
+                  const query = addMemberSearch.trim();
+                  const existingIds = channelMembers[selectedChat?.id]
+                    ? new Set(Object.keys(channelMembers[selectedChat.id]))
+                    : new Set();
+
+                  // Axtarış varsa backend nəticələri, yoxdursa recent DM-lər
+                  let users;
+                  if (query.length >= 2) {
+                    users = addMemberSearchResults
+                      .filter((u) => !existingIds.has(u.id))
+                      .map((u) => ({
+                        id: u.id,
+                        fullName: u.fullName || `${u.firstName} ${u.lastName}`,
+                        avatarUrl: u.avatarUrl,
+                        position: u.position || "User",
+                      }));
+                  } else {
+                    users = addMemberUsers;
+                  }
+
+                  if (users.length === 0) {
+                    return <div className="ds-am-empty">{query.length >= 2 ? "No matching users" : "No recent chats"}</div>;
+                  }
+
+                  return users.map((u) => {
+                    const isSelected = addMemberSelected.has(u.id);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`ds-am-user${isSelected ? " selected" : ""}`}
+                        onClick={() => {
+                          setAddMemberSelected((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(u.id)) next.delete(u.id);
+                            else next.add(u.id);
+                            return next;
+                          });
+                        }}
+                      >
+                        <div className="ds-am-user-avatar" style={{ background: getAvatarColor(u.fullName) }}>
+                          {u.avatarUrl ? (
+                            <img src={u.avatarUrl} alt="" className="ds-am-user-avatar-img" />
+                          ) : (
+                            getInitials(u.fullName)
+                          )}
+                        </div>
+                        <div className="ds-am-user-info">
+                          <span className="ds-am-user-name">{u.fullName}</span>
+                          <span className="ds-am-user-role">{u.position}</span>
+                        </div>
+                        {isSelected && (
+                          <svg className="ds-am-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ace3" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Footer — INVITE + CANCEL */}
+              <div className="ds-am-footer">
+                <button
+                  className="ds-am-invite-btn"
+                  disabled={addMemberSelected.size === 0 || addMemberInviting}
+                  onClick={handleInviteMembers}
+                >
+                  {addMemberInviting ? "INVITING..." : "INVITE"}
+                </button>
+                <button
+                  className="ds-am-cancel-btn"
+                  onClick={() => { setShowAddMember(false); setAddMemberSearch(""); setAddMemberSearchActive(false); setAddMemberSelected(new Set()); }}
+                >
+                  CANCEL
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

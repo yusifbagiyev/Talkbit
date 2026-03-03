@@ -39,6 +39,7 @@ function ConversationList({
   onToggleReadLater,
   onHide,
   onLeaveChannel,
+  onFindChatsWithUser,
 }) {
   // --- Search mode state-ləri ---
   // searchMode — true olduqda conversation siyahısı gizlənir, search nəticələri görünür
@@ -292,7 +293,7 @@ function ConversationList({
               style={{ background: item.avatarBg }}
             >
               {item.isNotes ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                 </svg>
               ) : (
@@ -473,7 +474,7 @@ function ConversationList({
                         width="20"
                         height="20"
                         viewBox="0 0 24 24"
-                        fill="none"
+                        fill="white"
                         stroke="white"
                         strokeWidth="2"
                       >
@@ -603,7 +604,11 @@ function ConversationList({
               <button className="conv-context-item" onClick={() => { setContextMenu(null); }}>
                 View profile
               </button>
-              <button className="conv-context-item" onClick={() => { setContextMenu(null); }}>
+              <button className="conv-context-item" onClick={() => {
+                const otherUserId = contextMenu.conv.otherUserId || contextMenu.conv.userId;
+                setContextMenu(null);
+                if (onFindChatsWithUser && otherUserId) onFindChatsWithUser(otherUserId);
+              }}>
                 Find chats with this user
               </button>
             </>

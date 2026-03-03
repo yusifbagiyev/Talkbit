@@ -75,16 +75,20 @@ namespace ChatApp.Modules.Channels.Domain.Entities
             UpdateTimestamp();
         }
 
-        public void AddMember(ChannelMember member)
+        /// <summary>
+        /// Üzv əlavə etmə qaydalarını yoxlayır — entity dəyişdirmədən.
+        /// </summary>
+        public void ValidateAddMember(Guid userId, Guid addedByUserId)
         {
-            if(Type==ChannelType.Private && (member.Role!=MemberRole.Admin && member.Role != MemberRole.Owner))
-                throw new InvalidOperationException("Cannot add member with role other than Admin or Owner to a private channel");
+            if (Type == ChannelType.Private)
+            {
+                var addedBy = _members.FirstOrDefault(m => m.UserId == addedByUserId && m.IsActive);
+                if (addedBy == null || (addedBy.Role != MemberRole.Admin && addedBy.Role != MemberRole.Owner))
+                    throw new InvalidOperationException("Only Admin or Owner can add members to a private channel");
+            }
 
-            if (_members.Any(m => m.UserId == member.UserId && m.IsActive))
+            if (_members.Any(m => m.UserId == userId && m.IsActive))
                 throw new InvalidOperationException("User is already a member of this channel");
-
-            _members.Add(member);
-            UpdateTimestamp();
         }
 
         public void RemoveMember(Guid userId)

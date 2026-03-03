@@ -3,21 +3,29 @@ import { getInitials, getAvatarColor, getLastSeenText } from "../utils/chatUtils
 
 // ChatHeader komponenti — chat panelinin yuxarı başlığı
 // Props:
-//   selectedChat     — seçilmiş chat obyekti (ad, tip, otherUserId, ...)
-//   onlineUsers      — Set<userId> — online olan istifadəçilər
-//   pinnedMessages   — pinlənmiş mesajlar array-i (pin button aktiv/deaktiv üçün)
+//   selectedChat      — seçilmiş chat obyekti (ad, tip, otherUserId, ...)
+//   onlineUsers       — Set<userId> — online olan istifadəçilər
+//   pinnedMessages    — pinlənmiş mesajlar array-i (pin button aktiv/deaktiv üçün)
 //   onTogglePinExpand — pin list-i genişləndir/yığ (Chat.jsx-dən gəlir)
-function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpand }) {
+//   onOpenAddMember   — "Add Member" düyməsinə klik (yalnız channel üçün)
+//   onToggleSidebar   — sağ sidebar panelini aç/bağla
+function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpand, onOpenAddMember, onToggleSidebar, sidebarOpen }) {
   return (
     <div className="chat-header">
       {/* Sol tərəf: avatar + ad + status */}
       <div className="chat-header-left">
-        {/* Avatar — addan rəngli dairə */}
+        {/* Avatar — Notes üçün bookmark icon, digərləri üçün initials */}
         <div
           className="chat-header-avatar"
-          style={{ background: getAvatarColor(selectedChat.name) }}
+          style={{ background: selectedChat.isNotes ? "#2FC6F6" : getAvatarColor(selectedChat.name) }}
         >
-          {getInitials(selectedChat.name)}
+          {selectedChat.isNotes ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+          ) : (
+            getInitials(selectedChat.name)
+          )}
         </div>
 
         <div className="chat-header-info">
@@ -72,38 +80,39 @@ function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpa
 
       {/* Sağ tərəf: action düymələri */}
       <div className="chat-header-actions">
-        {/* Search düyməsi — TODO: axtarış panel aç */}
-        <button className="header-action-btn" title="Search">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+        {/* Add Member — yalnız channel (type=1) üçün göstər */}
+        {selectedChat.type === 1 && (
+          <button
+            className="header-action-btn"
+            title="Add member"
+            onClick={onOpenAddMember}
           >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" y1="8" x2="19" y2="14" />
+              <line x1="22" y1="11" x2="16" y2="11" />
+            </svg>
+          </button>
+        )}
+
+        {/* Search düyməsi */}
+        <button className="header-action-btn" title="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </button>
 
-        {/* Pin düyməsi — pinnedMessages varsa PinnedExpanded-i aç/bağla */}
-        {/* pinnedMessages.length > 0 şərti olmadıqda button klik edilə bilməz */}
+        {/* Sidebar toggle düyməsi — sağ paneli aç/bağla */}
         <button
-          className="header-action-btn"
-          title="Pin"
-          onClick={() => pinnedMessages.length > 0 && onTogglePinExpand()}
+          className={`header-action-btn${sidebarOpen ? " active" : ""}`}
+          title="Details"
+          onClick={onToggleSidebar}
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="12" y1="17" x2="12" y2="22" />
-            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <line x1="15" y1="3" x2="15" y2="21" />
           </svg>
         </button>
       </div>
