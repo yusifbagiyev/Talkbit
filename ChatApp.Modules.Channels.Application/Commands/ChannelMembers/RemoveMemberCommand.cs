@@ -74,7 +74,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                     request.UserId,
                     cancellationToken);
 
-                if (member == null || !member.IsActive)
+                if (member == null)
                 {
                     return Result.Failure("User is not a member of this channel");
                 }
@@ -96,9 +96,8 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                     return Result.Failure("You don't have permission to remove members");
                 }
 
-                // Mark as inactive (soft delete)
-                member.Leave();
-                await _unitOfWork.ChannelMembers.UpdateAsync(member, cancellationToken);
+                // Hard-delete: sətri DB-dən sil (mesajlar ayrı cədvəldədir, toxunulmur)
+                await _unitOfWork.ChannelMembers.DeleteAsync(member, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // Publish event

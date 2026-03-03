@@ -59,7 +59,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                     request.UserId,
                     cancellationToken);
 
-                if (member == null || !member.IsActive)
+                if (member == null)
                 {
                     return Result.Failure("User is not a member of this channel");
                 }
@@ -101,7 +101,6 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                     cancellationToken);
 
                 var memberUserIds = members
-                    .Where(m => m.IsActive)
                     .Select(m => m.UserId)
                     .ToList();
 

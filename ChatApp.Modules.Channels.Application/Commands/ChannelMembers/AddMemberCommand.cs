@@ -63,7 +63,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                 // Domain yalnız qaydaları yoxlayır (duplicate, icazə və s.)
                 channel.ValidateAddMember(request.UserId, request.AddedBy);
 
-                // Persistence: child entity öz repository-si vasitəsilə əlavə olunur
+                // Yeni üzv yarat (hard-delete sayəsində duplicate olmayacaq)
                 var newMember = new ChannelMember(request.ChannelId, request.UserId, MemberRole.Member, request.ShowChatHistory);
                 await _unitOfWork.ChannelMembers.AddAsync(newMember, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -81,7 +81,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                     Description = channel.Description,
                     Type = (int)channel.Type,
                     CreatedBy = channel.CreatedBy,
-                    MemberCount = channel.Members?.Count(m => m.IsActive) ?? 1,
+                    MemberCount = (channel.Members?.Count ?? 0) + 1,
                     CreatedAtUtc = channel.CreatedAtUtc,
                     AvatarUrl = channel.AvatarUrl,
                     LastMessageContent = (string?)null,

@@ -86,7 +86,6 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                                 r.UserId != message.SenderId),
                             TotalMemberCount = _context.ChannelMembers.Count(m =>
                                 m.ChannelId == message.ChannelId &&
-                                m.IsActive &&
                                 m.UserId != message.SenderId),
                             ReadBy = _context.ChannelMessageReads
                                 .Where(r => r.MessageId == message.Id && r.UserId != message.SenderId)
@@ -303,7 +302,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         {
             // Verify user is a member of the channel
             var member = await _context.ChannelMembers
-                .Where(m => m.ChannelId == channelId && m.UserId == userId && m.IsActive)
+                .Where(m => m.ChannelId == channelId && m.UserId == userId)
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (member == null)
@@ -610,7 +609,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
 
             // TotalMemberCount is same for all messages in channel (count once, not N times)
             var totalMemberCount = await _context.ChannelMembers
-                .Where(m => m.ChannelId == channelId && m.IsActive)
+                .Where(m => m.ChannelId == channelId)
                 .CountAsync(cancellationToken) - 1; // Exclude sender
 
             return results.Select(r => MapToDto(r, reactionCounts, readCounts, mentions, totalMemberCount, sanitizeContent)).ToList();

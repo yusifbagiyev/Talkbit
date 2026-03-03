@@ -36,7 +36,7 @@ namespace ChatApp.Modules.Channels.Application.Queries.GetPublicChannels
                         c.Description,
                         c.Type,
                         c.CreatedBy,
-                        c.Members.Count(m => m.IsActive),
+                        c.Members.Count,
                         c.CreatedAtUtc,
                         c.AvatarUrl
                     ))

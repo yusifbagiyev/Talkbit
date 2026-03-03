@@ -73,8 +73,8 @@ namespace ChatApp.Modules.Channels.Application.Commands.MessageConditions
                     request.RequestedBy,
                     cancellationToken);
 
-                if (channelMember == null || !channelMember.IsActive)
-                    return Result.Failure("User is not an active member of this channel");
+                if (channelMember == null)
+                    return Result.Failure("User is not a member of this channel");
 
                 // Toggle logic:
                 // If clicking on already marked message -> unmark it (toggle off)

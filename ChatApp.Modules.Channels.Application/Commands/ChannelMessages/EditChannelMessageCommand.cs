@@ -93,7 +93,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                         cancellationToken);
 
                     var memberUserIds = members
-                        .Where(m => m.IsActive && m.UserId != request.RequestedBy)
+                        .Where(m => m.UserId != request.RequestedBy)
                         .Select(m => m.UserId)
                         .ToList();
 

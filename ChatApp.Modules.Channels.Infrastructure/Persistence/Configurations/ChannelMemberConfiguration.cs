@@ -34,15 +34,6 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Configurations
                 .HasColumnType("timestamp with time zone")
                 .IsRequired();
 
-            builder.Property(m => m.LeftAtUtc)
-                .HasColumnName("left_at_utc")
-                .HasColumnType("timestamp with time zone");
-
-            builder.Property(m => m.IsActive)
-                .HasColumnName("is_active")
-                .IsRequired()
-                .HasDefaultValue(true);
-
             builder.Property(m => m.CreatedAtUtc)
                 .HasColumnName("created_at_utc")
                 .HasColumnType("timestamp with time zone")
@@ -84,8 +75,6 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Configurations
             builder.HasIndex(m => m.UserId)
                 .HasDatabaseName("ix_channel_members_user_id");
 
-            builder.HasIndex(m => m.IsActive)
-                .HasDatabaseName("ix_channel_members_is_active");
         }
     }
 }

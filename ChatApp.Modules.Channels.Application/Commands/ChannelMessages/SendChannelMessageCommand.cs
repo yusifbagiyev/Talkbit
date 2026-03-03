@@ -138,7 +138,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                         cancellationToken);
 
                     // Auto-unhide: When new message arrives, unhide channel for all hidden members (including sender)
-                    var hiddenMembers = members.Where(m => m.IsActive && m.IsHidden).ToList();
+                    var hiddenMembers = members.Where(m => m.IsHidden).ToList();
                     foreach (var hiddenMember in hiddenMembers)
                     {
                         hiddenMember.Unhide();
@@ -149,7 +149,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                     }
 
                     // Count active members except the sender (sender is not in ReadBy list)
-                    var adjustedMemberCount = members.Count(m => m.IsActive && m.UserId != request.SenderId);
+                    var adjustedMemberCount = members.Count(m => m.UserId != request.SenderId);
 
                     // Create a new DTO with proper TotalMemberCount and empty ReadBy list
                     // This ensures the new message starts with ReadByCount=0, ReadBy=[], TotalMemberCount=correct value
@@ -168,14 +168,13 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
 
                     // Get all member user IDs (excluding the sender)
                     var memberUserIds = members
-                        .Where(m => m.IsActive && m.UserId != request.SenderId)
+                        .Where(m => m.UserId != request.SenderId)
                         .Select(m => m.UserId)
                         .ToList();
 
                     // Update channel member cache for typing indicators
-                    // Cache includes ALL active members (including sender) for typing broadcast
+                    // Cache includes ALL members (including sender) for typing broadcast
                     var allMemberIds = members
-                        .Where(m => m.IsActive)
                         .Select(m => m.UserId)
                         .ToList();
                     await _channelMemberCache.UpdateChannelMembersAsync(request.ChannelId, allMemberIds);

@@ -55,7 +55,7 @@ namespace ChatApp.Modules.Channels.Application.Queries.SearchChannels
                         c.Description,
                         c.Type,
                         c.CreatedBy,
-                        c.Members.Count(m => m.IsActive),
+                        c.Members.Count,
                         c.CreatedAtUtc,
                         c.AvatarUrl
                     ))

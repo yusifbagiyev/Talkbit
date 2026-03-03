@@ -11,7 +11,6 @@ namespace ChatApp.Modules.Channels.Application.DTOs.Responses
         string? AvatarUrl,
         MemberRole Role,
         DateTime JoinedAtUtc,
-        bool IsActive,
         Guid? LastReadLaterMessageId
     );
 }

@@ -9,8 +9,6 @@ namespace ChatApp.Modules.Channels.Domain.Entities
         public Guid UserId { get; private set; }
         public MemberRole Role { get; private set; }
         public DateTime JoinedAtUtc { get; private set; }
-        public DateTime? LeftAtUtc { get; private set; }
-        public bool IsActive { get; private set; }
         public Guid? LastReadLaterMessageId { get; private set; }
 
         // Conversation-level preferences
@@ -31,20 +29,12 @@ namespace ChatApp.Modules.Channels.Domain.Entities
             UserId = userId;
             Role = role;
             JoinedAtUtc = DateTime.UtcNow;
-            IsActive = true;
             CanViewHistory = canViewHistory;
         }
 
         public void UpdateRole(MemberRole newRole)
         {
             Role = newRole;
-            UpdateTimestamp();
-        }
-
-        public void Leave()
-        {
-            IsActive = false;
-            LeftAtUtc = DateTime.UtcNow;
             UpdateTimestamp();
         }
 

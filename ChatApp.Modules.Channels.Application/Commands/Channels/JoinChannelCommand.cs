@@ -82,15 +82,9 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
                     request.UserId,
                     cancellationToken);
 
-                if (existingMember != null && existingMember.IsActive)
-                {
-                    return Result.Failure("You are already a member of this channel");
-                }
-
-                // Əvvəl çıxmış qeyri-aktiv üzvlüyü sil
                 if (existingMember != null)
                 {
-                    await _unitOfWork.ChannelMembers.DeleteAsync(existingMember, cancellationToken);
+                    return Result.Failure("You are already a member of this channel");
                 }
 
                 // Yeni üzvlük yarat

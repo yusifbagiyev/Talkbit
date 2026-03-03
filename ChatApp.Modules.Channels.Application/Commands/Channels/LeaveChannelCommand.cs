@@ -70,7 +70,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
                     request.UserId,
                     cancellationToken);
 
-                if (member == null || !member.IsActive)
+                if (member == null)
                 {
                     return Result.Failure("You are not a member of this channel");
                 }
@@ -81,8 +81,8 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
                     return Result.Failure("Owner cannot leave channel. Transfer ownership first or delete the channel.");
                 }
 
-                member.Leave();
-                await _unitOfWork.ChannelMembers.UpdateAsync(member, cancellationToken);
+                // Hard-delete: sətri DB-dən sil (mesajlar ayrı cədvəldədir, toxunulmur)
+                await _unitOfWork.ChannelMembers.DeleteAsync(member, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // Publish event

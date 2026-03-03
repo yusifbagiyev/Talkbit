@@ -53,7 +53,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                     request.UserId,
                     cancellationToken);
 
-                if (member == null || !member.IsActive)
+                if (member == null)
                     return Result.Failure<int>("User is not a member of this channel");
 
                 // Get all unread message IDs for this user in the channel (for SignalR notification)
@@ -102,7 +102,6 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                         cancellationToken);
 
                     var memberUserIds = members
-                        .Where(m => m.IsActive)
                         .Select(m => m.UserId)
                         .ToList();
 

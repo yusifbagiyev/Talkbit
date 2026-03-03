@@ -30,7 +30,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         public async Task<List<ChannelMember>> GetChannelMembersAsync(Guid channelId, CancellationToken cancellationToken = default)
         {
             return await _context.ChannelMembers
-                .Where(m => m.ChannelId == channelId && m.IsActive)
+                .Where(m => m.ChannelId == channelId)
                 .OrderByDescending(m => m.Role)
                 .ThenBy(m => m.JoinedAtUtc)
                 .ToListAsync(cancellationToken);
@@ -43,7 +43,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             // Database join with users table
             return await _context.ChannelMembers
                 .AsNoTracking()
-                .Where(m=> m.ChannelId == channelId && m.IsActive)
+                .Where(m=> m.ChannelId == channelId)
                 .Join(
                     _context.Set<UserReadModel>().AsNoTracking(),
                     member=>member.UserId,
@@ -60,7 +60,6 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                     x.user.AvatarUrl,
                     x.member.Role,
                     x.member.JoinedAtUtc,
-                    x.member.IsActive,
                     x.member.LastReadLaterMessageId
                 ))
                 .ToListAsync(cancellationToken);
@@ -69,7 +68,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         public async Task<MemberRole?> GetUserRoleAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)
         {
             var member = await _context.ChannelMembers
-                .Where(m => m.ChannelId == channelId && m.UserId == userId && m.IsActive)
+                .Where(m => m.ChannelId == channelId && m.UserId == userId)
                 .Select(m => m.Role)
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -79,7 +78,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         public async Task<List<Guid>> GetChannelMemberIdsAsync(Guid channelId, CancellationToken cancellationToken = default)
         {
             return await _context.ChannelMembers
-                .Where(m => m.ChannelId == channelId && m.IsActive)
+                .Where(m => m.ChannelId == channelId)
                 .Select(m => m.UserId)
                 .ToListAsync(cancellationToken);
         }

@@ -56,7 +56,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             // Get members with user details
             var members = await (from member in _context.ChannelMembers
                                  join user in _context.Set<UserReadModel>() on member.UserId equals user.Id
-                                 where member.ChannelId == id && member.IsActive
+                                 where member.ChannelId == id
                                  orderby member.Role descending, member.JoinedAtUtc
                                  select new ChannelMemberDto(
                                      member.Id,
@@ -67,7 +67,6 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                                      user.AvatarUrl,
                                      member.Role,
                                      member.JoinedAtUtc,
-                                     member.IsActive,
                                      member.LastReadLaterMessageId
                                  ))
                                 .ToListAsync(cancellationToken);
@@ -95,7 +94,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         {
             return await _context.Channels
                 .Include(c => c.Members)
-                .Where(c => c.Members.Any(m => m.UserId == userId && m.IsActive))
+                .Where(c => c.Members.Any(m => m.UserId == userId))
                 .OrderByDescending(c => c.CreatedAtUtc)
                 .ToListAsync(cancellationToken);
         }
@@ -106,7 +105,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             var channelsWithLastMessage = await (
                 from channel in _context.Channels
                 join member in _context.ChannelMembers on channel.Id equals member.ChannelId
-                where member.UserId == userId && member.IsActive && !member.IsHidden
+                where member.UserId == userId && !member.IsHidden
                 // Get last message for each channel (LEFT JOIN) - Include deleted messages to show "This message was deleted"
                 let lastMessage = (from msg in _context.ChannelMessages
                                    join sender in _context.Set<UserReadModel>() on msg.SenderId equals sender.Id
@@ -128,7 +127,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                                        FileContentType = file != null ? file.ContentType : null
                                    }).FirstOrDefault()
                 // Get member count
-                let memberCount = _context.ChannelMembers.Count(m => m.ChannelId == channel.Id && m.IsActive)
+                let memberCount = _context.ChannelMembers.Count(m => m.ChannelId == channel.Id)
                 // Get unread count (messages after user's last read)
                 let lastReadTime = (from read in _context.ChannelMessageReads
                                     join msg in _context.ChannelMessages on read.MessageId equals msg.Id
@@ -210,7 +209,6 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                     join member in _context.ChannelMembers on msg.ChannelId equals member.ChannelId
                     where channelIds.Contains(msg.ChannelId) &&
                           member.UserId == userId &&
-                          member.IsActive &&
                           !msg.IsDeleted &&
                           msg.SenderId != userId &&
                           (mention.MentionedUserId == userId || mention.IsAllMention)
@@ -322,13 +320,13 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         public async Task<bool> IsUserMemberAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)
         {
             return await _context.ChannelMembers
-                .AnyAsync(m => m.ChannelId == channelId && m.UserId == userId && m.IsActive, cancellationToken);
+                .AnyAsync(m => m.ChannelId == channelId && m.UserId == userId, cancellationToken);
         }
 
         public async Task<List<Guid>> GetMemberUserIdsAsync(Guid channelId, CancellationToken cancellationToken = default)
         {
             return await _context.ChannelMembers
-                .Where(m => m.ChannelId == channelId && m.IsActive)
+                .Where(m => m.ChannelId == channelId)
                 .Select(m => m.UserId)
                 .ToListAsync(cancellationToken);
         }
@@ -338,8 +336,8 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             // İki istifadəçinin ortaq olduğu kanalları tapır (INTERSECT)
             return await (
                 from channel in _context.Channels
-                where _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId1 && m.IsActive)
-                   && _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId2 && m.IsActive)
+                where _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId1)
+                   && _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId2)
                 let lastMessage = _context.ChannelMessages
                     .Where(msg => msg.ChannelId == channel.Id)
                     .OrderByDescending(msg => msg.CreatedAtUtc)

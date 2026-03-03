@@ -82,12 +82,12 @@ namespace ChatApp.Modules.Channels.Domain.Entities
         {
             if (Type == ChannelType.Private)
             {
-                var addedBy = _members.FirstOrDefault(m => m.UserId == addedByUserId && m.IsActive);
+                var addedBy = _members.FirstOrDefault(m => m.UserId == addedByUserId);
                 if (addedBy == null || (addedBy.Role != MemberRole.Admin && addedBy.Role != MemberRole.Owner))
                     throw new InvalidOperationException("Only Admin or Owner can add members to a private channel");
             }
 
-            if (_members.Any(m => m.UserId == userId && m.IsActive))
+            if (_members.Any(m => m.UserId == userId))
                 throw new InvalidOperationException("User is already a member of this channel");
         }
 
@@ -130,7 +130,7 @@ namespace ChatApp.Modules.Channels.Domain.Entities
 
         public bool UserHasAccessToChannel(Guid userId)
         {
-            return _members.Any(m => m.UserId == userId && m.IsActive);
+            return _members.Any(m => m.UserId == userId);
         }
     }
 }
