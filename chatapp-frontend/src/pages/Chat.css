@@ -271,7 +271,9 @@
   background: var(--white);
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.08);
   min-width: 180px;
   padding: 6px 0;
   overflow: hidden;
@@ -294,7 +296,7 @@
   transition: background var(--transition-fast);
 }
 .filter-dropdown-item:hover {
-  background: #F7F7F7;
+  background: #f7f7f7;
 }
 
 /* ===================================
@@ -308,7 +310,9 @@
   border-radius: 8px;
   padding: 6px 0;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.08);
   z-index: 1000;
   min-width: 200px;
   overflow: hidden;
@@ -331,7 +335,7 @@
 }
 
 .conv-context-item:hover {
-  background: #F7F7F7;
+  background: #f7f7f7;
 }
 
 /* ===================================
@@ -1305,7 +1309,8 @@
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  max-width: 75%;
+  max-width: 20%;
+
   margin-top: 2px;
   position: relative;
   padding-right: 66px;
@@ -1352,7 +1357,6 @@
   border-radius: 12px;
   padding: 4px 10px;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-  max-width: 100%;
   position: relative;
 }
 
