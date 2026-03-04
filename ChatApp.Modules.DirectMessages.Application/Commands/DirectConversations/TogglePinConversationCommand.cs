@@ -61,6 +61,11 @@ namespace ChatApp.Modules.DirectMessages.Application.Commands.DirectConversation
                     return Result.Failure<bool>("Conversation member not found");
 
                 member.TogglePin();
+
+                // Pin edildikdə hidden olan conversation-ı avtomatik unhide et
+                if (member.IsPinned && member.IsHidden)
+                    member.Unhide();
+
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 _logger?.LogInformation(

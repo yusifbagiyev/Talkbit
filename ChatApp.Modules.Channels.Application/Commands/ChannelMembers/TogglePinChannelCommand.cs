@@ -52,6 +52,11 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                     return Result.Failure<bool>("User is not a member of this channel");
 
                 member.TogglePin();
+
+                // Pin edildikdə hidden olan channel-ı avtomatik unhide et
+                if (member.IsPinned && member.IsHidden)
+                    member.Unhide();
+
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 _logger?.LogInformation(

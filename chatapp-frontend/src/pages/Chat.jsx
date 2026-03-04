@@ -623,9 +623,18 @@ function Chat() {
         ? `/api/channels/${conv.id}/toggle-pin`
         : `/api/conversations/${conv.id}/messages/toggle-pin`;
       const result = await apiPost(endpoint);
-      setConversations((prev) =>
-        prev.map((c) => c.id === conv.id ? { ...c, isPinned: result.isPinned } : c),
-      );
+      setConversations((prev) => {
+        const exists = prev.some((c) => c.id === conv.id);
+        if (exists) {
+          // Mövcud conversation-ı yenilə
+          return prev.map((c) => c.id === conv.id ? { ...c, isPinned: result.isPinned } : c);
+        }
+        // Hidden idi, pin edildikdə backend unhide etdi — listə geri əlavə et
+        if (result.isPinned) {
+          return [...prev, { ...conv, isPinned: true }];
+        }
+        return prev;
+      });
       // Seçili chat eyni conversation-dırsa, selectedChat-ı da yenilə
       if (selectedChat && selectedChat.id === conv.id) {
         setSelectedChat((prev) => ({ ...prev, isPinned: result.isPinned }));
@@ -2526,7 +2535,7 @@ function Chat() {
                 {/* Sound toggle — Notes üçün görünmür */}
                 {!selectedChat.isNotes && (
                   <div className="ds-toggle-row">
-                      <svg className="ds-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
+                      <svg className="ds-toggle-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
                         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" strokeWidth="1.8" />
                         <path d="M19.07 4.93a10 10 0 0 1 0 14.14" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -2548,7 +2557,7 @@ function Chat() {
               <div className="ds-card">
                 {/* Chat tipi — User / Group chat */}
                 <div className="ds-info-row">
-                  <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="ds-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2567,7 +2576,7 @@ function Chat() {
                   tabIndex={0}
                   onClick={() => setShowFavorites(true)}
                 >
-                  <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
+                  <svg className="ds-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                   </svg>
                   <span className="ds-info-link">Favorite messages</span>
@@ -2581,7 +2590,7 @@ function Chat() {
                   tabIndex={0}
                   onClick={() => setShowAllLinks(true)}
                 >
-                  <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="ds-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                   </svg>
@@ -2597,7 +2606,7 @@ function Chat() {
                     tabIndex={0}
                     onClick={() => handleOpenChatsWithUser(selectedChat.otherUserId, "sidebar")}
                   >
-                      <svg className="ds-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="ds-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M15 3H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1v2l2.6-2H15a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
                         <path d="M19 9v4a2 2 0 0 1-2 2h-1.4L13 17v-2h-3v1a2 2 0 0 0 2 2h4.4L19 20v-2h1a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-1z" />
                       </svg>
