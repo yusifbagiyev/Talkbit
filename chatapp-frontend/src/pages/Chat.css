@@ -1657,42 +1657,19 @@
    ACTION MENU DROPDOWN
    =================================== */
 
+/* position: fixed — overflow container-dən çıxır */
 .action-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
   background: var(--white);
   border-radius: 10px;
   padding: 4px 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  z-index: 100;
+  z-index: 9999;
   min-width: 180px;
   overflow: hidden;
-}
-
-/* Bridge — bubble-actions ilə menu arasındakı 4px boşluğu örtür */
-.action-menu::before {
-  content: "";
-  position: absolute;
-  top: -4px;
-  left: 0;
-  right: 0;
-  height: 4px;
-}
-
-.action-menu.own {
-  right: 0;
-  left: auto;
-}
-
-.action-menu.flip-up {
-  top: auto;
-  bottom: calc(100% + 4px);
-}
-
-.action-menu.flip-up::before {
-  top: auto;
-  bottom: -4px;
+  /* top/left JS tərəfindən useEffect-dən set olunur */
 }
 
 .action-menu-item {
@@ -1735,19 +1712,19 @@
 
 /* Reaction picker — default gizli, hover ilə açılır */
 /* Qarşı tərəfin mesajı → sola yapışıq, sağa doğru açılır (mərkəzə doğru) */
+/* position: fixed — overflow container-dən çıxır, hər yerdə görünür */
 .reaction-picker {
-  position: absolute;
-  bottom: 100%;
-  left: -8px;
-  right: auto;
+  position: fixed;
   background: var(--white);
-  border-radius: 22px;
-  padding: 5px 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  z-index: 100;
+  border-radius: 24px;
+  padding: 6px 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 9999;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s;
+  /* top/left JS tərəfindən set olunur (useLayoutEffect) */
 }
 
 /* Picker açıq olduqda göstər */
@@ -1756,46 +1733,76 @@
   pointer-events: auto;
 }
 
-/* Öz mesajım → sağa yapışıq, sola doğru açılır (mərkəzə doğru) */
-.reaction-picker.own {
-  left: auto;
-  right: -8px;
-}
-
-.reaction-quick {
+/* Quick sıra — tək sətir, wrap yoxdur */
+.reaction-quick-row {
   display: flex;
   align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-  width: max-content;
-  max-width: 280px;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* Expanded grid — quick-in altında, 5 sütunlu grid */
+.reaction-expanded-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 38px);
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--gray-100);
+}
+
+
+/* Twemoji şəkillər — canlı, rəngli emoji (text əvəzinə SVG) */
+.twemoji {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.1em;
+  pointer-events: none;
 }
 
 .reaction-emoji-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border: none;
   background: transparent;
-  border-radius: 8px;
-  font-size: 20px;
+  border-radius: 10px;
+  font-size: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast);
 }
 
 .reaction-emoji-btn:hover {
   background: var(--gray-100);
-  transform: scale(1.2);
+}
+
+/* Hover animasiya — emoji canlı sıçrayış + titrəmə (Bitrix stili) */
+@keyframes emoji-bounce {
+  0%   { transform: scale(1) translateY(0) rotate(0deg); }
+  20%  { transform: scale(1.45) translateY(-8px) rotate(-5deg); }
+  40%  { transform: scale(0.95) translateY(2px) rotate(3deg); }
+  55%  { transform: scale(1.25) translateY(-4px) rotate(-2deg); }
+  70%  { transform: scale(1.05) translateY(0) rotate(1deg); }
+  85%  { transform: scale(1.2) translateY(-2px) rotate(0deg); }
+  100% { transform: scale(1.15) translateY(-2px) rotate(0deg); }
+}
+
+.reaction-emoji-btn .twemoji {
+  transition: transform 0.15s ease-out;
+}
+
+.reaction-emoji-btn:hover .twemoji {
+  animation: emoji-bounce 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
 }
 
 .reaction-expand-btn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 38px;
   border: none;
   background: transparent;
-  border-radius: 50%;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1843,6 +1850,12 @@
 .reaction-badge-emoji {
   font-size: 16px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.reaction-badge-emoji .twemoji {
+  width: 16px;
+  height: 16px;
 }
 
 .reaction-badge-count {

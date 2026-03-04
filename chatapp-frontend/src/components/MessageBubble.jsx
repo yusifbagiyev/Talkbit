@@ -11,7 +11,7 @@ import {
   formatMessageTime,    // "HH:mm" formatı
 } from "../utils/chatUtils";
 
-import { QUICK_REACTION_EMOJIS, EXPANDED_REACTION_EMOJIS } from "../utils/emojiConstants";
+import { QUICK_REACTION_EMOJIS, EXPANDED_EXTRA_EMOJIS, emojiToUrl } from "../utils/emojiConstants";
 import MessageActionMenu from "./MessageActionMenu"; // "⋮" menyu komponenti
 
 // MessageBubble — tək bir mesajın balonu
@@ -75,12 +75,41 @@ const MessageBubble = memo(function MessageBubble({
   const menuRef = useRef(null);     // MessageActionMenu div-i
   const reactionRef = useRef(null); // Reaction picker div-i
   const tooltipRef = useRef(null);  // Reaction tooltip div-i
-  const pickerTimerRef = useRef(null); // Picker bağlanma gecikmə timer-i
+  const pickerTimerRef = useRef(null);     // Picker bağlanma gecikmə timer-i
+  const pickerOpenTimerRef = useRef(null); // Picker açılma gecikmə timer-i
+  const menuBtnRectRef = useRef(null); // More butonunun klik anındakı rect-i
 
-  // Komponent unmount olduqda timer-i təmizlə (memory leak qarşısını al)
+  // Komponent unmount olduqda timer-ləri təmizlə (memory leak qarşısını al)
   useEffect(() => {
-    return () => clearTimeout(pickerTimerRef.current);
+    return () => {
+      clearTimeout(pickerTimerRef.current);
+      clearTimeout(pickerOpenTimerRef.current);
+    };
   }, []);
+
+  // --- TEK PICKER QAYDASI ---
+  // Bir picker açılanda digər bubble-ların picker-ini bağla (custom DOM event ilə)
+  // .NET ekvivalenti: EventAggregator / Mediator pattern
+  useEffect(() => {
+    if (reactionOpen) {
+      // Bu picker açıldı → digərlərinə xəbər ver
+      document.dispatchEvent(new CustomEvent("reaction-picker-open", { detail: msg.id }));
+    }
+  }, [reactionOpen, msg.id]);
+
+  useEffect(() => {
+    function handleOtherPickerOpen(e) {
+      // Başqa mesajın picker-i açıldı → özümünkünü bağla
+      if (e.detail !== msg.id) {
+        clearTimeout(pickerTimerRef.current);
+        setReactionOpen(false);
+        setReactionExpanded(false);
+        setPickerHovered(false);
+      }
+    }
+    document.addEventListener("reaction-picker-open", handleOtherPickerOpen);
+    return () => document.removeEventListener("reaction-picker-open", handleOtherPickerOpen);
+  }, [msg.id]);
 
   // --- KƏNAR KLİK HANDLER ---
   // menuOpen YA reactionOpen YA reactionTooltipOpen açıqdırsa event listener qeydiyyat et
@@ -116,32 +145,94 @@ const MessageBubble = memo(function MessageBubble({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen, reactionOpen, reactionTooltipOpen]);
 
-  // Menyu açıldıqda ekranın altına çıxırsa yuxarıya flip et
-  useEffect(() => {
-    if (menuOpen && menuRef.current) {
-      const rect = menuRef.current.getBoundingClientRect();
-      // getBoundingClientRect() — elementin viewport-a nisbətən koordinatları
-      if (rect.bottom > window.innerHeight) {
-        menuRef.current.classList.add("flip-up"); // CSS ilə yuxarı aç
-      } else {
-        menuRef.current.classList.remove("flip-up");
-      }
-    }
-  }, [menuOpen]);
+  // Action menu pozisyası — position: fixed ilə viewport-a nisbətən
+  // React: child ref → child layout → PARENT layout sırasıyla işləyir
+  // Yəni menuRef.current burada artıq set olunub (rAF lazım deyil)
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    const btnRect = menuBtnRectRef.current;
+    if (!menuOpen || !el || !btnRect) return;
 
-  // Reaction picker açıldıqda/genişləndirildiqdə ekranın yuxarısına çıxırsa aşağıya flip et
+    const elHeight = el.scrollHeight;
+    const elWidth = el.offsetWidth;
+
+    // Top: butonun altında, yer yoxdursa yuxarıda
+    let top;
+    if (btnRect.bottom + elHeight + 4 <= window.innerHeight) {
+      top = btnRect.bottom + 4;
+    } else {
+      top = btnRect.top - elHeight - 4;
+      if (top < 0) top = 4;
+    }
+
+    // Left: isOwn → sola açılır (sağ kənar butonla üst-üstə)
+    let left;
+    if (isOwn) {
+      left = btnRect.right - elWidth;
+    } else {
+      left = btnRect.left;
+    }
+    if (left < 4) left = 4;
+    if (left + elWidth > window.innerWidth - 4) left = window.innerWidth - elWidth - 4;
+
+    el.style.top = `${top}px`;
+    el.style.left = `${left}px`;
+  }, [menuOpen, isOwn]);
+
+  // Reaction picker pozisyası — position: fixed ilə viewport-a nisbətən hesablanır
+  // overflow: auto container-dən çıxır, heç vaxt arxada qalmır
   // useLayoutEffect — DOM render olduqdan sonra, paint-dən ƏVVƏL işlə (jump yoxdur)
   useLayoutEffect(() => {
     const el = reactionRef.current;
-    if (!el || !reactionOpen) return;
+    const wrapEl = el?.parentElement; // .bubble-react-wrap
+    if (!el || !wrapEl || !reactionOpen) return;
 
-    const rect = el.getBoundingClientRect();
-    if (rect.top < 0) {
-      el.classList.add("flip-down"); // CSS ilə aşağı aç
+    const wrapRect = wrapEl.getBoundingClientRect();
+    const elHeight = el.scrollHeight;
+    const elWidth = el.scrollWidth;
+
+    // Yuxarıda yer: quick picker wrap-ın yuxarısında açılır
+    // Aşağıda yer yoxdursa yuxarıya, varsa aşağıya expand olur
+    let top;
+    const spaceAbove = wrapRect.top;
+    const spaceBelow = window.innerHeight - wrapRect.bottom;
+
+    if (!reactionExpanded) {
+      // Quick mode — həmişə yuxarıda açılır
+      top = wrapRect.top - elHeight;
+      // Yuxarıda yer yoxdursa aşağıya flip et
+      if (top < 0) top = wrapRect.bottom;
     } else {
-      el.classList.remove("flip-down");
+      // Expanded mode — quick sıra yerində qalır, grid aşağıya böyüyür
+      // Quick row yüksəkliyi: ~50px (padding + emoji btn)
+      const quickRowHeight = 50;
+      const quickTop = wrapRect.top - quickRowHeight;
+
+      if (spaceBelow >= elHeight - quickRowHeight) {
+        // Aşağıda yer var → quick row yuxarıda, grid aşağıya
+        top = quickTop;
+      } else {
+        // Aşağıda yer yoxdur → tamamilə yuxarıya
+        top = wrapRect.top - elHeight;
+        if (top < 0) top = 4; // ekranın yuxarı kənarından 4px
+      }
     }
-  }, [reactionOpen, reactionExpanded]);
+
+    // Sol/sağ: isOwn → sağa yapışıq (sola açılır), deyilsə sola yapışıq (sağa açılır)
+    let left;
+    if (isOwn) {
+      left = wrapRect.right - elWidth; // sağ kənar üst-üstə, sola açılır
+    } else {
+      left = wrapRect.left; // sol kənar üst-üstə, sağa açılır
+    }
+
+    // Ekrandan kənara çıxmasın
+    if (left < 4) left = 4;
+    if (left + elWidth > window.innerWidth - 4) left = window.innerWidth - elWidth - 4;
+
+    el.style.top = `${top}px`;
+    el.style.left = `${left}px`;
+  }, [reactionOpen, reactionExpanded, isOwn]);
 
   // --- JSX RENDER ---
   return (
@@ -199,6 +290,8 @@ const MessageBubble = memo(function MessageBubble({
         className={`message-bubble ${isOwn ? "own" : ""}${menuOpen ? " menu-open" : ""}${reactionOpen ? " reaction-open" : ""}${pickerHovered ? " picker-hovered" : ""}${selectMode ? " select-mode" : ""}`}
         onContextMenu={selectMode ? undefined : (e) => {
           e.preventDefault();
+          // Sağ klik pozisyasını saxla — menu orada açılacaq
+          menuBtnRectRef.current = { top: e.clientY, bottom: e.clientY, left: e.clientX, right: e.clientX };
           setMenuOpen(true);
           setReactionOpen(false);
         }}
@@ -281,7 +374,9 @@ const MessageBubble = memo(function MessageBubble({
                       setReactionDetailsLoading(false);
                     }}
                   >
-                    <span className="reaction-badge-emoji">{r.emoji}</span>
+                    <span className="reaction-badge-emoji">
+                      <img src={emojiToUrl(r.emoji)} alt={r.emoji} className="twemoji" draggable="false" />
+                    </span>
                     {/* count > 1 olduqda sayı göstər */}
                     {r.count > 1 && <span className="reaction-badge-count">{r.count}</span>}
                   </button>
@@ -361,7 +456,8 @@ const MessageBubble = memo(function MessageBubble({
             <button
               className="bubble-action-btn"
               title="More"
-              onClick={() => {
+              onClick={(e) => {
+                menuBtnRectRef.current = e.currentTarget.getBoundingClientRect();
                 setMenuOpen(!menuOpen);
                 setReactionOpen(false);
               }}
@@ -373,27 +469,29 @@ const MessageBubble = memo(function MessageBubble({
               </svg>
             </button>
 
-            {/* Action menu dropdown — more butonuna bağlı */}
-            {menuOpen && (
-              <MessageActionMenu
-                msg={msg}
-                isOwn={isOwn}
-                menuRef={menuRef}
-                onReply={onReply}
-                onEdit={onEdit}
-                onForward={onForward}
-                onPin={onPin}
-                onFavorite={onFavorite}
-                onRemoveFavorite={onRemoveFavorite}
-                isFavorite={isFavorite}
-                onMarkLater={onMarkLater}
-                readLaterMessageId={readLaterMessageId}
-                onSelect={onSelect}
-                onDelete={onDelete}
-                onClose={() => setMenuOpen(false)}
-              />
-            )}
           </div>
+        )}
+
+        {/* Action menu — bubble-more-wrap-dan KƏNARDA (transform containing block problemi) */}
+        {/* position: fixed + transform olan ancestor = sınıq pozisya */}
+        {menuOpen && (
+          <MessageActionMenu
+            msg={msg}
+            isOwn={isOwn}
+            menuRef={menuRef}
+            onReply={onReply}
+            onEdit={onEdit}
+            onForward={onForward}
+            onPin={onPin}
+            onFavorite={onFavorite}
+            onRemoveFavorite={onRemoveFavorite}
+            isFavorite={isFavorite}
+            onMarkLater={onMarkLater}
+            readLaterMessageId={readLaterMessageId}
+            onSelect={onSelect}
+            onDelete={onDelete}
+            onClose={() => setMenuOpen(false)}
+          />
         )}
 
         {/* React butonu + picker — hover ilə açılır, CSS ilə göstərilir */}
@@ -402,16 +500,20 @@ const MessageBubble = memo(function MessageBubble({
             className={`bubble-react-wrap ${isOwn ? "own" : ""}${reactionOpen ? " picker-open" : ""}`}
             onMouseEnter={() => {
               clearTimeout(pickerTimerRef.current);
-              setReactionOpen(true);
-              setMenuOpen(false);
+              // Dərhal açma — 400ms gözlə
+              pickerOpenTimerRef.current = setTimeout(() => {
+                setReactionOpen(true);
+                setMenuOpen(false);
+              }, 400);
             }}
             onMouseLeave={() => {
-              // Picker-dən çıxanda dərhal bağlama — 1500ms gözlə
+              clearTimeout(pickerOpenTimerRef.current);
+              // Picker-dən çıxanda dərhal bağlama — 1000ms gözlə
               pickerTimerRef.current = setTimeout(() => {
                 setReactionOpen(false);
                 setReactionExpanded(false);
                 setPickerHovered(false);
-              }, 1500);
+              }, 1000);
             }}
           >
             <button className="bubble-action-btn" title="Reactions">
@@ -421,17 +523,16 @@ const MessageBubble = memo(function MessageBubble({
             </button>
 
             {/* Reaction picker — hover ilə açılır */}
+            {/* Quick sıra həmişə görünür, expand olduqda əlavə emojilər altda göstərilir */}
             <div
               className={`reaction-picker ${isOwn ? "own" : ""}`}
               ref={reactionRef}
               onMouseEnter={() => setPickerHovered(true)}
               onMouseLeave={() => setPickerHovered(false)}
             >
-              <div className="reaction-quick">
-                {(reactionExpanded
-                  ? EXPANDED_REACTION_EMOJIS
-                  : QUICK_REACTION_EMOJIS
-                ).map((emoji) => (
+              {/* Quick sıra — həmişə görünür + expand/collapse butonu */}
+              <div className="reaction-quick-row">
+                {QUICK_REACTION_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
                     className="reaction-emoji-btn"
@@ -441,10 +542,9 @@ const MessageBubble = memo(function MessageBubble({
                       setReactionExpanded(false);
                     }}
                   >
-                    {emoji}
+                    <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
                   </button>
                 ))}
-
                 {!reactionExpanded && (
                   <button
                     className="reaction-expand-btn"
@@ -456,6 +556,25 @@ const MessageBubble = memo(function MessageBubble({
                   </button>
                 )}
               </div>
+
+              {/* Expanded grid — quick sıranın altında, aşağıya doğru böyüyür */}
+              {reactionExpanded && (
+                <div className="reaction-expanded-grid">
+                  {EXPANDED_EXTRA_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      className="reaction-emoji-btn"
+                      onClick={() => {
+                        onReaction && onReaction(msg, emoji);
+                        setReactionOpen(false);
+                        setReactionExpanded(false);
+                      }}
+                    >
+                      <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
