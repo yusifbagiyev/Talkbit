@@ -1246,7 +1246,7 @@
 }
 
 .date-separator span {
-  background: #7695ba;
+  background: #7ea1b6;
   color: var(--white);
   font-size: 12px;
   font-weight: 450;
@@ -1261,7 +1261,7 @@
   top: 8px;
   z-index: 5;
   align-self: center;
-  background: #7695ba;
+  background: #7ea1b6;
   color: var(--white);
   font-size: 12px;
   font-weight: 450;

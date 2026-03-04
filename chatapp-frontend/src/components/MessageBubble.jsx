@@ -77,7 +77,8 @@ const MessageBubble = memo(function MessageBubble({
   const tooltipRef = useRef(null);  // Reaction tooltip div-i
   const pickerTimerRef = useRef(null);     // Picker bağlanma gecikmə timer-i
   const pickerOpenTimerRef = useRef(null); // Picker açılma gecikmə timer-i
-  const menuBtnRectRef = useRef(null); // More butonunun klik anındakı rect-i
+  const menuBtnRectRef = useRef(null);    // More butonunun klik anındakı rect-i
+  const badgePressRef = useRef(null);     // Reaction badge hover timer-i (tooltip üçün)
 
   // Komponent unmount olduqda timer-ləri təmizlə (memory leak qarşısını al)
   useEffect(() => {
@@ -352,26 +353,30 @@ const MessageBubble = memo(function MessageBubble({
                 <div key={r.emoji} className="reaction-badge-wrapper">
                   <button
                     className="reaction-badge"
-                    onClick={async (e) => {
-                      e.stopPropagation(); // Bubble-ın onClick-ini tetikləməsin
-
-                      // Eyni emoji-nin tooltip-inə klik → bağla (toggle)
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Tooltip açıqdırsa bağla
                       if (reactionTooltipOpen === r.emoji) {
                         setReactionTooltipOpen(null);
                         return;
                       }
-
-                      // userFullNames artıq yüklənibsə (SignalR/əvvəlki API-dən) → birbaşa göstər
-                      if (r.userFullNames && r.userFullNames.length > 0) {
+                      // Klik → reaksiyanı toggle et (əlavə et / sil)
+                      onReaction && onReaction(msg, r.emoji);
+                    }}
+                    onMouseEnter={() => {
+                      // 500ms üzərində dayanarsa → tooltip aç
+                      badgePressRef.current = setTimeout(async () => {
+                        if (reactionTooltipOpen === r.emoji) return;
                         setReactionTooltipOpen(r.emoji);
-                        return;
-                      }
-
-                      // Yüklənməyibsə API-dən al
-                      setReactionTooltipOpen(r.emoji);
-                      setReactionDetailsLoading(true);
-                      await onLoadReactionDetails(msg.id);
-                      setReactionDetailsLoading(false);
+                        if (!r.userFullNames || r.userFullNames.length === 0) {
+                          setReactionDetailsLoading(true);
+                          await onLoadReactionDetails(msg.id);
+                          setReactionDetailsLoading(false);
+                        }
+                      }, 500);
+                    }}
+                    onMouseLeave={() => {
+                      clearTimeout(badgePressRef.current);
                     }}
                   >
                     <span className="reaction-badge-emoji">
@@ -516,7 +521,13 @@ const MessageBubble = memo(function MessageBubble({
               }, 1000);
             }}
           >
-            <button className="bubble-action-btn" title="Reactions">
+            <button
+              className="bubble-action-btn"
+              title="Like"
+              onClick={() => {
+                onReaction && onReaction(msg, "👍");
+              }}
+            >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2 20h2V10H2v10zm19.8-9.2c-.3-.4-.8-.6-1.3-.6h-5.6l.8-4c.1-.5 0-1-.4-1.4-.3-.3-.8-.5-1.3-.5h-.3c-.4.1-.7.4-.9.8L10.6 10H8v10h8.3c.7 0 1.3-.4 1.5-1l2.7-7c.2-.4.1-.9-.2-1.2z" />
               </svg>
