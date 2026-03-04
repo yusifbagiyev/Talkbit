@@ -89,6 +89,7 @@ function Chat() {
   const [addMemberSelected, setAddMemberSelected] = useState(new Set()); // Seçilmiş istifadəçi id-ləri
   const [addMemberInviting, setAddMemberInviting] = useState(false); // INVITE prosesi davam edir
   const [addMemberSearchResults, setAddMemberSearchResults] = useState([]); // Backend axtarış nəticələri
+  const [addMemberShowHistory, setAddMemberShowHistory] = useState(true); // Show chat history checkbox
   const [showSidebar, setShowSidebar] = useState(false);
   const [showSidebarMenu, setShowSidebarMenu] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
@@ -109,6 +110,8 @@ function Chat() {
   const [filesMenuId, setFilesMenuId] = useState(null); // Fayl more menu açıq olan id
   const [filesSearchOpen, setFilesSearchOpen] = useState(false); // Files search input açıq/bağlı
   const [filesSearchText, setFilesSearchText] = useState(""); // Files axtarış mətni
+  const [showMembersPanel, setShowMembersPanel] = useState(false); // Members paneli açıq/bağlı
+  const [memberMenuId, setMemberMenuId] = useState(null); // Üzv context menu açıq olan userId
 
   // Mesajlar siyahısı — aktiv chatın mesajları
   // Backend DESC qaytarır (yeni → köhnə), biz tersine çeviririk
@@ -177,6 +180,7 @@ function Chat() {
   const linksMenuRef = useRef(null);
   const filesMenuRef = useRef(null);
   const addMemberRef = useRef(null); // Add member panel click-outside ref
+  const memberMenuRef = useRef(null); // Member context menu click-outside ref
 
   // replyTo — reply ediləcək mesaj (null = reply yoxdur)
   const [replyTo, setReplyTo] = useState(null);
@@ -791,7 +795,10 @@ function Chat() {
     setAddMemberInviting(true);
     try {
       for (const userId of addMemberSelected) {
-        await apiPost(`/api/channels/${selectedChat.id}/members`, { userId });
+        await apiPost(`/api/channels/${selectedChat.id}/members`, {
+          userId,
+          showChatHistory: addMemberShowHistory,
+        });
       }
       // Üzvləri yenidən yüklə
       const members = await apiGet(`/api/channels/${selectedChat.id}/members`);
@@ -804,6 +811,7 @@ function Chat() {
       setAddMemberSearch("");
       setAddMemberSearchActive(false);
       setAddMemberSelected(new Set());
+      setAddMemberShowHistory(true);
     } catch (err) {
       console.error("Failed to invite members:", err);
     } finally {
@@ -892,6 +900,8 @@ function Chat() {
     setFilesMenuId(null);
     setFilesSearchOpen(false);
     setFilesSearchText("");
+    setShowMembersPanel(false);
+    setMemberMenuId(null);
     setShowAddMember(false);
     setAddMemberSearch("");
     setAddMemberSearchActive(false);
@@ -1620,6 +1630,18 @@ function Chat() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [filesMenuId]);
 
+  // Member context menu — click-outside
+  useEffect(() => {
+    if (!memberMenuId) return;
+    function handleClickOutside(e) {
+      if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
+        setMemberMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [memberMenuId]);
+
   // Add member panel — click-outside bağlama
   useEffect(() => {
     if (!showAddMember) return;
@@ -1633,6 +1655,20 @@ function Chat() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showAddMember]);
+
+  // Add member panel açılanda — channel members-i yenilə (leave/remove dəyişikliklərini göstər)
+  useEffect(() => {
+    if (!showAddMember || !selectedChat || selectedChat.type !== 1) return;
+    (async () => {
+      try {
+        const members = await apiGet(`/api/channels/${selectedChat.id}/members`);
+        setChannelMembers((prev) => ({
+          ...prev,
+          [selectedChat.id]: members.reduce((map, m) => ({ ...map, [m.userId]: m }), {}),
+        }));
+      } catch { /* ignore */ }
+    })();
   }, [showAddMember]);
 
   // Add member panel — debounced backend user search
@@ -2232,7 +2268,7 @@ function Chat() {
           <div className="detail-sidebar">
             {/* Header — X close + About chat + ... more */}
             <div className="ds-header">
-              <button className="ds-close" onClick={() => { setShowSidebar(false); setShowFavorites(false); setFavSearchOpen(false); setFavSearchText(""); setShowAllLinks(false); setLinksSearchOpen(false); setLinksSearchText(""); setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); setShowFilesMedia(false); setFilesSearchOpen(false); setFilesSearchText(""); }}>
+              <button className="ds-close" onClick={() => { setShowSidebar(false); setShowFavorites(false); setFavSearchOpen(false); setFavSearchText(""); setShowAllLinks(false); setLinksSearchOpen(false); setLinksSearchText(""); setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); setShowFilesMedia(false); setFilesSearchOpen(false); setFilesSearchText(""); setShowMembersPanel(false); setMemberMenuId(null); }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -2306,7 +2342,7 @@ function Chat() {
                   {/* Channel — üzv avatarları */}
                   {selectedChat.type === 1 ? (
                     channelMembers[selectedChat.id] ? (
-                      <div className="ds-members-preview" role="button" tabIndex={0}>
+                      <div className="ds-members-preview" role="button" tabIndex={0} onClick={() => setShowMembersPanel(true)}>
                         <div className="ds-members-avatars">
                           {Object.entries(channelMembers[selectedChat.id]).slice(0, 4).map(([uid, m]) => (
                             <div
@@ -2323,7 +2359,7 @@ function Chat() {
                               +{Object.keys(channelMembers[selectedChat.id]).length - 4}
                             </span>
                           )}
-                          <button className="ds-members-add-btn" onClick={() => setShowAddMember(true)}>+ Add</button>
+                          <button className="ds-members-add-btn" onClick={(e) => { e.stopPropagation(); setShowAddMember(true); }}>+ Add</button>
                         </div>
                       </div>
                     ) : (
@@ -3140,6 +3176,103 @@ function Chat() {
               </div>
             )}
 
+            {/* Members paneli — sidebar-ın üstünə gəlir (favorites kimi) */}
+            {showMembersPanel && selectedChat?.type === 1 && channelMembers[selectedChat.id] && (
+              <div className="ds-favorites-panel">
+                <div className="ds-favorites-header">
+                  <button className="ds-favorites-back" onClick={() => { setShowMembersPanel(false); setMemberMenuId(null); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  <span className="ds-favorites-title">
+                    Members: {Object.keys(channelMembers[selectedChat.id]).length}
+                    <button className="ds-mp-add-btn" onClick={() => { setShowMembersPanel(false); setMemberMenuId(null); setShowAddMember(true); }}>
+                      + Add
+                    </button>
+                  </span>
+                </div>
+
+                {/* Members siyahısı */}
+                <div className="ds-mp-list">
+                  {Object.entries(channelMembers[selectedChat.id]).map(([uid, m]) => {
+                    const isMe = uid === user.id;
+                    const isOwner = m.role === 3 || m.role === "Owner";
+                    const isAdmin = m.role === 2 || m.role === "Admin";
+                    const roleLabel = isOwner ? "Owner" : isAdmin ? "Admin" : "Member";
+                    return (
+                      <div key={uid} className="ds-mp-member" ref={memberMenuId === uid ? memberMenuRef : null}>
+                        <div className="ds-mp-avatar-wrap">
+                          <div className="ds-mp-avatar" style={{ background: getAvatarColor(m.fullName) }}>
+                            {m.avatarUrl ? (
+                              <img src={m.avatarUrl} alt="" className="ds-mp-avatar-img" />
+                            ) : (
+                              getInitials(m.fullName)
+                            )}
+                          </div>
+                          {isOwner && (
+                            <span className="ds-mp-owner-badge" title="Owner">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623" stroke="#fff" strokeWidth="1.5">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                              </svg>
+                            </span>
+                          )}
+                        </div>
+                        <div className="ds-mp-info">
+                          <span className="ds-mp-name">
+                            {m.fullName}{isMe && <i>(it's you)</i>}
+                          </span>
+                          <span className="ds-mp-role">{roleLabel}</span>
+                        </div>
+                        <button className="ds-mp-more-btn" onClick={() => setMemberMenuId(memberMenuId === uid ? null : uid)}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="2" />
+                            <circle cx="12" cy="12" r="2" />
+                            <circle cx="19" cy="12" r="2" />
+                          </svg>
+                        </button>
+                        {memberMenuId === uid && (
+                          <div className="ds-dropdown ds-mp-dropdown">
+                            {!isMe && (
+                              <>
+                                <button className="ds-dropdown-item" onClick={() => {
+                                  // Mention — input-a @fullName əlavə et
+                                  setMessageText((prev) => prev + `@${m.fullName} `);
+                                  setShowMembersPanel(false);
+                                  setMemberMenuId(null);
+                                  setShowSidebar(false);
+                                  setTimeout(() => inputRef.current?.focus(), 0);
+                                }}>Mention</button>
+                                <button className="ds-dropdown-item" onClick={() => {
+                                  // Send private message — DM-ə keç
+                                  const dmConv = conversations.find((c) => c.type === 0 && c.otherUserId === uid);
+                                  if (dmConv) {
+                                    setSelectedChat(dmConv);
+                                  }
+                                  setShowMembersPanel(false);
+                                  setMemberMenuId(null);
+                                  setShowSidebar(false);
+                                }}>Send private message</button>
+                              </>
+                            )}
+                            <button className="ds-dropdown-item" onClick={() => { setMemberMenuId(null); }}>View profile</button>
+                            {isMe && (
+                              <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => {
+                                handleLeaveChannel(selectedChat);
+                                setShowMembersPanel(false);
+                                setMemberMenuId(null);
+                                setShowSidebar(false);
+                              }}>Leave</button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -3200,9 +3333,14 @@ function Chat() {
                 )}
               </div>
 
-              {/* Show chat history */}
+              {/* Show chat history — false olduqda yeni üzv yalnız qoşulduqdan sonrakı mesajları görür */}
               <label className="ds-am-checkbox-row">
-                <input type="checkbox" defaultChecked className="ds-am-checkbox" />
+                <input
+                  type="checkbox"
+                  checked={addMemberShowHistory}
+                  onChange={(e) => setAddMemberShowHistory(e.target.checked)}
+                  className="ds-am-checkbox"
+                />
                 <span>Show chat history</span>
               </label>
 
@@ -3250,6 +3388,10 @@ function Chat() {
                             else next.add(u.id);
                             return next;
                           });
+                          // User seçildikdə search input reset olsun
+                          setAddMemberSearch("");
+                          setAddMemberSearchActive(false);
+                          setAddMemberSearchResults([]);
                         }}
                       >
                         <div className="ds-am-user-avatar" style={{ background: getAvatarColor(u.fullName) }}>
