@@ -11,7 +11,7 @@ import { getInitials, getAvatarColor, getLastSeenText } from "../utils/chatUtils
 //   onToggleSidebar   — sağ sidebar panelini aç/bağla
 //   onOpenSearch      — search panelini aç
 //   searchOpen        — search paneli açıqdır? (active class üçün)
-function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpand, onOpenAddMember, onToggleSidebar, sidebarOpen, onOpenSearch, searchOpen }) {
+function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpand, onOpenAddMember, addMemberOpen, onToggleSidebar, sidebarOpen, onOpenSearch, searchOpen }) {
   return (
     <div className="chat-header">
       {/* Sol tərəf: avatar + ad + status */}
@@ -85,7 +85,7 @@ function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpa
         {/* Add Member — yalnız channel (type=1) üçün göstər */}
         {selectedChat.type === 1 && (
           <button
-            className="header-action-btn"
+            className={`header-action-btn${addMemberOpen ? " active" : ""}`}
             title="Add member"
             onClick={onOpenAddMember}
           >

@@ -240,6 +240,12 @@ function Chat() {
   // pendingDeleteMsg — action menu-dan tək mesaj silmə təsdiqləməsi
   const [pendingDeleteMsg, setPendingDeleteMsg] = useState(null);
 
+  // pendingLeaveChannel — channel-dan ayrılma təsdiqləməsi (null = bağlı, obyekt = təsdiq gözləyir)
+  const [pendingLeaveChannel, setPendingLeaveChannel] = useState(null);
+
+  // pendingDeleteConv — conversation/channel silmə təsdiqləməsi (null = bağlı, obyekt = təsdiq gözləyir)
+  const [pendingDeleteConv, setPendingDeleteConv] = useState(null);
+
   // inputRef — textarea element-i (focus vermək üçün)
   const inputRef = useRef(null);
 
@@ -760,6 +766,27 @@ function Chat() {
       }
     } catch (err) {
       console.error("Failed to leave channel:", err);
+    }
+  }
+
+  // handleDeleteConversation — conversation/channel-ı sil
+  async function handleDeleteConversation(conv) {
+    try {
+      const endpoint = conv.type === 1
+        ? `/api/channels/${conv.id}`
+        : `/api/conversations/${conv.id}`;
+      await apiDelete(endpoint);
+      // Siyahıdan sil
+      setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+      // Hazırda seçilmişdirsə — seçimi sıfırla
+      if (selectedChat && selectedChat.id === conv.id) {
+        if (conv.type === 1) leaveChannel(conv.id);
+        else leaveConversation(conv.id);
+        setSelectedChat(null);
+        setMessages([]);
+      }
+    } catch (err) {
+      console.error("Failed to delete conversation:", err);
     }
   }
 
@@ -2392,6 +2419,7 @@ function Chat() {
                 pinnedMessages={pinnedMessages}
                 onTogglePinExpand={() => setPinBarExpanded((v) => !v)}
                 onOpenAddMember={() => setShowAddMember(true)}
+                addMemberOpen={showAddMember}
                 onToggleSidebar={() => setShowSidebar((v) => !v)}
                 sidebarOpen={showSidebar}
                 onOpenSearch={handleOpenSearch}
@@ -2571,6 +2599,70 @@ function Chat() {
                 </div>
               )}
 
+              {/* Channel-dan ayrılma təsdiqləməsi */}
+              {pendingLeaveChannel && (
+                <div className="delete-confirm-overlay" onClick={() => setPendingLeaveChannel(null)}>
+                  <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="delete-confirm-header">
+                      <span>Are you sure you want to leave this channel?</span>
+                      <button className="delete-confirm-close" onClick={() => setPendingLeaveChannel(null)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="delete-confirm-actions">
+                      <button
+                        className="delete-confirm-btn"
+                        onClick={() => {
+                          handleLeaveChannel(pendingLeaveChannel);
+                          setPendingLeaveChannel(null);
+                          setShowSidebar(false);
+                        }}
+                      >
+                        LEAVE
+                      </button>
+                      <button className="delete-cancel-btn" onClick={() => setPendingLeaveChannel(null)}>
+                        CANCEL
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Conversation/channel silmə təsdiqləməsi */}
+              {pendingDeleteConv && (
+                <div className="delete-confirm-overlay" onClick={() => setPendingDeleteConv(null)}>
+                  <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="delete-confirm-header">
+                      <span>Are you sure you want to delete this chat?</span>
+                      <button className="delete-confirm-close" onClick={() => setPendingDeleteConv(null)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="delete-confirm-actions">
+                      <button
+                        className="delete-confirm-btn"
+                        onClick={() => {
+                          handleDeleteConversation(pendingDeleteConv);
+                          setPendingDeleteConv(null);
+                          setShowSidebar(false);
+                        }}
+                      >
+                        DELETE
+                      </button>
+                      <button className="delete-cancel-btn" onClick={() => setPendingDeleteConv(null)}>
+                        CANCEL
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* forwardMessage varsa ForwardPanel-i göstər (modal overlay) */}
               {forwardMessage && (
                 <ForwardPanel
@@ -2650,12 +2742,20 @@ function Chat() {
                         <button className="ds-dropdown-item" onClick={() => { handleToggleHide(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>
                           {selectedChat.isHidden ? "Unhide" : "Hide"}
                         </button>
-                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => setShowSidebarMenu(false)}>Delete</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { setPendingDeleteConv(selectedChat); setShowSidebarMenu(false); }}>Delete</button>
+                      </>
+                    ) : selectedChat.type === 2 ? (
+                      /* DepartmentUser — conversation yaranmayıb: hide/leave yoxdur */
+                      <>
+                        <button className="ds-dropdown-item" onClick={() => setShowSidebarMenu(false)}>View profile</button>
+                        <button className="ds-dropdown-item" onClick={() => { setShowSidebarMenu(false); handleOpenChatsWithUser(selectedChat.otherUserId || selectedChat.userId, "sidebar"); }}>Find chats with this user</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { setPendingDeleteConv(selectedChat); setShowSidebarMenu(false); }}>Delete</button>
                       </>
                     ) : (
+                      /* Channel (type=1) */
                       <>
                         {(channelMembers[selectedChat.id]?.[user.id]?.role >= 2 || channelMembers[selectedChat.id]?.[user.id]?.role === "Admin" || channelMembers[selectedChat.id]?.[user.id]?.role === "Owner") && (
-                          <button className="ds-dropdown-item ds-dropdown-accent" onClick={() => { setShowAddMember(true); setShowSidebarMenu(false); }}>Add members</button>
+                          <button className="ds-dropdown-item" onClick={() => { setShowAddMember(true); setShowSidebarMenu(false); }}>Add members</button>
                         )}
                         {(channelMembers[selectedChat.id]?.[user.id]?.role === 3 || channelMembers[selectedChat.id]?.[user.id]?.role === "Owner") && (
                           <button className="ds-dropdown-item" onClick={handleEditChannel}>Edit</button>
@@ -2663,8 +2763,8 @@ function Chat() {
                         <button className="ds-dropdown-item" onClick={() => { handleToggleHide(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>
                           {selectedChat.isHidden ? "Unhide" : "Hide"}
                         </button>
-                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { handleLeaveChannel(selectedChat); setShowSidebarMenu(false); setShowSidebar(false); }}>Leave</button>
-                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => setShowSidebarMenu(false)}>Delete</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { setPendingLeaveChannel(selectedChat); setShowSidebarMenu(false); }}>Leave</button>
+                        <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { setPendingDeleteConv(selectedChat); setShowSidebarMenu(false); }}>Delete</button>
                       </>
                     )}
                   </div>
@@ -3769,10 +3869,9 @@ function Chat() {
                               {/* Özü: Leave */}
                               {isMe && (
                                 <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => {
-                                  handleLeaveChannel(selectedChat);
+                                  setPendingLeaveChannel(selectedChat);
                                   setShowMembersPanel(false);
                                   setMemberMenuId(null);
-                                  setShowSidebar(false);
                                 }}>Leave</button>
                               )}
                             </div>
