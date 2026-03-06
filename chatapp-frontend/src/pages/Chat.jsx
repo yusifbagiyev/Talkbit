@@ -347,7 +347,7 @@ function Chat() {
         messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       }
     }
-  }, [messages, shouldScrollBottom, pinnedMessages, channelMembers]);
+  }, [messages, shouldScrollBottom, pinnedMessages, channelMembers, typingUsers]);
 
   // Scroll position restore — yuxarı scroll edib köhnə mesaj yüklənəndə
   // useLayoutEffect — brauzer paint etməzdən əvvəl işlə
@@ -1941,6 +1941,30 @@ function Chat() {
     }
 
     setReplyTo(null); // Reply-ı sıfırla
+
+    // ── Oxunmamış mesajları "oxundu" olaraq işarələ ──
+    // İstifadəçi mesaj göndərirsə, chatı gördüyü deməkdir — bütün unread mesajlar read olmalıdır
+    const unreadMsgIds = messages
+      .filter((m) => m.senderId !== user.id && !m.isRead && m.id)
+      .map((m) => m.id);
+    if (unreadMsgIds.length > 0) {
+      for (const id of unreadMsgIds) {
+        if (!processedMsgIdsRef.current.has(id)) {
+          readBatchRef.current.add(id);
+          processedMsgIdsRef.current.add(id);
+        }
+      }
+      readBatchChatRef.current = {
+        chatId: selectedChat.id,
+        chatType: String(selectedChat.type),
+      };
+      flushReadBatch();
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === selectedChat.id ? { ...c, unreadCount: 0 } : c,
+        ),
+      );
+    }
 
     try {
       let chatId = selectedChat.id;
