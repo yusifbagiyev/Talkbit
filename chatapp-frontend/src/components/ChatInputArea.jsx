@@ -1,6 +1,7 @@
 // Sabitlər import et
 import { TEXT_INPUT_EMOJIS } from "../utils/emojiConstants";    // Emoji panel üçün emojilər
 import { MESSAGE_MAX_LENGTH } from "../utils/chatUtils";         // Maksimum mesaj uzunluğu
+import MentionPanel from "./MentionPanel";                       // @ mention dropdown paneli
 
 // ChatInputArea komponenti — mesaj yazma sahəsi + emoji panel
 // Bu komponent "pure UI" — bütün state Chat.jsx-dədir, buraya prop olaraq gəlir
@@ -27,6 +28,9 @@ function ChatInputArea({
   emojiOpen, setEmojiOpen,
   emojiPanelRef, inputRef,
   onSend, onKeyDown, onTyping,
+  // Mention props
+  onTextChange, mentionOpen, mentionItems,
+  mentionSelectedIndex, mentionLoading, mentionPanelRef, onMentionSelect,
 }) {
   return (
     // Fragment <> </> — birden çox root element qaytarmaq üçün
@@ -150,7 +154,11 @@ function ChatInputArea({
             maxLength={MESSAGE_MAX_LENGTH}
             rows={1}
             onChange={(e) => {
-              setMessageText(e.target.value);
+              const val = e.target.value;
+              const caret = e.target.selectionStart;
+              // onTextChange varsa mention detection ilə birlikdə dəyişdir
+              if (onTextChange) onTextChange(val, caret);
+              else setMessageText(val);
               // Auto-resize: height-i sıfırla, sonra scrollHeight qədər artır (max 120px)
               e.target.style.height = "auto";
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
@@ -199,6 +207,17 @@ function ChatInputArea({
           </button>
         </div>
       </div>
+
+      {/* Mention dropdown panel — @ yazıldıqda göstər */}
+      {mentionOpen && (
+        <MentionPanel
+          items={mentionItems}
+          selectedIndex={mentionSelectedIndex}
+          onSelect={onMentionSelect}
+          isLoading={mentionLoading}
+          panelRef={mentionPanelRef}
+        />
+      )}
 
       {/* Emoji picker panel — emojiOpen true olduqda göstər */}
       {emojiOpen && (

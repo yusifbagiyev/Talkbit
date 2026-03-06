@@ -60,6 +60,7 @@ import {
   HIGHLIGHT_DURATION_MS, // mesaj vurğulama müddəti (millisaniyə)
   TYPING_DEBOUNCE_MS, // typing siqnalı debounce müddəti
   BATCH_DELETE_THRESHOLD, // batch delete üçün minimum mesaj sayı
+  detectMentionTrigger, // @ mention trigger aşkarlama
 } from "../utils/chatUtils";
 
 import "./Chat.css";
@@ -245,6 +246,17 @@ function Chat() {
 
   // pendingDeleteConv — conversation/channel silmə təsdiqləməsi (null = bağlı, obyekt = təsdiq gözləyir)
   const [pendingDeleteConv, setPendingDeleteConv] = useState(null);
+
+  // --- MENTION STATE-LƏRİ ---
+  const [mentionOpen, setMentionOpen] = useState(false);        // Panel açıq/bağlı
+  const [mentionSearch, setMentionSearch] = useState("");        // @ dan sonra yazılan axtarış mətni
+  const mentionStartRef = useRef(-1);                            // @ simvolunun textarea pozisiyası
+  const [mentionItems, setMentionItems] = useState([]);          // Paneldə göstərilən elementlər
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0); // Keyboard nav seçilmiş index
+  const [mentionLoading, setMentionLoading] = useState(false);   // API yüklənir
+  const mentionPanelRef = useRef(null);                          // Click-outside ref
+  const mentionSearchTimerRef = useRef(null);                    // Debounce timer
+  const activeMentionsRef = useRef([]);                          // Seçilmiş mention-lar (göndərmə üçün)
 
   // inputRef — textarea element-i (focus vermək üçün)
   const inputRef = useRef(null);
@@ -790,6 +802,108 @@ function Chat() {
     }
   }
 
+  // ─── Mention handler-ləri ────────────────────────────────────────────────────
+
+  // closeMentionPanel — mention paneli bağla, state sıfırla
+  function closeMentionPanel() {
+    setMentionOpen(false);
+    setMentionSearch("");
+    setMentionItems([]);
+    setMentionSelectedIndex(0);
+    mentionStartRef.current = -1;
+    if (mentionSearchTimerRef.current) {
+      clearTimeout(mentionSearchTimerRef.current);
+    }
+  }
+
+  // handleMessageTextChange — textarea onChange (mention detection ilə birlikdə)
+  function handleMessageTextChange(newText, caretPos) {
+    setMessageText(newText);
+
+    const trigger = detectMentionTrigger(newText, caretPos);
+    if (trigger) {
+      mentionStartRef.current = trigger.mentionStart;
+      setMentionSearch(trigger.searchText);
+      if (!mentionOpen) setMentionOpen(true);
+      setMentionSelectedIndex(0);
+      // Emoji panel açıqdırsa bağla
+      if (emojiOpen) setEmojiOpen(false);
+    } else {
+      if (mentionOpen) closeMentionPanel();
+    }
+  }
+
+  // handleMentionSelect — mention elementi seçildikdə
+  function handleMentionSelect(item) {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+
+    const currentText = messageText;
+    const start = mentionStartRef.current;
+    const caretPos = textarea.selectionStart;
+
+    // @searchText → FullName əvəz et (@ olmadan — @ yalnız trigger-dir)
+    const before = currentText.substring(0, start); // @ simvolundan əvvəlki hissə
+    const after = currentText.substring(caretPos);
+    const mentionText = item.isAll ? "All members" : item.fullName;
+    const newValue = before + mentionText + " " + after;
+
+    setMessageText(newValue);
+    closeMentionPanel();
+
+    // activeMentionsRef-ə əlavə et (göndərmə zamanı istifadə olunacaq)
+    if (item.isAll) {
+      activeMentionsRef.current.push({
+        userId: null, userFullName: "All", isAllMention: true,
+      });
+    } else if (item.type === "channel") {
+      // Channel mention — notification yoxdur, sadəcə vizual
+      activeMentionsRef.current.push({
+        userId: item.id, userFullName: item.fullName, isAllMention: false, isChannel: true,
+      });
+    } else {
+      activeMentionsRef.current.push({
+        userId: item.id, userFullName: item.fullName, isAllMention: false,
+      });
+    }
+
+    // Caret pozisiyasını mention-dan sonraya qoy
+    const newCaretPos = before.length + mentionText.length + 1;
+    requestAnimationFrame(() => {
+      textarea.setSelectionRange(newCaretPos, newCaretPos);
+      textarea.focus();
+    });
+  }
+
+  // handleMentionClick — mesajdakı mention-a klik (conversation-a keçid)
+  const handleMentionClick = useCallback((mention) => {
+    if (mention.isAll) return; // @All klik — heç nə etmə
+
+    // Channel mention — conversations-dan tap
+    const channelConv = conversations.find(
+      (c) => c.type === 1 && c.id === mention.userId
+    );
+    if (channelConv) {
+      handleSelectChat(channelConv);
+      return;
+    }
+
+    // User mention — mövcud conversation tap
+    const existing = conversations.find(
+      (c) => c.type === 0 && c.otherUserId === mention.userId
+    );
+    if (existing) {
+      handleSelectChat(existing);
+    }
+    // Conversation yoxdursa → DepartmentUser-ı tap (type=2)
+    else {
+      const deptUser = conversations.find(
+        (c) => c.type === 2 && (c.otherUserId === mention.userId || c.userId === mention.userId)
+      );
+      if (deptUser) handleSelectChat(deptUser);
+    }
+  }, [conversations]);
+
   // ─── Search panel handler-ləri ──────────────────────────────────────────────
 
   // handleOpenSearch — search panelini aç
@@ -1155,6 +1269,10 @@ function Chat() {
     setSearchResultsList([]);
     setSearchPage(1);
     setSearchHasMore(false);
+
+    // Mention paneli bağla
+    closeMentionPanel();
+    activeMentionsRef.current = [];
 
     // Draft saxla — əvvəlki chatın yazısını yadda saxla
     if (selectedChat) {
@@ -1854,10 +1972,25 @@ function Chat() {
       const endpoint = getChatEndpoint(chatId, chatType, "/messages");
       if (!endpoint) return;
 
+      // Mention-ları hazırla — yalnız mesaj mətnində hələ mövcud olanları göndər
+      const mentionsToSend = activeMentionsRef.current
+        .filter((m) => {
+          if (m.isAllMention) return text.includes("All members");
+          if (m.isChannel) return false; // Channel mention-lar backend-ə göndərilmir
+          return text.includes(m.userFullName);
+        })
+        .map((m) => ({
+          userId: m.userId,
+          userFullName: m.userFullName,
+          ...(chatType === 1 ? { isAllMention: !!m.isAllMention } : {}),
+        }));
+      activeMentionsRef.current = []; // Sıfırla
+
       // POST /api/conversations/{id}/messages — yeni mesaj göndər
       await apiPost(endpoint, {
         content: text,
         replyToMessageId: replyTo ? replyTo.id : null, // Reply varsa id-ni göndər
+        ...(mentionsToSend.length > 0 ? { mentions: mentionsToSend } : {}),
       });
 
       // Hidden conversation-a mesaj göndərildikdə — siyahıda yoxdursa əlavə et
@@ -2066,6 +2199,156 @@ function Chat() {
     })();
   }, [showSidebar, selectedChat?.id]);
 
+  // ─── Mention search useEffect ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!mentionOpen || !selectedChat) return;
+
+    let localResults = [];
+
+    if (selectedChat.type === 1) {
+      // ── Channel: "All members" + üzvlər ──
+      const allItem = { id: null, fullName: "All members", type: "all", isAll: true };
+      const members = channelMembers[selectedChat.id] || {};
+      const memberList = Object.entries(members)
+        .filter(([uid]) => uid !== user.id)
+        .map(([uid, m]) => ({
+          id: uid,
+          fullName: m.fullName,
+          position: m.role === 3 ? "Owner" : m.role === 2 ? "Admin" : "User",
+          type: "user",
+          isAll: false,
+        }));
+
+      if (mentionSearch) {
+        const q = mentionSearch.toLowerCase();
+        const filtered = memberList.filter((m) =>
+          m.fullName.toLowerCase().includes(q)
+        );
+        if ("all members".includes(q) || "all".startsWith(q)) {
+          localResults = [allItem, ...filtered];
+        } else {
+          localResults = filtered;
+        }
+      } else {
+        // Default: All members + ilk üzvlər
+        localResults = [allItem, ...memberList];
+      }
+    } else if (selectedChat.type === 0 || selectedChat.type === 2) {
+      // ── DM / DepartmentUser: digər istifadəçini göstər ──
+      const otherUser = {
+        id: selectedChat.otherUserId || selectedChat.userId || selectedChat.id,
+        fullName: selectedChat.name,
+        position: selectedChat.otherUserPosition || selectedChat.positionName || "User",
+        type: "user",
+        isAll: false,
+      };
+
+      if (mentionSearch) {
+        const q = mentionSearch.toLowerCase();
+        if (otherUser.fullName.toLowerCase().includes(q)) {
+          localResults = [otherUser];
+        }
+      } else {
+        // Default: digər istifadəçi
+        localResults = [otherUser];
+      }
+    }
+
+    // Recent chats-dan istifadəçiləri əlavə et (DM conversations, özün xaric, artıq siyahıda olmayanlar)
+    const existingLocalIds = new Set(localResults.map((r) => r.id).filter(Boolean));
+    existingLocalIds.add(user.id);
+    const recentUsers = conversations
+      .filter((c) => (c.type === 0 || c.type === 2) && c.id !== selectedChat.id)
+      .filter((c) => {
+        const uid = c.otherUserId || c.userId || c.id;
+        return uid && !existingLocalIds.has(uid);
+      })
+      .slice(0, 5)
+      .map((c) => ({
+        id: c.otherUserId || c.userId || c.id,
+        fullName: c.name,
+        position: c.otherUserPosition || c.positionName || "User",
+        type: "user",
+        isAll: false,
+      }));
+
+    if (mentionSearch) {
+      const q = mentionSearch.toLowerCase();
+      // Recent users-dan axtarışa uyğun olanları əlavə et
+      const filteredRecent = recentUsers.filter((u) =>
+        u.fullName.toLowerCase().includes(q)
+      );
+      localResults = [...localResults, ...filteredRecent];
+      // Channel-ləri conversations-dan filter et
+      const channelResults = conversations
+        .filter((c) => c.type === 1 && c.name && c.name.toLowerCase().includes(q))
+        .filter((c) => c.id !== selectedChat.id)
+        .slice(0, 5)
+        .map((c) => ({
+          id: c.id,
+          fullName: c.name,
+          type: "channel",
+          isAll: false,
+        }));
+      localResults = [...localResults, ...channelResults];
+    } else {
+      // Default: recent users-u da göstər
+      localResults = [...localResults, ...recentUsers];
+    }
+
+    setMentionItems(localResults);
+    setMentionSelectedIndex(0);
+
+    // 2+ simvolda API sorğusu (debounced)
+    if (mentionSearch.length >= 2) {
+      if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
+      mentionSearchTimerRef.current = setTimeout(async () => {
+        setMentionLoading(true);
+        try {
+          const users = await apiGet(
+            `/api/users/search?q=${encodeURIComponent(mentionSearch)}`
+          );
+          const existingIds = new Set(localResults.map((r) => r.id).filter(Boolean));
+          existingIds.add(user.id);
+          const extra = (users || [])
+            .filter((u) => !existingIds.has(u.id))
+            .map((u) => ({
+              id: u.id,
+              fullName: u.fullName,
+              position: u.position || "User",
+              type: "user",
+              isAll: false,
+            }));
+          if (extra.length > 0) {
+            setMentionItems((prev) => [...prev, ...extra]);
+          }
+        } catch { /* silent */ }
+        setMentionLoading(false);
+      }, 300);
+    }
+
+    return () => {
+      if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
+    };
+  }, [mentionOpen, mentionSearch, selectedChat?.id, selectedChat?.type, channelMembers, conversations, user?.id]);
+
+  // Mention panel — click-outside bağlama
+  useEffect(() => {
+    if (!mentionOpen) return;
+    function handleClickOutside(e) {
+      if (
+        mentionPanelRef.current &&
+        !mentionPanelRef.current.contains(e.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target)
+      ) {
+        closeMentionPanel();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [mentionOpen]);
+
   // stopTypingSignal — typing siqnalını dərhal dayandır
   // Mesaj göndəriləndə / conversation dəyişdirildikdə çağırılır
   function stopTypingSignal() {
@@ -2175,6 +2458,34 @@ function Chat() {
   // handleKeyDown — textarea-da klaviatura hadisəsi
   // Enter → mesaj göndər (Shift+Enter → yeni sətir)
   function handleKeyDown(e) {
+    // ── Mention panel keyboard navigation ──
+    if (mentionOpen && mentionItems.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) =>
+          prev < mentionItems.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : mentionItems.length - 1
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleMentionSelect(mentionItems[mentionSelectedIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMentionPanel();
+        return;
+      }
+    }
+
     // Modifier/shortcut düymələr typing siqnalı göndərməsin
     // Ctrl+R, Ctrl+C, Alt+Tab vs. — bunlar yazı deyil, typing indicator göstərməməlidir
     if (e.ctrlKey || e.altKey || e.metaKey) {
@@ -2522,6 +2833,7 @@ function Chat() {
                       onEdit={handleEditMsg}
                       onReaction={handleReaction}
                       onLoadReactionDetails={handleLoadReactionDetails}
+                      onMentionClick={handleMentionClick}
                     />
                   );
                 })}
@@ -2565,6 +2877,13 @@ function Chat() {
                   onSend={handleSendMessage}
                   onKeyDown={handleKeyDown}
                   onTyping={sendTypingSignal}
+                  onTextChange={handleMessageTextChange}
+                  mentionOpen={mentionOpen}
+                  mentionItems={mentionItems}
+                  mentionSelectedIndex={mentionSelectedIndex}
+                  mentionLoading={mentionLoading}
+                  mentionPanelRef={mentionPanelRef}
+                  onMentionSelect={handleMentionSelect}
                 />
               )}
 

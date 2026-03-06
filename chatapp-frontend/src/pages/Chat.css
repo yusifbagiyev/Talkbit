@@ -5101,6 +5101,225 @@
 }
 
 /* ===================================
+   MENTION PANEL
+   =================================== */
+
+.mention-panel {
+  position: absolute;
+  bottom: 70px;
+  left: 14px;
+  width: 400px;
+  height: 200px;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: mentionPanelIn 0.18s ease-out;
+}
+
+@keyframes mentionPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mention-panel-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.mention-panel-list:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.mention-panel-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mention-panel-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mention-panel-list::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.mention-panel-list:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.mention-panel-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mention-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  animation: mentionItemIn 0.15s ease-out both;
+}
+
+@keyframes mentionItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mention-item:hover,
+.mention-item.selected {
+  background: var(--gray-100);
+}
+
+.mention-avatar {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mention-avatar-all {
+  background: var(--gray-400);
+}
+
+.mention-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mention-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mention-position {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.mention-loading {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--gray-500);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.mention-loading-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.mention-loading-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gray-400);
+  animation: mentionDotPulse 1.2s ease-in-out infinite;
+}
+
+.mention-loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.mention-loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes mentionDotPulse {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.mention-empty {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--gray-500);
+  text-align: center;
+}
+
+.mention-panel-footer {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--gray-400);
+  border-top: 1px solid var(--gray-100);
+  flex-shrink: 0;
+}
+
+.mention-panel-footer span {
+  font-weight: 600;
+  color: var(--gray-500);
+}
+
+/* Mention highlight — mesaj içində */
+.mention-highlight {
+  color: #3B44C3;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  padding-bottom: 1px;
+  background-image: repeating-linear-gradient(
+    to right,
+    #000 0, #000 3px,
+    transparent 3px, transparent 4px
+  );
+  background-position: bottom;
+  background-size: 100% 0.5px;
+  background-repeat: no-repeat;
+}
+
+.mention-highlight:hover {
+  background-image: repeating-linear-gradient(
+    to right,
+    #000 0, #000 3px,
+    transparent 3px, transparent 4px
+  );
+  background-size: 100% 0.5px;
+}
+
+/* ===================================
    RESPONSIVE
    =================================== */
 

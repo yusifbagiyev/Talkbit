@@ -9,6 +9,7 @@ import {
   getInitials,
   getAvatarColor,
   formatMessageTime,    // "HH:mm" formatı
+  parseMentions,         // Mesaj mətnini mention segmentlərinə ayır
 } from "../utils/chatUtils";
 
 import { QUICK_REACTION_EMOJIS, EXPANDED_EXTRA_EMOJIS, emojiToUrl } from "../utils/emojiConstants";
@@ -50,6 +51,7 @@ const MessageBubble = memo(function MessageBubble({
   onEdit,
   onReaction,
   onLoadReactionDetails,
+  onMentionClick,
 }) {
   // --- LOKAL STATE ---
 
@@ -338,6 +340,24 @@ const MessageBubble = memo(function MessageBubble({
               </svg>
               This message was deleted.
             </span>
+          ) : msg.mentions && msg.mentions.length > 0 ? (
+            // Mention-ları parse et — klikləmə ilə açılan mavi rəngli segmentlər
+            parseMentions(msg.content, msg.mentions).map((seg, i) =>
+              seg.type === "mention" ? (
+                <span
+                  key={i}
+                  className="mention-highlight"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onMentionClick) onMentionClick(seg);
+                  }}
+                >
+                  {seg.text}
+                </span>
+              ) : (
+                <span key={i}>{seg.text}</span>
+              )
+            )
           ) : (
             msg.content // Normal mesaj məzmunu
           )}

@@ -226,3 +226,85 @@ export function groupMessagesByDate(
   }
   return groups;
 }
+
+// ─── Mention Utility Funksiyaları ─────────────────────────────────────────────
+
+/**
+ * Textarea-da caret pozisiyasına əsasən @ mention trigger-i aşkar et.
+ * @param {string} text — textarea-nın tam dəyəri
+ * @param {number} caretPos — caret pozisiyası (selectionStart)
+ * @returns {{ searchText: string, mentionStart: number } | null}
+ */
+export function detectMentionTrigger(text, caretPos) {
+  const before = text.substring(0, caretPos);
+  const lastAt = before.lastIndexOf("@");
+  if (lastAt === -1) return null;
+
+  // @ söz başlanğıcında olmalıdır (əvvəl whitespace, newline və ya mətinin başı)
+  if (lastAt > 0 && !/\s/.test(before[lastAt - 1])) return null;
+
+  // @ dan sonra newline varsa — artıq mention deyil
+  const afterAt = before.substring(lastAt + 1);
+  if (afterAt.includes("\n")) return null;
+
+  return { searchText: afterAt, mentionStart: lastAt };
+}
+
+/**
+ * Mesaj mətnini mention segmentlərinə ayır.
+ * @param {string} content — mesaj mətni
+ * @param {Array|null} mentions — [{ userId, userFullName, isAllMention }]
+ * @returns {Array} [{ type: 'text'|'mention', text, userId?, userFullName?, isAll? }]
+ */
+export function parseMentions(content, mentions) {
+  if (!mentions || mentions.length === 0 || !content) {
+    return [{ type: "text", text: content }];
+  }
+
+  // Mention pattern-lərini hazırla (@ olmadan — @ yalnız trigger-dir)
+  const patterns = mentions.map((m) => ({
+    pattern: m.isAllMention
+      ? "All members"
+      : (m.userFullName || m.mentionedUserFullName),
+    userId: m.userId || m.mentionedUserId,
+    userFullName: m.userFullName || m.mentionedUserFullName,
+    isAll: !!m.isAllMention,
+  }));
+
+  const segments = [];
+  let remaining = content;
+
+  while (remaining.length > 0) {
+    let earliest = remaining.length;
+    let match = null;
+
+    for (const p of patterns) {
+      const idx = remaining.indexOf(p.pattern);
+      if (idx !== -1 && idx < earliest) {
+        earliest = idx;
+        match = p;
+      }
+    }
+
+    if (!match) {
+      segments.push({ type: "text", text: remaining });
+      break;
+    }
+
+    if (earliest > 0) {
+      segments.push({ type: "text", text: remaining.substring(0, earliest) });
+    }
+
+    segments.push({
+      type: "mention",
+      text: match.pattern,
+      userId: match.userId,
+      userFullName: match.userFullName,
+      isAll: match.isAll,
+    });
+
+    remaining = remaining.substring(earliest + match.pattern.length);
+  }
+
+  return segments;
+}

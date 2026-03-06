@@ -83,7 +83,8 @@
       "Bash(git remote:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(ping:*)",
-      "Bash(\"C:/Users/ybaghiyev/Desktop/ChatApp/tasks/lessons.md\":*)"
+      "Bash(\"C:/Users/ybaghiyev/Desktop/ChatApp/tasks/lessons.md\":*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
