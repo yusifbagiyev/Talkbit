@@ -169,7 +169,7 @@ public partial class MessageInput : IAsyncDisposable
     /// <summary>
     /// Maksimum simvol sayı.
     /// </summary>
-    private const int MaxLength = 4000;
+    private const int MaxLength = 10000;
 
     /// <summary>
     /// Ümumi emoji-lər.

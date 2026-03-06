@@ -30,7 +30,7 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Configuratio
             builder.Property(m => m.Content)
                 .HasColumnName("content")
                 .IsRequired()
-                .HasMaxLength(4000);
+                .HasMaxLength(10000);
 
             builder.Property(m => m.FileId)
                 .HasColumnName("file_id")

@@ -43,8 +43,8 @@ namespace ChatApp.Modules.DirectMessages.Domain.Entities
             if(string.IsNullOrWhiteSpace(content) && string.IsNullOrWhiteSpace(fileId))
                 throw new ArgumentException("Message must have content or file attachment");
 
-            if (content?.Length > 4000)
-                throw new ArgumentException("Message content cannot exceed 4000 characters");
+            if (content?.Length > 10000)
+                throw new ArgumentException("Message content cannot exceed 10000 characters");
 
             ConversationId = conversationId;
             SenderId= senderId;
@@ -68,8 +68,8 @@ namespace ChatApp.Modules.DirectMessages.Domain.Entities
             if (string.IsNullOrWhiteSpace(newContent))
                 throw new ArgumentException("Message content cannot be empty");
 
-            if (newContent.Length > 4000)
-                throw new ArgumentException("Message content cannot exceed 4000 characters");
+            if (newContent.Length > 10000)
+                throw new ArgumentException("Message content cannot exceed 10000 characters");
 
             // Only mark as edited if content actually changed
             if (Content == newContent)

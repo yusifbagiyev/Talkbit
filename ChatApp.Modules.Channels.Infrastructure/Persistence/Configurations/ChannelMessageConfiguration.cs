@@ -26,7 +26,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Configurations
             builder.Property(m => m.Content)
                 .HasColumnName("content")
                 .IsRequired()
-                .HasMaxLength(4000);
+                .HasMaxLength(10000);
 
             builder.Property(m => m.FileId)
                 .HasColumnName("file_id")

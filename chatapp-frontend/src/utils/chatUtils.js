@@ -10,7 +10,7 @@ export const MESSAGE_PAGE_SIZE = 30; // Hər dəfə neçə mesaj yüklənir
 export const CONVERSATION_PAGE_SIZE = 50; // Conversation list-i neçəyə qədər yüklənir
 export const HIGHLIGHT_DURATION_MS = 3000; // Scroll-dan sonra mesajın 3 saniyə vurğulanması
 export const TYPING_DEBOUNCE_MS = 2000; // Yazmağı dayandırandan 2 saniyə sonra "yazır" biter
-export const MESSAGE_MAX_LENGTH = 4000; // Mesaj maksimum uzunluğu
+export const MESSAGE_MAX_LENGTH = 10000; // Mesaj maksimum uzunluğu
 export const BATCH_DELETE_THRESHOLD = 5; // 5-dən çox mesaj → batch delete API istifadə et
 
 // ─── getChatEndpoint ──────────────────────────────────────────────────────────

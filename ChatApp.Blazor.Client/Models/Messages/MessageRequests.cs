@@ -12,7 +12,7 @@ namespace ChatApp.Blazor.Client.Models.Messages
     public class SendMessageRequests
     {
         [Required(ErrorMessage = "Message content is required")]
-        [StringLength(4000, ErrorMessage = "Message content cannot exceed 4000 characters")]
+        [StringLength(10000, ErrorMessage = "Message content cannot exceed 10000 characters")]
         public string Content { get; set; } = string.Empty;
 
         public string? FileId { get; set; }
@@ -29,7 +29,7 @@ namespace ChatApp.Blazor.Client.Models.Messages
     public class EditMessageRequests
     {
         [Required(ErrorMessage = "Message content is required")]
-        [StringLength(4000, ErrorMessage = "Message content cannot exceed 4000 characters")]
+        [StringLength(10000, ErrorMessage = "Message content cannot exceed 10000 characters")]
         public string NewContent { get; set; } = string.Empty;
     }
 

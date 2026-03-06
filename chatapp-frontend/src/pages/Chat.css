@@ -1585,11 +1585,10 @@
   display: none;
 }
 
-/* More butonu — bubble-ın sağ kənarında, ortadan yuxarıda (own: sol kənarında) */
+/* More butonu — bubble-ın sağ kənarında, yuxarıda (own: sol kənarında) */
 .bubble-more-wrap {
   position: absolute;
-  top: 30%;
-  transform: translateY(-50%);
+  top: 4px;
   left: calc(100% + 4px);
   z-index: 5;
 }
@@ -2346,14 +2345,20 @@
 }
 
 /* Sağ aşağı butonlar qrupu — emoji + send (absolute) */
+/* Sağ aşağı butonlar sətri — tam enli ağ fon, text bu sətirə girmir */
 .input-actions-group {
   position: absolute;
-  bottom: 6px;
-  right: 6px;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   z-index: 2;
+  background: var(--white);
+  padding: 6px 8px;
+  border-radius: 0 0 22px 22px;
 }
 
 .input-icon-btn:hover {
@@ -2372,6 +2377,7 @@
 
 /* Mirror — textarea ilə eyni font/padding/line-height */
 /* padding-bottom: 44px — butonlar sətri üçün boşluq (text heç vaxt butonlara keçmir) */
+/* overflow-y: scroll — textarea ilə eyni scrollbar eni ayırır (text wrapping sinxron olur) */
 .message-input-mirror {
   position: absolute;
   inset: 0;
@@ -2381,9 +2387,20 @@
   line-height: 1.4;
   white-space: pre-wrap;
   word-wrap: break-word;
-  overflow: hidden;
+  overflow-y: scroll;
   pointer-events: none;
   color: var(--gray-900);
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/* Mirror scrollbar — görünməz, lakin textarea ilə eyni eni tutur */
+.message-input-mirror::-webkit-scrollbar {
+  width: 4px;
+}
+
+.message-input-mirror::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 
 /* Emoji wrap — orijinal emoji simvolunu gizli saxla + üzərinə Apple img overlay */

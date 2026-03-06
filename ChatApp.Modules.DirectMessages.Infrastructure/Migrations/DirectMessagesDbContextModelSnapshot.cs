@@ -233,8 +233,8 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)")
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)")
                         .HasColumnName("content");
 
                     b.Property<Guid>("ConversationId")

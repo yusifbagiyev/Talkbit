@@ -24,7 +24,7 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
 
             RuleFor(x => x.NewContent)
                 .NotEmpty().WithMessage("Message content cannot be empty")
-                .MaximumLength(4000).WithMessage("Message content cannot exceed 4000 characters");
+                .MaximumLength(10000).WithMessage("Message content cannot exceed 10000 characters");
 
             RuleFor(x => x.RequestedBy)
                 .NotEmpty().WithMessage("Requester ID is required");

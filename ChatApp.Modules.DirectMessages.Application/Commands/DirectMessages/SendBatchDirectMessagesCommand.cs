@@ -41,7 +41,7 @@ public class SendBatchDirectMessagesCommandValidator : AbstractValidator<SendBat
         RuleForEach(x => x.Messages).ChildRules(message =>
         {
             message.RuleFor(m => m.Content)
-                .MaximumLength(4000).WithMessage("Message content cannot exceed 4000 characters");
+                .MaximumLength(10000).WithMessage("Message content cannot exceed 10000 characters");
 
             message.RuleFor(m => m)
                 .Must(m => !string.IsNullOrWhiteSpace(m.Content) || !string.IsNullOrWhiteSpace(m.FileId))
