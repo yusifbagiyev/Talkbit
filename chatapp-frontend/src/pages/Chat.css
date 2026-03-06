@@ -1732,21 +1732,40 @@
 }
 
 /* Quick sıra — tək sətir, wrap yoxdur */
-.reaction-quick-row {
-  display: flex;
-  align-items: center;
+/* Vahid emoji grid — quick + expanded emojilər birlikdə */
+.reaction-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 38px);
   gap: 4px;
-  white-space: nowrap;
 }
 
-/* Expanded grid — quick-in altında, 5 sütunlu grid */
-.reaction-expanded-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 38px);
-  gap: 4px;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--gray-100);
+/* Expand olduqda: 5 sıralıq sahə + scroll */
+.reaction-emoji-grid.expanded {
+  max-height: calc(5 * (38px + 4px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.reaction-emoji-grid.expanded:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.reaction-emoji-grid.expanded::-webkit-scrollbar {
+  width: 3px;
+}
+
+.reaction-emoji-grid.expanded::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.reaction-emoji-grid.expanded::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.reaction-emoji-grid.expanded:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
 }
 
 
@@ -1756,6 +1775,15 @@
   height: 1em;
   vertical-align: -0.1em;
   pointer-events: none;
+}
+
+/* Mesaj content-dəki inline Apple emojilər */
+.inline-emoji {
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: -0.25em;
+  pointer-events: none;
+  display: inline;
 }
 
 .reaction-emoji-btn {
@@ -1769,30 +1797,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast);
+  transition: background 0.15s ease;
 }
 
 .reaction-emoji-btn:hover {
   background: var(--gray-100);
 }
 
-/* Hover animasiya — emoji canlı sıçrayış + titrəmə (Bitrix stili) */
-@keyframes emoji-bounce {
-  0%   { transform: scale(1) translateY(0) rotate(0deg); }
-  20%  { transform: scale(1.45) translateY(-8px) rotate(-5deg); }
-  40%  { transform: scale(0.95) translateY(2px) rotate(3deg); }
-  55%  { transform: scale(1.25) translateY(-4px) rotate(-2deg); }
-  70%  { transform: scale(1.05) translateY(0) rotate(1deg); }
-  85%  { transform: scale(1.2) translateY(-2px) rotate(0deg); }
-  100% { transform: scale(1.15) translateY(-2px) rotate(0deg); }
+/* Hover animasiya — yüngül böyümə + yuxarı qalxma */
+@keyframes emoji-pop {
+  0%   { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.3) translateY(-4px); }
+  100% { transform: scale(1.2) translateY(-2px); }
 }
 
 .reaction-emoji-btn .twemoji {
-  transition: transform 0.15s ease-out;
+  transition: transform 0.2s ease-out;
 }
 
 .reaction-emoji-btn:hover .twemoji {
-  animation: emoji-bounce 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+  animation: emoji-pop 0.3s ease-out forwards;
 }
 
 .reaction-expand-btn {
@@ -2278,12 +2302,58 @@
   color: var(--primary-color);
 }
 
-.message-input {
+/* Textarea + mirror konteyner */
+.message-input-container {
   flex: 1;
+  position: relative;
+  min-height: 34px;
+}
+
+/* Mirror — textarea ilə eyni font/padding/line-height */
+.message-input-mirror {
+  position: absolute;
+  inset: 0;
+  padding: 6px 8px;
+  font-size: 15px;
+  font-family: inherit;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--gray-900);
+}
+
+/* Emoji wrap — orijinal emoji simvolunu gizli saxla + üzərinə Apple img overlay */
+.mirror-emoji-wrap {
+  position: relative;
+  display: inline;
+}
+
+/* Gizli emoji simvolu — textarea ilə eyni eni tutur */
+.mirror-emoji-char {
+  visibility: hidden;
+}
+
+/* Apple CDN emoji şəkli — gizli simvolun üzərində göstərilir */
+.mirror-emoji-img {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1.15em;
+  pointer-events: none;
+}
+
+/* Textarea — transparent text, visible caret */
+.message-input {
+  position: relative;
+  width: 100%;
   border: none;
   background: transparent;
   font-size: 15px;
-  color: var(--gray-900);
+  color: transparent;
+  caret-color: var(--gray-900);
   outline: none;
   padding: 6px 8px;
   font-family: inherit;
@@ -2292,12 +2362,20 @@
   max-height: 250px;
   overflow-y: auto;
   height: auto;
+  z-index: 1;
 }
 
 .message-input::placeholder {
   color: var(--gray-400);
   font-size: 14px;
 }
+
+/* Selection zamanı rəng — transparent text seçiləndə görünməlidir */
+.message-input::selection {
+  background: rgba(0, 172, 227, 0.3);
+  color: transparent;
+}
+
 
 .send-btn {
   width: 34px;
@@ -2339,49 +2417,35 @@
   position: absolute;
   bottom: 70px;
   right: 14px;
-  width: 340px;
-  max-height: 360px;
+  width: 350px;
+  height: 435px;
   background: var(--white);
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   z-index: 200;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
+  animation: emojiPanelIn 0.18s ease-out;
 }
 
-.emoji-panel-header {
-  padding: 12px 14px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--gray-500);
+@keyframes emojiPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.emoji-panel-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 2px;
-  padding: 0 8px 10px;
-  overflow-y: auto;
-  max-height: 300px;
-}
-
-.emoji-panel-btn {
-  width: 38px;
-  height: 38px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  font-size: 22px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition-fast);
-}
-
-.emoji-panel-btn:hover {
-  background: var(--gray-100);
+/* emoji-picker-react kitabxanasının daxili stillərini override et */
+.emoji-panel .EmojiPickerReact {
+  border: none !important;
+  box-shadow: none !important;
+  --epr-emoji-size: 28px;
+  --epr-category-label-height: 28px;
+  --epr-header-padding: 8px 10px;
+  font-family: inherit;
 }
 
 /* ===================================

@@ -1,7 +1,9 @@
 // Sabitlər import et
-import { TEXT_INPUT_EMOJIS } from "../utils/emojiConstants";    // Emoji panel üçün emojilər
+import { useRef, useCallback } from "react";
 import { MESSAGE_MAX_LENGTH } from "../utils/chatUtils";         // Maksimum mesaj uzunluğu
+import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Apple img çevirici
 import MentionPanel from "./MentionPanel";                       // @ mention dropdown paneli
+import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react"; // Modern emoji picker
 
 // ChatInputArea komponenti — mesaj yazma sahəsi + emoji panel
 // Bu komponent "pure UI" — bütün state Chat.jsx-dədir, buraya prop olaraq gəlir
@@ -32,6 +34,33 @@ function ChatInputArea({
   onTextChange, mentionOpen, mentionItems,
   mentionSelectedIndex, mentionLoading, mentionPanelRef, onMentionSelect,
 }) {
+  const mirrorRef = useRef(null);
+
+  // renderMirrorContent — text hissəsini normal göstərir, emoji hissəsini isə:
+  // 1. Orijinal emoji simvolunu gizli saxlayır (visibility:hidden) — textarea ilə eyni eni tutur
+  // 2. Üzərinə Apple CDN şəklini overlay edir — gözəl emoji görünür
+  // Nəticə: text axını textarea ilə 100% eyni → caret pozisiyası düzgündür
+  const renderMirrorContent = useCallback((text) => {
+    if (!text) return null;
+    const parts = renderTextWithEmojis(text);
+    if (typeof parts === "string") return parts;
+    return parts.map((part, i) =>
+      typeof part === "string" ? (
+        <span key={i}>{part}</span>
+      ) : (
+        <span key={i} className="mirror-emoji-wrap">
+          <span className="mirror-emoji-char">{part.emoji}</span>
+          <img
+            src={part.url}
+            alt=""
+            className="mirror-emoji-img"
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+        </span>
+      )
+    );
+  }, []);
+
   return (
     // Fragment <> </> — birden çox root element qaytarmaq üçün
     // .NET: RenderFragment ilə oxşardır
@@ -142,29 +171,38 @@ function ChatInputArea({
             </svg>
           </button>
 
-          {/* textarea — çox sətirli mesaj yazma sahəsi */}
-          {/* ref={inputRef} — Chat.jsx-dən focus vermək üçün */}
-          {/* maxLength — backend ilə uyğun limit */}
-          {/* rows={1} + auto-height — yazan kimi böyüyür (max 120px) */}
-          <textarea
-            ref={inputRef}
-            className="message-input"
-            placeholder="Enter @ to mention a person or chat"
-            value={messageText}
-            maxLength={MESSAGE_MAX_LENGTH}
-            rows={1}
-            onChange={(e) => {
-              const val = e.target.value;
-              const caret = e.target.selectionStart;
-              // onTextChange varsa mention detection ilə birlikdə dəyişdir
-              if (onTextChange) onTextChange(val, caret);
-              else setMessageText(val);
-              // Auto-resize: height-i sıfırla, sonra scrollHeight qədər artır (max 120px)
-              e.target.style.height = "auto";
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
-            }}
-            onKeyDown={onKeyDown} // Enter → send, Shift+Enter → yeni sətir, typing siqnalı
-          />
+          {/* textarea + mirror konteyner */}
+          <div className="message-input-container">
+            {/* Mirror — textarea ilə eyni text axını, lakin Apple emoji overlay */}
+            <div className="message-input-mirror" ref={mirrorRef}>
+              {renderMirrorContent(messageText)}
+            </div>
+
+            {/* textarea — transparent text + visible caret */}
+            <textarea
+              ref={inputRef}
+              className="message-input"
+              placeholder="Enter @ to mention a person or chat"
+              value={messageText}
+              maxLength={MESSAGE_MAX_LENGTH}
+              rows={1}
+              onChange={(e) => {
+                const val = e.target.value;
+                const caret = e.target.selectionStart;
+                if (onTextChange) onTextChange(val, caret);
+                else setMessageText(val);
+                // Auto-resize
+                e.target.style.height = "auto";
+                const h = Math.min(e.target.scrollHeight, 120);
+                e.target.style.height = h + "px";
+                if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
+              }}
+              onScroll={(e) => {
+                if (mirrorRef.current) mirrorRef.current.scrollTop = e.target.scrollTop;
+              }}
+              onKeyDown={onKeyDown}
+            />
+          </div>
 
           {/* Emoji düyməsi — paneli aç/bağla */}
           {/* active class — açıq olduqda vurğulanır */}
@@ -179,12 +217,14 @@ function ChatInputArea({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
               <circle cx="12" cy="12" r="10" />
-              <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-              <line x1="9" y1="9" x2="9.01" y2="9" />
-              <line x1="15" y1="9" x2="15.01" y2="9" />
+              <path d="M8 14c.5 1.5 2 3 4 3s3.5-1.5 4-3" />
+              <circle cx="9" cy="9.5" r="1.2" fill="currentColor" stroke="none" />
+              <circle cx="15" cy="9.5" r="1.2" fill="currentColor" stroke="none" />
             </svg>
           </button>
 
@@ -219,27 +259,23 @@ function ChatInputArea({
         />
       )}
 
-      {/* Emoji picker panel — emojiOpen true olduqda göstər */}
+      {/* Emoji picker panel — Apple stilində modern emojilər */}
       {emojiOpen && (
-        // ref={emojiPanelRef} — Chat.jsx-dəki kənar klik handler-i üçün
         <div className="emoji-panel" ref={emojiPanelRef}>
-          <div className="emoji-panel-header">Smileys and people</div>
-          <div className="emoji-panel-grid">
-            {/* TEXT_INPUT_EMOJIS array-ini map et → hər emoji üçün button */}
-            {TEXT_INPUT_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                className="emoji-panel-btn"
-                onClick={() => {
-                  // Functional update — əvvəlki dəyərə emoji əlavə et
-                  // prev + emoji → "Hello" + "😊" = "Hello😊"
-                  setMessageText((prev) => prev + emoji);
-                }}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+          <EmojiPicker
+            emojiStyle={EmojiStyle.APPLE}
+            theme={Theme.LIGHT}
+            width="100%"
+            height="100%"
+            searchPlaceHolder="Search emoji..."
+            skinTonesDisabled
+            previewConfig={{ showPreview: false }}
+            lazyLoadEmojis
+            onEmojiClick={(emojiData) => {
+              setMessageText((prev) => prev + emojiData.emoji);
+              inputRef.current?.focus();
+            }}
+          />
         </div>
       )}
     </>

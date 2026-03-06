@@ -12,8 +12,34 @@ import {
   parseMentions,         // Mesaj mətnini mention segmentlərinə ayır
 } from "../utils/chatUtils";
 
-import { QUICK_REACTION_EMOJIS, EXPANDED_EXTRA_EMOJIS, emojiToUrl } from "../utils/emojiConstants";
+import { QUICK_REACTION_EMOJIS, EXPANDED_EXTRA_EMOJIS, emojiToUrl, renderTextWithEmojis } from "../utils/emojiConstants";
 import MessageActionMenu from "./MessageActionMenu"; // "⋮" menyu komponenti
+
+// renderEmojiContent — mətn içindəki Unicode emojiləri Apple CDN şəkillərinə çevirir
+// renderTextWithEmojis string/array qaytarır → biz JSX-ə çeviririk
+// CDN şəkil yüklənmədikdə (onerror) fallback olaraq Unicode emoji göstərilir
+function renderEmojiContent(text) {
+  const parts = renderTextWithEmojis(text);
+  if (typeof parts === "string") return parts;
+  return parts.map((part, i) =>
+    typeof part === "string" ? (
+      <span key={i}>{part}</span>
+    ) : (
+      <img
+        key={i}
+        src={part.url}
+        alt={part.emoji}
+        className="inline-emoji"
+        onError={(e) => {
+          // CDN-dən yüklənmədikdə Unicode emoji text ilə əvəz et
+          const span = document.createElement("span");
+          span.textContent = part.emoji;
+          e.target.replaceWith(span);
+        }}
+      />
+    )
+  );
+}
 
 // MessageBubble — tək bir mesajın balonu
 // memo ilə wrap edilib — Chat.jsx-dəki grouped.map() çox element render edir,
@@ -355,11 +381,11 @@ const MessageBubble = memo(function MessageBubble({
                   {seg.text}
                 </span>
               ) : (
-                <span key={i}>{seg.text}</span>
+                <span key={i}>{renderEmojiContent(seg.text)}</span>
               )
             )
           ) : (
-            msg.content // Normal mesaj məzmunu
+            renderEmojiContent(msg.content)
           )}
         </div>
 
@@ -561,8 +587,8 @@ const MessageBubble = memo(function MessageBubble({
               onMouseEnter={() => setPickerHovered(true)}
               onMouseLeave={() => setPickerHovered(false)}
             >
-              {/* Quick sıra — həmişə görünür + expand/collapse butonu */}
-              <div className="reaction-quick-row">
+              {/* Bütün emojilər — vahid grid + scroll */}
+              <div className={`reaction-emoji-grid${reactionExpanded ? " expanded" : ""}`}>
                 {QUICK_REACTION_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
@@ -576,35 +602,30 @@ const MessageBubble = memo(function MessageBubble({
                     <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
                   </button>
                 ))}
-                {!reactionExpanded && (
+                {reactionExpanded && EXPANDED_EXTRA_EMOJIS.map((emoji) => (
                   <button
-                    className="reaction-expand-btn"
-                    onClick={() => setReactionExpanded(true)}
+                    key={emoji}
+                    className="reaction-emoji-btn"
+                    onClick={() => {
+                      onReaction && onReaction(msg, emoji);
+                      setReactionOpen(false);
+                      setReactionExpanded(false);
+                    }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                    <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
                   </button>
-                )}
+                ))}
               </div>
-
-              {/* Expanded grid — quick sıranın altında, aşağıya doğru böyüyür */}
-              {reactionExpanded && (
-                <div className="reaction-expanded-grid">
-                  {EXPANDED_EXTRA_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      className="reaction-emoji-btn"
-                      onClick={() => {
-                        onReaction && onReaction(msg, emoji);
-                        setReactionOpen(false);
-                        setReactionExpanded(false);
-                      }}
-                    >
-                      <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
-                    </button>
-                  ))}
-                </div>
+              {/* Expand/collapse butonu */}
+              {!reactionExpanded && (
+                <button
+                  className="reaction-expand-btn"
+                  onClick={() => setReactionExpanded(true)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
               )}
             </div>
           </div>

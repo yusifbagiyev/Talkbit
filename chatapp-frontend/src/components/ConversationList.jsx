@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, formatTime } from "../utils/chatUtils";
+import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Apple img çevirici
 
 // API servis — backend-ə HTTP GET request göndərmək üçün
 import { apiGet } from "../services/api";
@@ -56,6 +57,31 @@ function ConversationList({
   // contextMenu — sağ klik ilə açılan menu: { conv, x, y } və ya null
   const [contextMenu, setContextMenu] = useState(null);
   const contextMenuRef = useRef(null);
+
+  // renderPreviewEmojis — preview mətndəki Unicode emojiləri Apple CDN img-ə çevirir
+  // ConversationList-də son mesaj preview-unda gözəl Apple emoji göstərmək üçün
+  const renderPreviewEmojis = (text) => {
+    if (!text || typeof text !== "string") return text;
+    const parts = renderTextWithEmojis(text);
+    if (typeof parts === "string") return parts;
+    return parts.map((part, i) =>
+      typeof part === "string" ? (
+        <span key={i}>{part}</span>
+      ) : (
+        <img
+          key={i}
+          src={part.url}
+          alt={part.emoji}
+          className="inline-emoji"
+          onError={(e) => {
+            const span = document.createElement("span");
+            span.textContent = part.emoji;
+            e.target.replaceWith(span);
+          }}
+        />
+      )
+    );
+  };
 
   // --- Filter dropdown state ---
   // filterOpen — filter dropdown açıq/bağlı
@@ -533,7 +559,9 @@ function ConversationList({
                   <div className="conversation-bottom-row">
                     <span className="conversation-preview">
                       {previewPrefix}
-                      {previewContent}
+                      {typeof previewContent === "string"
+                        ? renderPreviewEmojis(previewContent)
+                        : previewContent}
                     </span>
                     {/* Pin icon — pinlənmiş conversation üçün */}
                     {c.isPinned && (
