@@ -353,8 +353,10 @@ function Chat() {
           // Viewport-a sığırsa → scroll et (ilk unread hələ görünəcək)
           if (distFromUnreadToBottom <= area.clientHeight) {
             messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+          } else {
+            // Sığmırsa → scroll etmə, scroll-to-bottom butonunu göstər
+            setShowScrollDown(true);
           }
-          // Sığmırsa → scroll etmə (ilk unread viewport-dan çıxar)
         }
       }
       return;
@@ -441,7 +443,7 @@ function Chat() {
     }
   }, [messages]);
 
-  // ─── Scroll-to-bottom butonu görünürlüyü + scrollbar görünürlüyü ───
+  // ─── Scroll-to-bottom butonu + scrollbar görünürlüyü ───
   // 1 viewport-dan çox yuxarı scroll olunduqda buton görünür
   // Scroll zamanı scrollbar görünür, dayananda 800ms sonra gizlənir
   useEffect(() => {
@@ -480,6 +482,7 @@ function Chat() {
 
   // hasNewUnreadRef-i yeni SignalR mesajı gəldikdə true et
   // firstUnreadMsgIdRef — ilk unread mesajı yadda saxla (scroll limit üçün)
+  // Bütün yeni mesajlar oxunanda (isRead: true) → hasNewUnreadRef = false
   useEffect(() => {
     const newUnreads = messages.filter(
       (m) => !m.isRead && m.senderId !== user?.id && !initialMsgIdsRef.current.has(m.id),
@@ -490,6 +493,10 @@ function Chat() {
       if (!firstUnreadMsgIdRef.current) {
         firstUnreadMsgIdRef.current = newUnreads[newUnreads.length - 1].id;
       }
+    } else if (hasNewUnreadRef.current) {
+      // Bütün yeni mesajlar oxundu (IntersectionObserver ilə) → reset
+      hasNewUnreadRef.current = false;
+      firstUnreadMsgIdRef.current = null;
     }
   }, [messages]);
 
@@ -592,26 +599,16 @@ function Chat() {
           const convType = entry.target.dataset.convType;
           if (!msgId) continue;
 
-          if (entry.isIntersecting) {
-            // İlkin mesajlar → dərhal read et (scroll ilə görünəndə)
-            if (initialMsgIdsRef.current.has(msgId) && !processedMsgIdsRef.current.has(msgId)) {
-              processedMsgIdsRef.current.add(msgId);
-              visibleUnreadRef.current.add(msgId);
-              readBatchChatRef.current = { chatId: convId, chatType: convType };
-              // Debounce — 300ms sonra batch göndər
-              if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
-              readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
-              observer.unobserve(entry.target);
-            } else if (!initialMsgIdsRef.current.has(msgId)) {
-              // Yeni SignalR mesajı — track et amma read etmə
-              visibleUnreadRef.current.add(msgId);
-              readBatchChatRef.current = { chatId: convId, chatType: convType };
-            }
-          } else {
-            // Viewport-dan çıxdı — yalnız SignalR mesajlarını sil (çıxanda flush üçün)
-            if (!initialMsgIdsRef.current.has(msgId)) {
-              visibleUnreadRef.current.delete(msgId);
-            }
+          if (entry.isIntersecting && !processedMsgIdsRef.current.has(msgId)) {
+            // Mesaj viewport-da görünür → oxundu olaraq işarələ
+            // Həm ilkin mesajlar, həm SignalR mesajları üçün eyni davranış
+            processedMsgIdsRef.current.add(msgId);
+            visibleUnreadRef.current.add(msgId);
+            readBatchChatRef.current = { chatId: convId, chatType: convType };
+            // Debounce — 300ms sonra batch göndər
+            if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
+            readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
+            observer.unobserve(entry.target);
           }
         }
       },
@@ -2670,6 +2667,42 @@ function Chat() {
     [messages, readLaterMessageId, newMessagesStartId],
   );
 
+  // senderRuns — ardıcıl eyni-sender mesajlarını qruplara ayır
+  // Separator-lar ayrı item olaraq qalır, mesajlar sender-group run-larına bükülür
+  // Bu, CSS sticky avatar üçün lazımdır
+  const senderRuns = useMemo(() => {
+    const runs = [];
+    let currentRun = null;
+
+    for (let i = 0; i < grouped.length; i++) {
+      const item = grouped[i];
+      // Separator-lar (date, readLater, newMessages) — run-u bitir, separator əlavə et
+      if (item.type !== "message") {
+        if (currentRun) { runs.push(currentRun); currentRun = null; }
+        runs.push(item);
+        continue;
+      }
+      const msg = item.data;
+      const senderId = msg.senderId;
+      // Eyni sender davam edir → mövcud run-a əlavə et
+      if (currentRun && currentRun.senderId === senderId) {
+        currentRun.messages.push(msg);
+      } else {
+        // Fərqli sender və ya ilk mesaj → yeni run başla
+        if (currentRun) runs.push(currentRun);
+        currentRun = {
+          type: "senderRun",
+          senderId,
+          isOwn: senderId === user?.id,
+          senderFullName: msg.senderFullName,
+          messages: [msg],
+        };
+      }
+    }
+    if (currentRun) runs.push(currentRun);
+    return runs;
+  }, [grouped, user?.id]);
+
   // hasOthersSelected — seçilmiş mesajların arasında başqasının mesajı varmı?
   // true olduqda Delete button deaktiv olur
   const hasOthersSelected = useMemo(() => {
@@ -2922,72 +2955,109 @@ function Chat() {
                 {/* Floating date — scroll zamanı cari tarixi yuxarıda göstər */}
                 <div className="floating-date" ref={floatingDateRef} />
 
-                {/* grouped — [{type:"date", label:"..."}, {type:"message", data:{...}}, ...] */}
-                {grouped.map((item, index) => {
-                  if (item.type === "date") {
-                    // Tarix separator — "Today", "Yesterday", "18 Feb 2026"
+                {/* senderRuns — separator-lar + sender qrupları */}
+                {senderRuns.map((run, runIdx) => {
+                  // Separator-lar (date, readLater, newMessages) — olduğu kimi render et
+                  if (run.type === "date") {
                     return (
-                      <div key={`date-${index}`} className="date-separator">
-                        <span>{item.label}</span>
+                      <div key={`date-${runIdx}`} className="date-separator">
+                        <span>{run.label}</span>
                       </div>
                     );
                   }
-                  if (item.type === "readLater") {
-                    // Read later separator — işarələnmiş mesajdan əvvəl göstərilir
+                  if (run.type === "readLater") {
                     return (
                       <div key="read-later" className="read-later-separator">
                         <span>Read later</span>
                       </div>
                     );
                   }
-                  if (item.type === "newMessages") {
-                    // New messages separator — ilk oxunmamış mesajdan əvvəl göstərilir
+                  if (run.type === "newMessages") {
                     return (
                       <div key="new-messages" className="new-messages-separator">
                         <span>New messages</span>
                       </div>
                     );
                   }
-                  const msg = item.data;
-                  // isOwn — bu mesaj cari istifadəçinindirsə true
-                  const isOwn = msg.senderId === user.id;
 
-                  // showAvatar — avatar yalnız "son" mesajda görünür
-                  // Növbəti item fərqli senderdirsə və ya date separator-dursa → true
-                  const nextItem = grouped[index + 1];
-                  const showAvatar =
-                    !nextItem ||
-                    nextItem.type === "date" ||
-                    nextItem.type === "readLater" ||
-                    nextItem.type === "newMessages" ||
-                    nextItem.data.senderId !== msg.senderId;
+                  // Sender run — ardıcıl eyni-sender mesajları
+                  const { messages: runMsgs, isOwn, senderFullName } = run;
+                  const runKey = `${run.senderId}-${runMsgs[0].id}`;
 
+                  // Own mesajlar — wrapper lazım deyil, birbaşa render et
+                  if (isOwn) {
+                    return runMsgs.map((msg, msgIdx) => {
+                      const showAvatar = msgIdx === runMsgs.length - 1;
+                      return (
+                        <MessageBubble
+                          key={msg.id}
+                          msg={msg}
+                          isOwn
+                          showAvatar={showAvatar}
+                          chatType={selectedChat.type}
+                          selectMode={selectMode}
+                          isSelected={selectedMessages.has(msg.id)}
+                          onReply={handleReply}
+                          onForward={handleForwardMsg}
+                          onPin={handlePinMessage}
+                          onFavorite={handleFavoriteMessage}
+                          onRemoveFavorite={handleRemoveFavorite}
+                          isFavorite={favoriteIds.has(msg.id)}
+                          onMarkLater={handleMarkLater}
+                          readLaterMessageId={readLaterMessageId}
+                          onSelect={handleEnterSelectMode}
+                          onToggleSelect={handleToggleSelect}
+                          onScrollToMessage={handleScrollToMessage}
+                          onDelete={setPendingDeleteMsg}
+                          onEdit={handleEditMsg}
+                          onReaction={handleReaction}
+                          onLoadReactionDetails={handleLoadReactionDetails}
+                          onMentionClick={handleMentionClick}
+                        />
+                      );
+                    });
+                  }
+
+                  // Non-own mesajlar — sender-group wrapper + sticky avatar
                   return (
-                    <MessageBubble
-                      key={msg.id} // React-ın list key-i
-                      msg={msg}
-                      isOwn={isOwn}
-                      showAvatar={showAvatar}
-                      chatType={selectedChat.type}
-                      selectMode={selectMode}
-                      isSelected={selectedMessages.has(msg.id)}
-                      onReply={handleReply}
-                      onForward={handleForwardMsg}
-                      onPin={handlePinMessage}
-                      onFavorite={handleFavoriteMessage}
-                      onRemoveFavorite={handleRemoveFavorite}
-                      isFavorite={favoriteIds.has(msg.id)}
-                      onMarkLater={handleMarkLater}
-                      readLaterMessageId={readLaterMessageId}
-                      onSelect={handleEnterSelectMode}
-                      onToggleSelect={handleToggleSelect}
-                      onScrollToMessage={handleScrollToMessage}
-                      onDelete={setPendingDeleteMsg}
-                      onEdit={handleEditMsg}
-                      onReaction={handleReaction}
-                      onLoadReactionDetails={handleLoadReactionDetails}
-                      onMentionClick={handleMentionClick}
-                    />
+                    <div key={runKey} className="sender-group">
+                      {/* Sticky avatar — scroll zamanı qrupun daxilində aşağıda yapışıq qalır */}
+                      <div className="sender-group-avatar" style={{ background: getAvatarColor(senderFullName) }}>
+                        {getInitials(senderFullName)}
+                      </div>
+                      <div className="sender-group-messages">
+                        {runMsgs.map((msg, msgIdx) => {
+                          const showAvatar = msgIdx === runMsgs.length - 1;
+                          return (
+                            <MessageBubble
+                              key={msg.id}
+                              msg={msg}
+                              isOwn={false}
+                              showAvatar={showAvatar}
+                              chatType={selectedChat.type}
+                              selectMode={selectMode}
+                              isSelected={selectedMessages.has(msg.id)}
+                              onReply={handleReply}
+                              onForward={handleForwardMsg}
+                              onPin={handlePinMessage}
+                              onFavorite={handleFavoriteMessage}
+                              onRemoveFavorite={handleRemoveFavorite}
+                              isFavorite={favoriteIds.has(msg.id)}
+                              onMarkLater={handleMarkLater}
+                              readLaterMessageId={readLaterMessageId}
+                              onSelect={handleEnterSelectMode}
+                              onToggleSelect={handleToggleSelect}
+                              onScrollToMessage={handleScrollToMessage}
+                              onDelete={setPendingDeleteMsg}
+                              onEdit={handleEditMsg}
+                              onReaction={handleReaction}
+                              onLoadReactionDetails={handleLoadReactionDetails}
+                              onMentionClick={handleMentionClick}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
                 {/* ChatStatusBar — mesajlarla birlikdə scroll edir */}
@@ -3013,7 +3083,7 @@ function Chat() {
                   {newUnreadCount > 0 && (
                     <span className="scroll-unread-badge">{newUnreadCount}</span>
                   )}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </button>

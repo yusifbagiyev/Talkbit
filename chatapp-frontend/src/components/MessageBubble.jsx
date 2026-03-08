@@ -295,22 +295,7 @@ const MessageBubble = memo(function MessageBubble({
         </div>
       )}
 
-      {/* Avatar slot — yalnız başqasının mesajında (isOwn=false) */}
-      {!isOwn && (
-        <div className="message-avatar-slot">
-          {/* showAvatar — bu sətir qrupun son mesajıdırsa true */}
-          {showAvatar && (
-            <div
-              className="message-avatar"
-              style={{
-                background: getAvatarColor(msg.senderFullName),
-              }}
-            >
-              {getInitials(msg.senderFullName)}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Avatar artıq sender-group-da render olunur (CSS sticky) */}
 
       {/* message-bubble — mesajın vizual balonu */}
       {/* CSS :hover ilə butonlar göstərilir — JS hover state lazım deyil */}
