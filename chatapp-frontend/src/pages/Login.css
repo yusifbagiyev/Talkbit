@@ -329,6 +329,12 @@
   line-height: 1.5;
 }
 
+/* Brauzerin native password reveal düyməsini gizlət */
+.login-input::-ms-reveal,
+.login-input::-ms-clear {
+  display: none;
+}
+
 .login-input:hover {
   border-color: var(--gray-300);
   background-color: var(--white);

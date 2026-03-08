@@ -151,10 +151,6 @@ function Chat() {
   // scrollIntoView() ilə ən yeni mesaja scroll etmək üçün
   const messagesEndRef = useRef(null);
 
-  // skipAutoScrollRef — incoming mesaj gəldikdə "near bottom" auto-scroll-u blokla
-  // Bitrix davranışı: başqasının mesajı gəldikdə scroll pozisiyası dəyişməməlidir
-  const skipAutoScrollRef = useRef(false);
-
   // messagesAreaRef — scroll container-i (messages-area div-i)
   // handleScroll, IntersectionObserver üçün lazımdır
   const messagesAreaRef = useRef(null);
@@ -328,7 +324,6 @@ function Chat() {
     setPinnedMessages,
     setCurrentPinIndex,
     setLastReadTimestamp,
-    skipAutoScrollRef,
   );
 
   // shouldScrollBottom true olduqda ən alt mesaja scroll et
@@ -340,17 +335,10 @@ function Chat() {
     if (shouldScrollBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       setShouldScrollBottom(false);
-      skipAutoScrollRef.current = false;
       return;
     }
-    // Incoming mesaj gəldikdə "near bottom" auto-scroll-u blokla
-    // Bitrix davranışı: başqasının mesajı gəldikdə scroll pozisiyası dəyişməməlidir
-    if (skipAutoScrollRef.current) {
-      skipAutoScrollRef.current = false;
-      return;
-    }
-    // Auto-scroll: istifadəçi artıq aşağıdadırsa və content dəyişibsə
-    // (məs. viewed bar görsəndikdə, typing başladıqda) avtomatik aşağı düş
+    // Auto-scroll: istifadəçi artıq aşağıdadırsa (< 80px) və content dəyişibsə
+    // Yeni mesaj gəldikdə viewport-a sığana qədər aşağı scroll olur
     const area = messagesAreaRef.current;
     if (area) {
       const distanceFromBottom =
@@ -431,40 +419,98 @@ function Chat() {
     }
   }, [messages]);
 
-  // ─── Read marking — IntersectionObserver + input click gate ───
-  // Bitrix davranışı: mesajlar viewport-da görünsə belə, istifadəçi input-a basmadıqca
-  // oxundu işarələnmir. Input-a klik → gate açılır → viewport-dakı mesajlar oxundu olur
-  // → scroll etdikcə yeni görünən mesajlar da oxundu olur
+  // ─── Mark-as-read mexanizmi ───
+  // initialMsgIdsRef — conversation açılanda yüklənən mesaj ID-ləri
+  //   Bu mesajlar viewport-da görünəndə dərhal read olur (scroll ilə)
+  //   Yeni SignalR mesajları bu set-də yoxdur → yazmağa/göndərməyə qədər unread qalır
+  // hasNewUnreadRef — SignalR ilə yeni unread mesaj gəlib mi?
+  //   Yazmağa başlayanda/göndərəndə mark-all-read çağırılır
+  const initialMsgIdsRef = useRef(new Set());
+  const hasNewUnreadRef = useRef(false);
+  const visibleUnreadRef = useRef(new Set());
   const observerRef = useRef(null);
+  const readBatchChatRef = useRef(null);
+  const readBatchTimerRef = useRef(null);
   const processedMsgIdsRef = useRef(new Set());
-  const inputActivatedRef = useRef(false); // Gate — input-a klik olunubsa true
 
-  // ─── Batch mark-as-read — mesajları buferdə yığ, debounce ilə göndər ───
-  const readBatchRef = useRef(new Set());       // gözləyən mesaj id-ləri
-  const readBatchTimerRef = useRef(null);        // debounce timer (300ms)
-  const readBatchChatRef = useRef(null);         // { chatId, chatType }
+  // hasNewUnreadRef-i yeni SignalR mesajı gəldikdə true et
+  useEffect(() => {
+    if (messages.some((m) => !m.isRead && m.senderId !== user?.id && !initialMsgIdsRef.current.has(m.id))) {
+      hasNewUnreadRef.current = true;
+    }
+  }, [messages]);
 
-  // flushReadBatch — buferdəki mesajları paralel göndər və sıfırla
+  // flushReadBatch — buferdəki mesajları batch göndər
   function flushReadBatch() {
-    const ids = readBatchRef.current;
+    const ids = visibleUnreadRef.current;
     const chatInfo = readBatchChatRef.current;
     if (ids.size === 0 || !chatInfo) return;
 
     const batch = [...ids];
-    readBatchRef.current = new Set();
+    visibleUnreadRef.current = new Set();
+
     if (readBatchTimerRef.current) {
       clearTimeout(readBatchTimerRef.current);
       readBatchTimerRef.current = null;
     }
 
     const { chatId, chatType } = chatInfo;
+
+    // Frontend — mesajları isRead: true et
+    const idSet = new Set(batch);
+    setMessages((prev) =>
+      prev.map((m) => idSet.has(m.id) ? { ...m, isRead: true } : m),
+    );
+
+    // Conversation list unreadCount azalt
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id === chatId && c.unreadCount > 0) {
+          return { ...c, unreadCount: Math.max(0, c.unreadCount - batch.length) };
+        }
+        return c;
+      }),
+    );
+
+    // Backend-ə batch read göndər
     Promise.all(
       batch.map((msgId) =>
         chatType === "0"
           ? apiPost(`/api/conversations/${chatId}/messages/${msgId}/read`)
           : apiPost(`/api/channels/${chatId}/messages/${msgId}/mark-as-read`),
       ),
-    ).catch((err) => console.error("Failed to batch mark as read:", err));
+    ).catch(() => {});
+  }
+
+  // markAllAsReadForCurrentChat — bütün unread mesajları oxundu et
+  // Yazmağa başlayanda və ya mesaj göndərəndə çağırılır
+  function markAllAsReadForCurrentChat() {
+    if (!hasNewUnreadRef.current) return;
+    hasNewUnreadRef.current = false;
+
+    const chatInfo = readBatchChatRef.current;
+    if (!chatInfo) return;
+    const { chatId, chatType } = chatInfo;
+
+    // Frontend-də mesajları isRead: true et
+    setMessages((prev) =>
+      prev.map((m) => m.isRead ? m : { ...m, isRead: true }),
+    );
+
+    // Backend-ə mark-all-read göndər
+    const endpoint = chatType === "0"
+      ? `/api/conversations/${chatId}/messages/mark-all-read`
+      : `/api/channels/${chatId}/messages/mark-as-read`;
+    apiPost(endpoint).catch(() => {});
+
+    // Conversation list-dəki unreadCount-u sıfırla
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === chatId ? { ...c, unreadCount: 0 } : c,
+      ),
+    );
+
+    visibleUnreadRef.current = new Set();
   }
 
   // Effect 1: Observer yaratma/silmə — YALNIZ selectedChat dəyişdikdə
@@ -472,43 +518,37 @@ function Chat() {
     const area = messagesAreaRef.current;
     if (!area || !selectedChat) return;
 
+    visibleUnreadRef.current = new Set();
     processedMsgIdsRef.current = new Set();
-    inputActivatedRef.current = false; // Yeni chat — gate bağla
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Gate check — input-a klik olunmayıbsa heç nə etmə
-        if (!inputActivatedRef.current) return;
-
         for (const entry of entries) {
+          const msgId = entry.target.dataset.msgId;
+          const convId = entry.target.dataset.convId;
+          const convType = entry.target.dataset.convType;
+          if (!msgId) continue;
+
           if (entry.isIntersecting) {
-            const msgId = entry.target.dataset.msgId;
-            const convId = entry.target.dataset.convId;
-            const convType = entry.target.dataset.convType;
-
-            if (processedMsgIdsRef.current.has(msgId)) {
+            // İlkin mesajlar → dərhal read et (scroll ilə görünəndə)
+            if (initialMsgIdsRef.current.has(msgId) && !processedMsgIdsRef.current.has(msgId)) {
+              processedMsgIdsRef.current.add(msgId);
+              visibleUnreadRef.current.add(msgId);
+              readBatchChatRef.current = { chatId: convId, chatType: convType };
+              // Debounce — 300ms sonra batch göndər
+              if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
+              readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
               observer.unobserve(entry.target);
-              return;
+            } else if (!initialMsgIdsRef.current.has(msgId)) {
+              // Yeni SignalR mesajı — track et amma read etmə
+              visibleUnreadRef.current.add(msgId);
+              readBatchChatRef.current = { chatId: convId, chatType: convType };
             }
-            processedMsgIdsRef.current.add(msgId);
-
-            // Bufferə əlavə et — debounce ilə batch göndəriləcək
-            readBatchRef.current.add(msgId);
-            readBatchChatRef.current = { chatId: convId, chatType: convType };
-            if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
-            readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
-
-            // Conversation list-dəki unreadCount-u azalt
-            setConversations((prev) =>
-              prev.map((c) => {
-                if (c.id === convId && c.unreadCount > 0) {
-                  return { ...c, unreadCount: c.unreadCount - 1 };
-                }
-                return c;
-              }),
-            );
-
-            observer.unobserve(entry.target);
+          } else {
+            // Viewport-dan çıxdı — yalnız SignalR mesajlarını sil (çıxanda flush üçün)
+            if (!initialMsgIdsRef.current.has(msgId)) {
+              visibleUnreadRef.current.delete(msgId);
+            }
           }
         }
       },
@@ -519,6 +559,10 @@ function Chat() {
     return () => {
       observer.disconnect();
       observerRef.current = null;
+      if (readBatchTimerRef.current) {
+        clearTimeout(readBatchTimerRef.current);
+        readBatchTimerRef.current = null;
+      }
     };
   }, [selectedChat]);
 
@@ -535,26 +579,6 @@ function Chat() {
       }
     });
   }, [messages]);
-
-  // handleInputAreaClick — input-a klik → gate aç → viewport-dakı mesajları re-observe et
-  // Re-observe: unobserve + observe → observer dərhal visible elementlər üçün callback çağırır
-  function handleInputAreaClick() {
-    if (!selectedChat) return;
-    inputActivatedRef.current = true;
-
-    // Re-observe — artıq viewport-da olan unread mesajlar üçün callback-i trigger et
-    const observer = observerRef.current;
-    const area = messagesAreaRef.current;
-    if (observer && area) {
-      const unreadElements = area.querySelectorAll("[data-unread='true']");
-      unreadElements.forEach((el) => {
-        if (!processedMsgIdsRef.current.has(el.dataset.msgId)) {
-          observer.unobserve(el);
-          observer.observe(el);
-        }
-      });
-    }
-  }
 
   // --- API FUNKSIYALARI ---
 
@@ -850,6 +874,8 @@ function Chat() {
   // handleMessageTextChange — textarea onChange (mention detection ilə birlikdə)
   function handleMessageTextChange(newText, caretPos) {
     setMessageText(newText);
+    // Yazmağa başlayanda bütün unread mesajları oxundu et
+    markAllAsReadForCurrentChat();
 
     const trigger = detectMentionTrigger(newText, caretPos);
     if (trigger) {
@@ -1564,6 +1590,17 @@ function Chat() {
           : finalMsgData,
       );
 
+      readBatchChatRef.current = {
+        chatId: chat.id,
+        chatType: String(chat.type),
+      };
+
+      // İlkin mesaj ID-lərini yadda saxla — bu mesajlar scroll ilə görünəndə dərhal read olacaq
+      // Yeni SignalR mesajları bu set-də olmayacaq → yazmağa/göndərməyə qədər unread qalacaq
+      initialMsgIdsRef.current = new Set(
+        finalMsgData.filter((m) => !m.isRead && m.senderId !== user?.id).map((m) => m.id),
+      );
+
       // Yeni chatın SignalR qrupuna qoşul
       if (chat.type === 0) {
         joinConversation(chat.id);
@@ -1912,6 +1949,8 @@ function Chat() {
     if (!messageText.trim() || !selectedChat) return;
 
     const text = messageText.trim();
+    // Mesaj göndərəndə bütün unread mesajları oxundu et
+    markAllAsReadForCurrentChat();
     // Typing siqnalını dərhal dayandır — mesaj göndərilib
     stopTypingSignal();
     setMessageText(""); // Yazma sahəsini dərhal sıfırla (UI cavabdehliyi)
@@ -1972,11 +2011,6 @@ function Chat() {
     }
 
     setReplyTo(null); // Reply-ı sıfırla
-
-    // ── Gate aç — mesaj göndərirsə, input ilə qarşılıqlı əlaqədədir ──
-    // Observer viewport-dakı mesajları "oxundu" olaraq işarələyəcək
-    // (send-dən sonra auto-scroll olur → ən aşağıdakı mesajlar görünəcək → observer işləyəcək)
-    inputActivatedRef.current = true;
 
     try {
       let chatId = selectedChat.id;
@@ -2933,7 +2967,6 @@ function Chat() {
                   mentionPanelRef={mentionPanelRef}
                   onMentionSelect={handleMentionSelect}
                   onInputResize={handleInputResize}
-                  onInputAreaClick={handleInputAreaClick}
                 />
               )}
 

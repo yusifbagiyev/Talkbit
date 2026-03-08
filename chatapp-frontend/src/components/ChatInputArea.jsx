@@ -35,8 +35,6 @@ function ChatInputArea({
   mentionSelectedIndex, mentionLoading, mentionPanelRef, onMentionSelect,
   // Resize callback — textarea böyüdükdə mesajları aşağı scroll etmək üçün
   onInputResize,
-  // Input sahəsinə kliklədikdə oxunmamış mesajları "oxundu" olaraq işarələ (Bitrix davranışı)
-  onInputAreaClick,
 }) {
   const mirrorRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -98,7 +96,7 @@ function ChatInputArea({
     // Fragment <> </> — birden çox root element qaytarmaq üçün
     // .NET: RenderFragment ilə oxşardır
     <>
-      <div className="message-input-area" onClick={onInputAreaClick}>
+      <div className="message-input-area">
         {/* Bitrix-style resize handle — hover-da görünür, drag ilə textarea böyüdülür */}
         <div
           className={`input-resize-handle${dragging ? " dragging" : ""}`}

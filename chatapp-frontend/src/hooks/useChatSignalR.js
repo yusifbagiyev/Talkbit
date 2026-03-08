@@ -23,7 +23,6 @@ export default function useChatSignalR(
   setPinnedMessages,  // Pinlənmiş mesajlar array-ı
   setCurrentPinIndex, // Pin bar-dakı aktiv index
   setLastReadTimestamp, // DM mesajın oxunma vaxtı — { [chatId]: Date }
-  skipAutoScrollRef,   // Incoming mesajda "near bottom" auto-scroll-u blokla
 ) {
   // useEffect — komponentin mount olduğunda 1 dəfə işləyir
   // [userId] — dependency array: yalnız userId dəyişəndə yenidən işləyir
@@ -51,10 +50,9 @@ export default function useChatSignalR(
             if (prev.some((m) => m.id === message.id)) return prev;
             if (message.senderId === userId) {
               setShouldScrollBottom(true);
-            } else {
-              // Başqasının mesajı — "near bottom" auto-scroll-u blokla
-              skipAutoScrollRef.current = true;
             }
+            // Başqasının mesajı — skipAutoScroll yoxdur
+            // Auto-scroll effect "near bottom" yoxlaması ilə scroll edəcək (< 80px)
             return [message, ...prev];
           });
         }
@@ -104,7 +102,6 @@ export default function useChatSignalR(
               lastMessageSenderAvatarUrl: message.senderAvatarUrl,
               lastMessageStatus: message.senderId === userId ? "Sent" : c.lastMessageStatus,
               // Başqasının mesajı + duplicate deyilsə → unread artır (chat açıq olsa belə)
-              // Bitrix davranışı: mesaj input-a klik olunmayınca oxundu sayılmır
               unreadCount:
                 message.senderId !== userId && !isDuplicate
                   ? c.unreadCount + 1
@@ -135,9 +132,6 @@ export default function useChatSignalR(
             if (prev.some((m) => m.id === message.id)) return prev;
             if (message.senderId === userId) {
               setShouldScrollBottom(true);
-            } else {
-              // Başqasının mesajı — "near bottom" auto-scroll-u blokla
-              skipAutoScrollRef.current = true;
             }
             return [message, ...prev];
           });
