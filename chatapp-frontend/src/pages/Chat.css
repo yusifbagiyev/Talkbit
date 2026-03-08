@@ -1225,10 +1225,10 @@
 .messages-area::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 3px;
-  transition: background 0.2s;
+  transition: background 0.3s;
 }
 
-.messages-area:hover::-webkit-scrollbar-thumb {
+.messages-area.scrolling::-webkit-scrollbar-thumb {
   background: #FFFFFF;
 }
 
@@ -1270,6 +1270,73 @@
 
 .floating-date:empty {
   display: none;
+}
+
+/* ===================================
+   SCROLL-TO-BOTTOM BUTTON
+   =================================== */
+
+/* Ağ dairəvi buton — 1 viewport yuxarı scroll olunduqda görünür */
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 130px;
+  right: 24px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  transition: opacity 0.2s, background 0.2s;
+  font-size: 18px;
+  color: var(--gray-500);
+  padding: 0;
+}
+
+.scroll-to-bottom-btn:hover {
+  background: var(--gray-50);
+}
+
+/* Unread mesaj olduqda — cyan rəngli */
+.scroll-to-bottom-btn.has-unread {
+  background: #00bcd4;
+  border-color: #00bcd4;
+  color: var(--white);
+}
+
+.scroll-to-bottom-btn.has-unread:hover {
+  background: #00a5bb;
+  border-color: #00a5bb;
+}
+
+/* Unread count badge — butonun yuxarı sağ küncündə */
+.scroll-unread-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: #00bcd4;
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* has-unread modunda badge ağ olur (kontrast üçün) */
+.scroll-to-bottom-btn.has-unread .scroll-unread-badge {
+  background: var(--white);
+  color: #00bcd4;
 }
 
 /* ===================================

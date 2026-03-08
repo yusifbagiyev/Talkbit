@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vite build --logLevel error)"
+      "Bash(npx vite build --logLevel error)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx vite --port 5174 --host 127.0.0.1)",
+      "Bash(npx vite build)"
     ]
   }
 }
