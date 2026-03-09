@@ -54,3 +54,9 @@
 - **Mistake**: DDD Aggregate pattern-ə kor-koranə əməl edib, EF Core infrastrukturunu analiz etmədən `AddMember` domain metodu yazdım. EF Core tracked parent entity-nin child collection-una əlavə edərkən tracking conflict yaradır.
 - **Rule**: Domain entity-ə child əlavə/silmə metodu yazmadan ƏVVƏL layihənin EF Core infrastrukturunu yoxla: 1) Repository tracking davranışı (AsNoTracking?) 2) UpdateAsync nə edir 3) Concurrency token varmı 4) Test et. Əgər EF tracking conflict yaradırsa, **ValidateOnly + Repository.AddAsync** pattern istifadə et — domain yalnız qaydaları yoxlayır, persistence application layer-da olur.
 - **Pattern**: `channel.ValidateAddMember()` (yalnız validation) + `_unitOfWork.ChannelMembers.AddAsync()` (persistence)
+
+### Lesson: Yeni frontend kodu da birbaşa yaz
+- **Date**: 2026-03-09
+- **Context**: ImageViewer.jsx yeni komponent idi, user-ə izah edib yazdırmağa başladım
+- **Mistake**: Mövcud kodları (MessageBubble, Chat.jsx, CSS) birbaşa özüm yazdım, amma yeni komponenti user-ə öyrətməyə çalışdım — user haqlı olaraq "bu vaxta kimi özün etdin, indi mənə öyrədirsən?" dedi
+- **Rule**: Əgər task bug fix / feature implementasiyasıdırsa — həm mövcud kod dəyişikliyi, həm də yeni fayl yaratma birbaşa özün et. "User özü yazsın" qaydası YALNIZ React öyrətmə sessiyalarında (step-by-step migration) keçərlidir, normal development zamanı yox.

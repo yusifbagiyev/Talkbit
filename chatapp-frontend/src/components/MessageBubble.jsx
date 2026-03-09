@@ -80,6 +80,7 @@ const MessageBubble = memo(function MessageBubble({
   onReaction,
   onLoadReactionDetails,
   onMentionClick,
+  onOpenImageViewer,
 }) {
   // --- LOKAL STATE ---
 
@@ -363,7 +364,7 @@ const MessageBubble = memo(function MessageBubble({
                       src={getFileUrl(msg.fileUrl)}
                       alt={msg.fileName || "Image"}
                       loading="lazy"
-                      onClick={() => window.open(getFileUrl(msg.fileUrl), "_blank")}
+                      onClick={() => onOpenImageViewer && onOpenImageViewer(msg.id)}
                     />
                   </div>
                 ) : (

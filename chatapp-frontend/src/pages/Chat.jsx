@@ -45,6 +45,7 @@ import ChatHeader from "../components/ChatHeader"; // chat başlığı (ad, stat
 import ChatInputArea from "../components/ChatInputArea"; // mesaj yazma sahəsi
 import ChatStatusBar from "../components/ChatStatusBar"; // viewed/typing status bar
 import ReadersPanel from "../components/ReadersPanel"; // oxuyanlar panel
+import ImageViewer from "../components/ImageViewer"; // şəkil lightbox viewer
 import SelectToolbar from "../components/SelectToolbar"; // çox mesaj seç toolbar
 import ChannelPanel from "../components/ChannelPanel"; // channel yaratma/redaktə paneli
 import PinnedBar, { PinnedExpanded } from "../components/PinnedBar"; // pinlənmiş mesajlar
@@ -279,6 +280,9 @@ function Chat() {
 
   // readersPanel — reader list panel state (null = bağlı)
   const [readersPanel, setReadersPanel] = useState(null);
+
+  // imageViewer — lightbox state (null = bağlı, { currentIndex } = açıq)
+  const [imageViewer, setImageViewer] = useState(null);
 
   // --- CUSTOM HOOKS ---
 
@@ -1490,6 +1494,7 @@ function Chat() {
     setEmojiOpen(false);
     setDeleteConfirmOpen(false);
     setReadersPanel(null);
+    setImageViewer(null);
     setReadLaterMessageId(null); // Əvvəlki chatın read later mark-ını sıfırla
     setNewMessagesStartId(null); // Əvvəlki chatın new messages separator-ını sıfırla
     hasMoreRef.current = true; // Yenidən köhnə mesaj yükləmək mümkündür
@@ -2935,6 +2940,26 @@ function Chat() {
     return results.sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc));
   }, [messages]);
 
+  // imageMessages — yalnız şəkillər, xronoloji sıra (köhnə → yeni, thumbnail strip üçün)
+  const imageMessages = useMemo(() => {
+    return fileMessages.filter(f => f.isImage).reverse();
+  }, [fileMessages]);
+
+  // handleOpenImageViewer — MessageBubble-dan çağırılır, şəkil klikləndikdə
+  const handleOpenImageViewer = useCallback((msgId) => {
+    const idx = imageMessages.findIndex(img => img.id === msgId);
+    if (idx === -1) return;
+    setImageViewer({ currentIndex: idx });
+  }, [imageMessages]);
+
+  const handleImageViewerNavigate = useCallback((newIndex) => {
+    setImageViewer(prev => prev ? { ...prev, currentIndex: newIndex } : null);
+  }, []);
+
+  const handleCloseImageViewer = useCallback(() => {
+    setImageViewer(null);
+  }, []);
+
   // Add member paneli üçün — DM conversationlardan artıq üzv olmayanları göstər
   const addMemberUsers = useMemo(() => {
     if (!showAddMember || !selectedChat) return [];
@@ -3178,6 +3203,7 @@ function Chat() {
                           onReaction={handleReaction}
                           onLoadReactionDetails={handleLoadReactionDetails}
                           onMentionClick={handleMentionClick}
+                          onOpenImageViewer={handleOpenImageViewer}
                         />
                       );
                     });
@@ -3218,6 +3244,7 @@ function Chat() {
                               onReaction={handleReaction}
                               onLoadReactionDetails={handleLoadReactionDetails}
                               onMentionClick={handleMentionClick}
+                              onOpenImageViewer={handleOpenImageViewer}
                             />
                           );
                         })}
@@ -3409,6 +3436,16 @@ function Chat() {
                   readByIds={readersPanel.readByIds}
                   channelMembers={channelMembers[selectedChat?.id] || {}}
                   onClose={() => setReadersPanel(null)}
+                />
+              )}
+
+              {/* Image Viewer — şəkil lightbox overlay */}
+              {imageViewer && (
+                <ImageViewer
+                  images={imageMessages}
+                  currentIndex={imageViewer.currentIndex}
+                  onClose={handleCloseImageViewer}
+                  onNavigate={handleImageViewerNavigate}
                 />
               )}
             </>
