@@ -1,6 +1,7 @@
 // Sabitlər import et
 import { useRef, useState, useEffect, useCallback } from "react";
-import { MESSAGE_MAX_LENGTH, MAX_FILE_SIZE, formatFileSize } from "../utils/chatUtils";
+import { MESSAGE_MAX_LENGTH, MAX_FILE_SIZE, formatFileSize, isAllowedFileExtension } from "../utils/chatUtils";
+import { useToast } from "../context/ToastContext";               // Toast notification sistemi
 import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Apple img çevirici
 import MentionPanel from "./MentionPanel";                       // @ mention dropdown paneli
 import FilePreviewPanel from "./FilePreviewPanel";               // Fayl preview modal
@@ -40,6 +41,7 @@ function ChatInputArea({
   selectedFiles, onFilesSelected, onRemoveFile, onReorderFiles, onClearFiles, onSendFiles,
   uploadProgress, isUploading,
 }) {
+  const { showToast } = useToast();
   const mirrorRef = useRef(null);
   const fileInputRef = useRef(null);       // Gizli <input type="file"> referansı
   const attachMenuRef = useRef(null);      // Attach dropdown menu referansı (click-outside üçün)
@@ -120,10 +122,14 @@ function ChatInputArea({
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    // Ölçü yoxlaması — MAX_FILE_SIZE-dan böyük faylları filtrələ
+    // Extension + ölçü yoxlaması — icazə verilməyən/böyük faylları filtrələ
     const valid = files.filter((f) => {
+      if (!isAllowedFileExtension(f.name)) {
+        showToast(`"${f.name}" — bu fayl tipi dəstəklənmir`, "error");
+        return false;
+      }
       if (f.size > MAX_FILE_SIZE) {
-        alert(`"${f.name}" is too large (${formatFileSize(f.size)}). Max: ${formatFileSize(MAX_FILE_SIZE)}`);
+        showToast(`"${f.name}" çox böyükdür (${formatFileSize(f.size)}). Maks: ${formatFileSize(MAX_FILE_SIZE)}`, "warning");
         return false;
       }
       return true;
@@ -132,7 +138,7 @@ function ChatInputArea({
 
     // Input-u sıfırla — eyni faylı yenidən seçə bilsin
     e.target.value = "";
-  }, [onFilesSelected]);
+  }, [onFilesSelected, showToast]);
 
   return (
     // Fragment <> </> — birden çox root element qaytarmaq üçün

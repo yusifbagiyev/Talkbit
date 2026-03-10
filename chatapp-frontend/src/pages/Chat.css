@@ -1494,9 +1494,10 @@
 
 .message-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
   gap: 3px;
+  flex-wrap: wrap;
 }
 
 .message-modified {
@@ -1941,6 +1942,7 @@
   flex-wrap: wrap;
   gap: 4px;
   flex: 1;
+  margin-top: 4px;
 }
 
 .reaction-badge-wrapper {
@@ -2459,7 +2461,7 @@
 }
 
 .input-icon-btn.active {
-  color: var(--primary-color);
+  color: #00ACE3;
 }
 
 /* Textarea + mirror konteyner — full width */
@@ -5779,12 +5781,10 @@
   width: 44px;
   height: 44px;
   border-radius: 6px;
-  background: var(--gray-200);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--gray-500);
 }
 
 .file-preview-item-info {
@@ -5976,8 +5976,14 @@
   padding: 0;
   background: transparent !important;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
+}
+
+/* Image-only — şəkil kənarları üçün overflow:hidden burda tətbiq olunur (bubble-da deyil) */
+.message-bubble.image-only .bubble-file-image {
+  overflow: hidden;
+  border-radius: 12px;
 }
 
 /* Image-only bubble — message-content boşluğunu sıfırla */
@@ -5995,7 +6001,22 @@
   background: rgba(0, 0, 0, 0.45);
   border-radius: 10px;
   padding: 2px 8px;
+  gap: 6px;
   z-index: 1;
+  flex-wrap: nowrap;
+}
+/* Image-only — reaction badges bubble-ın birbaşa uşağı, şəklin altında sol tərəfdə */
+.message-bubble.image-only > .reaction-badges-external {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+}
+.message-bubble.image-only > .reaction-badges-external .reaction-badge-count {
+  color: #fff;
+}
+/* Reaction olduqda bubble-dan sonra əlavə boşluq */
+.message-bubble.image-only:has(.reaction-badges-external) {
+  margin-bottom: 28px;
 }
 
 /* Image-only bubble — timestamp və tick rəngini ağ et */
@@ -6007,11 +6028,7 @@
   stroke: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* Image-only bubble — reaction badges normal qalsın */
-.message-bubble.image-only .reaction-badges {
-  position: relative;
-  z-index: 1;
-}
+
 
 /* Fayl kartı — Bitrix24 style: icon + ad + ölçü + download */
 .bubble-file-card {
@@ -6040,41 +6057,23 @@
   justify-content: center;
 }
 
-/* Fayl tipi badge — icon-un aşağısında */
+/* Fayl tipi badge — icon-un aşağısında, ağ fon ilə (icon artıq rəngli olduğu üçün) */
 .bubble-file-badge {
   position: absolute;
-  bottom: 0;
+  bottom: -2px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 8px;
+  font-size: 7.5px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  padding: 1px 4px;
+  padding: 1px 3px;
   border-radius: 2px;
-  color: #fff;
-  background: #9ca3af;
+  color: rgba(0, 0, 0, 0.7);
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
   line-height: 1.3;
   white-space: nowrap;
 }
-
-/* Fayl tipi rəngləri */
-.bubble-file-badge.pdf { background: #e53e3e; }
-.bubble-file-badge.doc,
-.bubble-file-badge.docx { background: #2b6cb0; }
-.bubble-file-badge.xls,
-.bubble-file-badge.xlsx { background: #25855a; }
-.bubble-file-badge.ppt,
-.bubble-file-badge.pptx { background: #c05621; }
-.bubble-file-badge.zip,
-.bubble-file-badge.rar,
-.bubble-file-badge.\37 z { background: #6b46c1; }
-.bubble-file-badge.txt { background: #718096; }
-.bubble-file-badge.mp3,
-.bubble-file-badge.wav,
-.bubble-file-badge.ogg { background: #d53f8c; }
-.bubble-file-badge.mp4,
-.bubble-file-badge.avi,
-.bubble-file-badge.mov { background: #805ad5; }
 
 .bubble-file-info {
   flex: 1;

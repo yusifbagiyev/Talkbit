@@ -15,6 +15,29 @@ export const BATCH_DELETE_THRESHOLD = 5; // 5-dən çox mesaj → batch delete A
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB — backend upload limiti
 export const MAX_BATCH_FILES = 20; // Backend batch limit (max 20 mesaj bir request-də)
 
+// İcazə verilən fayl extension-ları — backend FileTypeHelper.ContentTypeMapping ilə sinxron
+export const ALLOWED_FILE_EXTENSIONS = new Set([
+  // Images
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp",
+  // Documents
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv",
+  // Videos
+  ".mp4", ".mpeg", ".mov", ".avi", ".webm",
+  // Audio
+  ".mp3", ".wav", ".ogg", ".weba",
+  // Archives
+  ".zip", ".rar", ".7z", ".tar", ".gz",
+]);
+
+// Fayl extension-ının icazə verilən siyahıda olub-olmadığını yoxla
+export function isAllowedFileExtension(fileName) {
+  if (!fileName) return false;
+  const ext = fileName.lastIndexOf(".") !== -1
+    ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase()
+    : "";
+  return ALLOWED_FILE_EXTENSIONS.has(ext);
+}
+
 // ─── formatFileSize ─────────────────────────────────────────────────────────
 // Byte dəyərini oxunaqlı formata çevirir: "2.4 MB", "128 KB", "512 B"
 export function formatFileSize(bytes) {

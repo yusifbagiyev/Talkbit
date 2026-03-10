@@ -12,6 +12,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 // AuthContext — global auth state (user, isLoading, login, logout)
 // AuthProvider — həmin state-i bütün child komponentlərə distribute edir
 import { AuthContext, AuthProvider } from "./context/AuthContext";
+// ToastProvider — global toast notification sistemi (alert() əvəzinə)
+import { ToastProvider } from "./context/ToastContext";
 import Chat from "./pages/Chat";
 import Login from "./pages/Login";
 
@@ -60,6 +62,7 @@ function App() {
   return (
     // AuthProvider — bütün child komponentlər AuthContext-ə daxil ola bilsin deyə
     // Bu olmasa, useContext(AuthContext) hər yerdə undefined qaytarardı
+    <ToastProvider>
     <AuthProvider>
       {/* Routes — yalnız URL-ə uyğun olan 1 Route render olunur */}
       <Routes>
@@ -78,6 +81,7 @@ function App() {
         />
       </Routes>
     </AuthProvider>
+    </ToastProvider>
   );
 }
 

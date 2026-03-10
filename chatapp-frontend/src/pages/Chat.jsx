@@ -32,6 +32,8 @@ import useChatScroll from "../hooks/useChatScroll"; // infinite scroll + paginat
 
 // Global auth state — user, logout
 import { AuthContext } from "../context/AuthContext";
+// Toast notification — alert() əvəzinə modern UI notification
+import { useToast } from "../context/ToastContext";
 
 // API servis — HTTP metodları (GET, POST, PUT, DELETE)
 import { apiGet, apiPost, apiPut, apiDelete, apiUpload } from "../services/api";
@@ -74,6 +76,7 @@ function Chat() {
   // --- AUTH ---
   // useContext ilə AuthContext-dən user və logout al
   const { user, logout } = useContext(AuthContext);
+  const { showToast } = useToast();
 
   // --- STATE DEĞİŞƏNLƏRİ ---
 
@@ -2162,6 +2165,11 @@ function Chat() {
       });
     } catch (err) {
       console.error("Failed to send files:", err);
+      // Backend-dən gələn xəta mesajını göstər
+      const errMsg = err?.response?.data?.errors
+        ? Object.values(err.response.data.errors).flat().join(", ")
+        : err?.response?.data?.error || err?.message || "Fayl göndərmə xətası";
+      showToast(errMsg, "error");
       setIsUploading(false);
       setUploadProgress(null);
     }

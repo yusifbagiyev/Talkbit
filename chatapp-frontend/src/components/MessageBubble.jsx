@@ -13,6 +13,7 @@ import {
   parseMentions,         // Mesaj mətnini mention segmentlərinə ayır
 } from "../utils/chatUtils";
 import { getFileUrl } from "../services/api"; // Backend file URL → tam URL
+import FileTypeIcon from "./FileTypeIcon"; // Fayl tipinə görə rəngli icon
 
 import { QUICK_REACTION_EMOJIS, EXPANDED_EXTRA_EMOJIS, emojiToUrl, renderTextWithEmojis } from "../utils/emojiConstants";
 import MessageActionMenu from "./MessageActionMenu"; // "⋮" menyu komponenti
@@ -265,6 +266,9 @@ const MessageBubble = memo(function MessageBubble({
     el.style.left = `${left}px`;
   }, [reactionOpen, reactionExpanded, isOwn]);
 
+  // Image-only: şəkil + mətn yoxdur — xüsusi layout (overlay timestamp, kənar reaction)
+  const isImageOnly = msg.fileUrl && msg.fileContentType?.startsWith("image/") && !msg.content;
+
   // --- JSX RENDER ---
   return (
     // message-row — mesajın tam sırası (checkbox + avatar + bubble)
@@ -303,7 +307,7 @@ const MessageBubble = memo(function MessageBubble({
       {/* CSS :hover ilə butonlar göstərilir — JS hover state lazım deyil */}
       {/* actions-locked class: menyu/reaction açıq olduqda butonlar görünməyə davam etsin */}
       <div
-        className={`message-bubble ${isOwn ? "own" : ""}${menuOpen ? " menu-open" : ""}${reactionOpen ? " reaction-open" : ""}${pickerHovered ? " picker-hovered" : ""}${selectMode ? " select-mode" : ""}${msg.fileUrl && msg.fileContentType?.startsWith("image/") && !msg.content ? " image-only" : ""}`}
+        className={`message-bubble ${isOwn ? "own" : ""}${menuOpen ? " menu-open" : ""}${reactionOpen ? " reaction-open" : ""}${pickerHovered ? " picker-hovered" : ""}${selectMode ? " select-mode" : ""}${isImageOnly ? " image-only" : ""}`}
         onContextMenu={selectMode ? undefined : (e) => {
           e.preventDefault();
           // Sağ klik pozisyasını saxla — menu orada açılacaq
@@ -377,11 +381,8 @@ const MessageBubble = memo(function MessageBubble({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="bubble-file-icon">
-                      {/* Fayl iconu — üzərində tip badge */}
-                      <svg width="32" height="38" viewBox="0 0 32 38" fill="none">
-                        <path d="M2 4a4 4 0 0 1 4-4h13l11 11v23a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V4z" fill="#E8EBF0" />
-                        <path d="M19 0l11 11h-7a4 4 0 0 1-4-4V0z" fill="#D1D5DB" />
-                      </svg>
+                      {/* Fayl tipinə görə rəngli icon + extension badge */}
+                      <FileTypeIcon fileName={msg.fileName} size={32} />
                       <span className={`bubble-file-badge ${(msg.fileName?.split('.').pop() || '').toLowerCase()}`}>
                         {(msg.fileName?.split('.').pop() || '').toUpperCase()}
                       </span>
@@ -428,28 +429,76 @@ const MessageBubble = memo(function MessageBubble({
           )}
         </div>
 
-        {/* Meta sıra: reactions + "modified" + vaxt + read ticks */}
+        {/* Image-only: reaction badges bubble-ın birbaşa uşağı (şəklin altında görsənəcək) */}
+        {isImageOnly && msg.reactions && msg.reactions.length > 0 && (
+          <div className="reaction-badges reaction-badges-external">
+            {msg.reactions.map((r) => (
+              <div key={r.emoji} className="reaction-badge-wrapper">
+                <button
+                  className="reaction-badge"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (reactionTooltipOpen === r.emoji) { setReactionTooltipOpen(null); return; }
+                    onReaction && onReaction(msg, r.emoji);
+                  }}
+                  onMouseEnter={() => {
+                    badgePressRef.current = setTimeout(async () => {
+                      if (reactionTooltipOpen === r.emoji) return;
+                      setReactionTooltipOpen(r.emoji);
+                      if (!r.userFullNames || r.userFullNames.length === 0) {
+                        setReactionDetailsLoading(true);
+                        await onLoadReactionDetails(msg.id);
+                        setReactionDetailsLoading(false);
+                      }
+                    }, 500);
+                  }}
+                  onMouseLeave={() => clearTimeout(badgePressRef.current)}
+                >
+                  <span className="reaction-badge-emoji">
+                    <img src={emojiToUrl(r.emoji)} alt={r.emoji} className="twemoji" draggable="false" />
+                  </span>
+                  {r.count > 1 && <span className="reaction-badge-count">{r.count}</span>}
+                </button>
+                {reactionTooltipOpen === r.emoji && (
+                  <div className="reaction-tooltip visible" ref={tooltipRef}>
+                    {reactionDetailsLoading ? (
+                      <div className="reaction-tooltip-item">
+                        <span className="reaction-tooltip-name reaction-tooltip-loading">Loading...</span>
+                      </div>
+                    ) : r.userFullNames && r.userFullNames.length > 0 ? (
+                      r.userFullNames.map((name, i) => (
+                        <div key={i} className="reaction-tooltip-item">
+                          <div className="reaction-tooltip-avatar" style={{ background: getAvatarColor(name) }}>{getInitials(name)}</div>
+                          <span className="reaction-tooltip-name">{name}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="reaction-tooltip-item">
+                        <span className="reaction-tooltip-name">{r.count} {r.count === 1 ? "person" : "people"} reacted</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Meta sıra: sol — reactions (normal mesajlarda), sağ — modified + vaxt + ticks */}
         <div className="message-meta">
-          {/* Reaction badges — bu mesaja olan reaksiyalar */}
-          {msg.reactions && msg.reactions.length > 0 && (
+          {/* Reaction badges — sol tərəf (yalnız normal mesajlarda, image-only-da yuxarıda render olunur) */}
+          {!isImageOnly && msg.reactions && msg.reactions.length > 0 && (
             <div className="reaction-badges">
-              {/* Hər emoji üçün badge düyməsi */}
               {msg.reactions.map((r) => (
                 <div key={r.emoji} className="reaction-badge-wrapper">
                   <button
                     className="reaction-badge"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Tooltip açıqdırsa bağla
-                      if (reactionTooltipOpen === r.emoji) {
-                        setReactionTooltipOpen(null);
-                        return;
-                      }
-                      // Klik → reaksiyanı toggle et (əlavə et / sil)
+                      if (reactionTooltipOpen === r.emoji) { setReactionTooltipOpen(null); return; }
                       onReaction && onReaction(msg, r.emoji);
                     }}
                     onMouseEnter={() => {
-                      // 500ms üzərində dayanarsa → tooltip aç
                       badgePressRef.current = setTimeout(async () => {
                         if (reactionTooltipOpen === r.emoji) return;
                         setReactionTooltipOpen(r.emoji);
@@ -460,18 +509,13 @@ const MessageBubble = memo(function MessageBubble({
                         }
                       }, 500);
                     }}
-                    onMouseLeave={() => {
-                      clearTimeout(badgePressRef.current);
-                    }}
+                    onMouseLeave={() => clearTimeout(badgePressRef.current)}
                   >
                     <span className="reaction-badge-emoji">
                       <img src={emojiToUrl(r.emoji)} alt={r.emoji} className="twemoji" draggable="false" />
                     </span>
-                    {/* count > 1 olduqda sayı göstər */}
                     {r.count > 1 && <span className="reaction-badge-count">{r.count}</span>}
                   </button>
-
-                  {/* Reaction tooltip — kim react etdi? */}
                   {reactionTooltipOpen === r.emoji && (
                     <div className="reaction-tooltip visible" ref={tooltipRef}>
                       {reactionDetailsLoading ? (
@@ -479,24 +523,15 @@ const MessageBubble = memo(function MessageBubble({
                           <span className="reaction-tooltip-name reaction-tooltip-loading">Loading...</span>
                         </div>
                       ) : r.userFullNames && r.userFullNames.length > 0 ? (
-                        // Hər react edən istifadəçi üçün avatar + ad
                         r.userFullNames.map((name, i) => (
                           <div key={i} className="reaction-tooltip-item">
-                            <div
-                              className="reaction-tooltip-avatar"
-                              style={{ background: getAvatarColor(name) }}
-                            >
-                              {getInitials(name)}
-                            </div>
+                            <div className="reaction-tooltip-avatar" style={{ background: getAvatarColor(name) }}>{getInitials(name)}</div>
                             <span className="reaction-tooltip-name">{name}</span>
                           </div>
                         ))
                       ) : (
-                        // Fallback — ad yoxdursa say göstər
                         <div className="reaction-tooltip-item">
-                          <span className="reaction-tooltip-name">
-                            {r.count} {r.count === 1 ? "person" : "people"} reacted
-                          </span>
+                          <span className="reaction-tooltip-name">{r.count} {r.count === 1 ? "person" : "people"} reacted</span>
                         </div>
                       )}
                     </div>
