@@ -140,9 +140,15 @@ function ForwardPanel({ conversations, onForward, onClose }) {
                 >
                   <div
                     className="forward-item-avatar"
-                    style={{ background: getAvatarColor(item.name) }}
+                    style={{ background: item.isNotes ? "#2FC6F6" : getAvatarColor(item.name) }}
                   >
-                    {getInitials(item.name)}
+                    {item.isNotes ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                      </svg>
+                    ) : (
+                      getInitials(item.name)
+                    )}
                   </div>
                   <div className="forward-item-info">
                     <span className="forward-item-name">{item.name}</span>

@@ -1,6 +1,7 @@
 // memo — komponenti cache-lər, props dəyişmədikdə yenidən render etmə
 // .NET ekvivalenti: IEqualityComparer ilə dəyər müqayisəsi
 import { memo } from "react";
+import { getFileUrl } from "../services/api";
 
 // MessageActionMenu komponenti — mesaj üzərindəki "⋮" menyusu
 // memo ilə wrap edilib — MessageBubble yenidən render olunsa belə,
@@ -66,21 +67,22 @@ const MessageActionMenu = memo(function MessageActionMenu({
       {/* {!msg.isDeleted && <> ... </>} — şərti render bloku */}
       {!msg.isDeleted && (
         <>
-          {/* Copy — mesajın mətnini clipboard-a kopyala */}
-          {/* navigator.clipboard.writeText() — müasir brauzer Clipboard API */}
-          <button
-            className="action-menu-item"
-            onClick={() => {
-              navigator.clipboard.writeText(msg.content);
-              onClose(); // Kopyaladıqdan sonra menyu bağla
-            }}
-          >
-            <span>Copy</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-          </button>
+          {/* Copy — mesajın mətnini clipboard-a kopyala (yalnız content varsa) */}
+          {msg.content && (
+            <button
+              className="action-menu-item"
+              onClick={() => {
+                navigator.clipboard.writeText(msg.content);
+                onClose();
+              }}
+            >
+              <span>Copy</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+          )}
 
           {/* Edit — yalnız isOwn (öz mesajını redaktə et) */}
           {isOwn && (
@@ -92,6 +94,38 @@ const MessageActionMenu = memo(function MessageActionMenu({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
+          )}
+
+          {/* Download — fayl/şəkil olan mesajlar üçün (Edit-dən sonra) */}
+          {msg.fileId && (
+            <button
+              className="action-menu-item"
+              onClick={() => {
+                fetch(getFileUrl(`/api/files/${msg.fileId}/download`), {
+                  credentials: "include",
+                })
+                  .then((res) => res.blob())
+                  .then((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = msg.fileName || "file";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  })
+                  .catch(() => {
+                    window.open(getFileUrl(msg.fileUrl), "_blank");
+                  });
+                onClose();
+              }}
+            >
+              <span>Download</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </button>
           )}
@@ -159,6 +193,24 @@ const MessageActionMenu = memo(function MessageActionMenu({
               <span>Mark to read later</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+          )}
+
+          {/* Save to drive — fayl/şəkil olan mesajlar üçün (gələcəkdə implement olunacaq) */}
+          {msg.fileId && (
+            <button
+              className="action-menu-item"
+              onClick={() => {
+                // TODO: Save to drive funksionallığı gələcəkdə implement olunacaq
+                onClose();
+              }}
+            >
+              <span>Save to drive</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
               </svg>
             </button>
           )}

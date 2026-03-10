@@ -319,7 +319,7 @@ const MessageBubble = memo(function MessageBubble({
         {/* Forwarded label — yönləndirilmiş mesaj */}
         {msg.isForwarded && !msg.isDeleted && (
           <div className="forwarded-label">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="15 17 20 12 15 7" />
               <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
             </svg>

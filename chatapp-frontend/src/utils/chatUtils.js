@@ -290,6 +290,20 @@ export function detectMentionTrigger(text, caretPos) {
  * @param {Array|null} mentions — [{ userId, userFullName, isAllMention }]
  * @returns {Array} [{ type: 'text'|'mention', text, userId?, userFullName?, isAll? }]
  */
+// getMessagePreview — mesajın qısa preview mətni (conversation list, pinned, favorites)
+// Image-only → "[Image]", Image + text → "[Image] text", File-only → "[File]", File + text → "[File] text"
+export function getMessagePreview(msg) {
+  const ct = msg.fileContentType || msg.fileContenttype || "";
+  const isImage = ct.startsWith("image/");
+  if (msg.content && msg.fileId) {
+    return isImage ? `[Image] ${msg.content}` : `[File] ${msg.content}`;
+  }
+  if (!msg.content && msg.fileId) {
+    return isImage ? "[Image]" : "[File]";
+  }
+  return msg.content || "";
+}
+
 export function parseMentions(content, mentions) {
   if (!mentions || mentions.length === 0 || !content) {
     return [{ type: "text", text: content }];

@@ -11,6 +11,7 @@
 
 import { useEffect } from "react";
 import { startConnection } from "../services/signalr";
+import { getMessagePreview } from "../utils/chatUtils";
 
 export default function useChatSignalR(
   userId,             // Cari istifadəçinin ID-si (öz typing signal-ını ignore etmək üçün)
@@ -24,19 +25,6 @@ export default function useChatSignalR(
   setCurrentPinIndex, // Pin bar-dakı aktiv index
   setLastReadTimestamp, // DM mesajın oxunma vaxtı — { [chatId]: Date }
 ) {
-  // getMessagePreview — conversation list preview mətni
-  // Fayl/şəkil mesajları üçün backend ilə eyni format: [Image], [File]
-  function getMessagePreview(msg) {
-    if (msg.content) {
-      if (!msg.fileId) return msg.content;
-      const ct = msg.fileContentType || "";
-      return ct.startsWith("image/") ? "[Image] " + msg.content : "[File] " + msg.content;
-    }
-    if (!msg.fileId) return "";
-    const ct = msg.fileContentType || "";
-    return ct.startsWith("image/") ? "[Image]" : "[File]";
-  }
-
   // useEffect — komponentin mount olduğunda 1 dəfə işləyir
   // [userId] — dependency array: yalnız userId dəyişəndə yenidən işləyir
   useEffect(() => {

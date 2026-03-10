@@ -1,5 +1,5 @@
 // Utility funksiyaları import et
-import { getInitials, getAvatarColor } from "../utils/chatUtils";
+import { getInitials, getAvatarColor, getMessagePreview } from "../utils/chatUtils";
 
 // PinnedBar komponenti — chatın üstündə compact pinlənmiş mesaj barı
 // Bir dəfədə bir pinlənmiş mesaj göstərir, klikləndikdə həmin mesaja scroll edir
@@ -34,8 +34,8 @@ function PinnedBar({
       <div className="pinned-bar-body">
         <span className="pinned-bar-title">Pinned messages</span>
         <span className="pinned-bar-preview">
-          {/* Kim yazdı + mesaj məzmununun qısa görünüşü */}
-          <strong>{currentMsg.senderFullName}:</strong> {currentMsg.content}
+          {/* Kim yazdı + mesaj məzmununun qısa görünüşü (fayl/şəkil üçün [Image]/[File]) */}
+          <strong>{currentMsg.senderFullName}:</strong> {getMessagePreview(currentMsg)}
         </span>
       </div>
 
@@ -131,7 +131,7 @@ function PinnedExpanded({
               <span className="pinned-expanded-name">
                 {msg.senderFullName}
               </span>
-              <span className="pinned-expanded-text">{msg.content}</span>
+              <span className="pinned-expanded-text">{getMessagePreview(msg)}</span>
             </div>
 
             {/* Unpin düyməsi */}

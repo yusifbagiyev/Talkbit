@@ -65,6 +65,7 @@ import {
   BATCH_DELETE_THRESHOLD, // batch delete üçün minimum mesaj sayı
   MAX_BATCH_FILES, // backend batch limit (max 20 mesaj bir request-də)
   detectMentionTrigger, // @ mention trigger aşkarlama
+  getMessagePreview, // mesaj preview mətni (fayl/şəkil üçün [Image]/[File])
 } from "../utils/chatUtils";
 
 import "./Chat.css";
@@ -121,6 +122,7 @@ function Chat() {
   const [filesSearchOpen, setFilesSearchOpen] = useState(false); // Files search input açıq/bağlı
   const [filesSearchText, setFilesSearchText] = useState(""); // Files axtarış mətni
   const [showMembersPanel, setShowMembersPanel] = useState(false); // Members paneli açıq/bağlı
+  const [membersPanelDirect, setMembersPanelDirect] = useState(false); // Mention-dan açıldıqda close düyməsi göstər
   const [memberMenuId, setMemberMenuId] = useState(null); // Üzv context menu açıq olan userId
   const [membersPanelList, setMembersPanelList] = useState([]); // Members panel — paginated siyahı
   const [membersPanelHasMore, setMembersPanelHasMore] = useState(true); // Daha çox üzv var?
@@ -588,9 +590,23 @@ function Chat() {
   }
 
   // handleScrollToBottom — scroll-to-bottom butonu basıldığında
-  // Conversationa yenidən girmiş kimi: son 30 mesaj saxlanır, qalanları silinir
-  function handleScrollToBottom() {
-    setMessages((prev) => prev.slice(0, MESSAGE_PAGE_SIZE));
+  // Əgər around mode-dadırsa (köhnə mesajlar yüklənib) → API-dən ən son mesajları yüklə
+  // Əks halda sadəcə son 30-u saxla və aşağı scroll et
+  async function handleScrollToBottom() {
+    if (hasMoreDownRef.current && selectedChat) {
+      // Around mode — cari mesajlar köhnədir, ən sonları API-dən yüklə
+      try {
+        const endpoint = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
+        if (!endpoint) return;
+        const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
+        setMessages(data);
+      } catch {
+        // Fallback — mövcud mesajları saxla
+        setMessages((prev) => prev.slice(0, MESSAGE_PAGE_SIZE));
+      }
+    } else {
+      setMessages((prev) => prev.slice(0, MESSAGE_PAGE_SIZE));
+    }
     hasMoreRef.current = true;
     hasMoreDownRef.current = false;
     setShouldScrollBottom(true);
@@ -1016,7 +1032,16 @@ function Chat() {
 
   // handleMentionClick — mesajdakı mention-a klik (conversation-a keçid)
   const handleMentionClick = useCallback((mention) => {
-    if (mention.isAll) return; // @All klik — heç nə etmə
+    // @All klik → sidebar-da members panelini aç
+    if (mention.isAll) {
+      if (selectedChat?.type === 1) {
+        setShowSidebar(true);
+        setShowMembersPanel(true);
+        setMembersPanelDirect(true); // Close düyməsi göstər (back əvəzinə)
+        loadMembersPanelPage(selectedChat.id, 0, true);
+      }
+      return;
+    }
 
     // Channel mention — conversations-dan tap
     const channelConv = conversations.find(
@@ -1041,7 +1066,7 @@ function Chat() {
       );
       if (deptUser) handleSelectChat(deptUser);
     }
-  }, [conversations]);
+  }, [conversations, selectedChat]);
 
   // ─── Search panel handler-ləri ──────────────────────────────────────────────
 
@@ -1060,6 +1085,7 @@ function Chat() {
     setShowAllLinks(false);
     setShowFilesMedia(false);
     setShowMembersPanel(false);
+    setMembersPanelDirect(false);
     setShowChatsWithUser(false);
   }
 
@@ -1484,6 +1510,7 @@ function Chat() {
     setFilesSearchOpen(false);
     setFilesSearchText("");
     setShowMembersPanel(false);
+    setMembersPanelDirect(false);
     setMemberMenuId(null);
     setShowAddMember(false);
     setAddMemberSearch("");
@@ -1740,12 +1767,12 @@ function Chat() {
     setForwardMessage(null);
 
     try {
-      // Yeni user (conversation yoxdur) → əvvəlcə conversation yarat
+      // Yeni user və ya DepartmentUser (conversation yoxdur) → əvvəlcə conversation yarat
       let chatId = targetChat.id;
       let chatType = targetChat.type;
-      if (targetChat.isNewUser) {
+      if (targetChat.isNewUser || targetChat.type === 2) {
         const result = await apiPost("/api/conversations", {
-          otherUserId: targetChat.userId,
+          otherUserId: targetChat.otherUserId || targetChat.userId,
         });
         chatId = result.conversationId;
         chatType = 0;
@@ -1759,12 +1786,20 @@ function Chat() {
         const allMessages = [...messages].reverse(); // chronological order (köhnə → yeni)
         const selectedMsgs = allMessages.filter((m) => fwd.ids.includes(m.id));
         for (const m of selectedMsgs) {
-          await apiPost(endpoint, { content: m.content, isForwarded: true });
+          await apiPost(endpoint, {
+            content: m.content || "",
+            fileId: m.fileId || null,
+            isForwarded: true,
+          });
         }
         handleExitSelectMode(); // Select mode-dan çıx
       } else {
-        // Tək mesaj forward
-        await apiPost(endpoint, { content: fwd.content, isForwarded: true });
+        // Tək mesaj forward — fileId varsa onu da göndər
+        await apiPost(endpoint, {
+          content: fwd.content || "",
+          fileId: fwd.fileId || null,
+          isForwarded: true,
+        });
       }
 
       // Söhbət siyahısını yenilə (son mesaj dəyişdi)
@@ -1799,6 +1834,7 @@ function Chat() {
       }
     } catch (err) {
       console.error("Failed to forward message:", err);
+      showToast("Failed to forward message", "error");
     }
   }
 
@@ -3063,7 +3099,15 @@ function Chat() {
     setEditMessage(m); // Edit mode-a gir
     setReplyTo(null); // Reply-ı ləğv et
     setMessageText(m.content); // Məzmunu textarea-ya qoy
-    setTimeout(() => inputRef.current?.focus(), 0);
+    // Focus + cursor-u mətinin SONUNA qoy (əvvəlinə yox)
+    setTimeout(() => {
+      const ta = inputRef.current;
+      if (!ta) return;
+      ta.focus();
+      const len = m.content?.length || 0;
+      ta.selectionStart = len;
+      ta.selectionEnd = len;
+    }, 0);
   }, []);
 
   // handleReaction — mesaja emoji reaksiyası əlavə et / ləğv et
@@ -3541,7 +3585,7 @@ function Chat() {
           <div className="detail-sidebar">
             {/* Header — X close + About chat + ... more */}
             <div className="ds-header">
-              <button className="ds-close" onClick={() => { setShowSidebar(false); setShowFavorites(false); setFavSearchOpen(false); setFavSearchText(""); setShowAllLinks(false); setLinksSearchOpen(false); setLinksSearchText(""); setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); setShowFilesMedia(false); setFilesSearchOpen(false); setFilesSearchText(""); setShowMembersPanel(false); setMemberMenuId(null); }}>
+              <button className="ds-close" onClick={() => { setShowSidebar(false); setShowFavorites(false); setFavSearchOpen(false); setFavSearchText(""); setShowAllLinks(false); setLinksSearchOpen(false); setLinksSearchText(""); setShowChatsWithUser(false); setChatsWithUserData([]); setChatsWithUserSource(null); setShowFilesMedia(false); setFilesSearchOpen(false); setFilesSearchText(""); setShowMembersPanel(false); setMembersPanelDirect(false); setMemberMenuId(null); }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -3818,7 +3862,7 @@ function Chat() {
                     // Axtarış mətninə görə filterlə
                     const query = favSearchText.trim().toLowerCase();
                     const filtered = query
-                      ? favoriteMessages.filter((m) => m.content?.toLowerCase().includes(query))
+                      ? favoriteMessages.filter((m) => getMessagePreview(m).toLowerCase().includes(query))
                       : favoriteMessages;
 
                     if (filtered.length === 0) {
@@ -3873,20 +3917,24 @@ function Chat() {
                               <span className="ds-favorites-sender">{msg.senderFullName}</span>
                               <span className="ds-favorites-text">
                                 {/* Axtarış varsa — uyğun gələn hissəni sarı highlight et */}
-                                {query && msg.content ? (() => {
-                                  const lowerContent = msg.content.toLowerCase();
-                                  const parts = [];
-                                  let lastIdx = 0;
-                                  let searchIdx = lowerContent.indexOf(query, lastIdx);
-                                  while (searchIdx !== -1) {
-                                    if (searchIdx > lastIdx) parts.push(msg.content.slice(lastIdx, searchIdx));
-                                    parts.push(<mark key={searchIdx}>{msg.content.slice(searchIdx, searchIdx + query.length)}</mark>);
-                                    lastIdx = searchIdx + query.length;
-                                    searchIdx = lowerContent.indexOf(query, lastIdx);
+                                {(() => {
+                                  const preview = getMessagePreview(msg);
+                                  if (query && preview) {
+                                    const lowerContent = preview.toLowerCase();
+                                    const parts = [];
+                                    let lastIdx = 0;
+                                    let searchIdx = lowerContent.indexOf(query, lastIdx);
+                                    while (searchIdx !== -1) {
+                                      if (searchIdx > lastIdx) parts.push(preview.slice(lastIdx, searchIdx));
+                                      parts.push(<mark key={searchIdx}>{preview.slice(searchIdx, searchIdx + query.length)}</mark>);
+                                      lastIdx = searchIdx + query.length;
+                                      searchIdx = lowerContent.indexOf(query, lastIdx);
+                                    }
+                                    if (lastIdx < preview.length) parts.push(preview.slice(lastIdx));
+                                    return parts;
                                   }
-                                  if (lastIdx < msg.content.length) parts.push(msg.content.slice(lastIdx));
-                                  return parts;
-                                })() : msg.content}
+                                  return preview;
+                                })()}
                               </span>
                             </div>
                             {/* More menu — hover-də görünür */}
@@ -4592,14 +4640,25 @@ function Chat() {
             {showMembersPanel && selectedChat?.type === 1 && (
               <div className="ds-favorites-panel">
                 <div className="ds-favorites-header">
-                  <button className="ds-favorites-back" onClick={() => { setShowMembersPanel(false); setMemberMenuId(null); }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                  </button>
+                  {membersPanelDirect ? (
+                    /* Mention-dan açılıb → close (X) düyməsi */
+                    <button className="ds-favorites-back" onClick={() => { setShowMembersPanel(false); setMembersPanelDirect(false); setMemberMenuId(null); setShowSidebar(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  ) : (
+                    /* Sidebar-dan açılıb → back (←) düyməsi */
+                    <button className="ds-favorites-back" onClick={() => { setShowMembersPanel(false); setMemberMenuId(null); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                      </svg>
+                    </button>
+                  )}
                   <span className="ds-favorites-title">
                     Members: {selectedChat.memberCount || membersPanelList.length}
-                    <button className="ds-mp-add-btn" onClick={() => { setShowMembersPanel(false); setMemberMenuId(null); setShowAddMember(true); }}>
+                    <button className="ds-mp-add-btn" onClick={() => { setShowMembersPanel(false); setMemberMenuId(null); setMembersPanelDirect(false); setShowAddMember(true); }}>
                       + Add
                     </button>
                   </span>
@@ -4671,6 +4730,7 @@ function Chat() {
                                   <button className="ds-dropdown-item" onClick={() => {
                                     setMessageText((prev) => prev + `@${m.fullName} `);
                                     setShowMembersPanel(false);
+                                    setMembersPanelDirect(false);
                                     setMemberMenuId(null);
                                     setShowSidebar(false);
                                     setTimeout(() => inputRef.current?.focus(), 0);
@@ -4679,6 +4739,7 @@ function Chat() {
                                     const dmConv = conversations.find((c) => c.type === 0 && c.otherUserId === uid);
                                     if (dmConv) setSelectedChat(dmConv);
                                     setShowMembersPanel(false);
+                                    setMembersPanelDirect(false);
                                     setMemberMenuId(null);
                                     setShowSidebar(false);
                                   }}>Send private message</button>
@@ -4708,6 +4769,7 @@ function Chat() {
                                 <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => {
                                   setPendingLeaveChannel(selectedChat);
                                   setShowMembersPanel(false);
+                                  setMembersPanelDirect(false);
                                   setMemberMenuId(null);
                                 }}>Leave</button>
                               )}
