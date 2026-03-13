@@ -355,7 +355,11 @@ function Chat() {
   // "Viewed by X" render olur → hündürlük artır → scroll yenilənməlidir
   useLayoutEffect(() => {
     if (shouldScrollBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      // area.scrollTop istifadə et — scrollIntoView nested container-ları da scroll edə bilər
+      const area = messagesAreaRef.current;
+      if (area) {
+        area.scrollTop = area.scrollHeight;
+      }
       setShouldScrollBottom(false);
       return;
     }
@@ -371,7 +375,7 @@ function Chat() {
           const distFromUnreadToBottom = area.scrollHeight - firstEl.offsetTop;
           // Viewport-a sığırsa → scroll et (ilk unread hələ görünəcək)
           if (distFromUnreadToBottom <= area.clientHeight) {
-            messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+            area.scrollTop = area.scrollHeight;
           } else {
             // Sığmırsa → scroll etmə, scroll-to-bottom butonunu göstər
             setShowScrollDown(true);
@@ -387,7 +391,7 @@ function Chat() {
       const distanceFromBottom =
         area.scrollHeight - area.scrollTop - area.clientHeight;
       if (distanceFromBottom < 80) {
-        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        area.scrollTop = area.scrollHeight;
       }
     }
   }, [messages, shouldScrollBottom, pinnedMessages, channelMembers, typingUsers]);
@@ -458,7 +462,7 @@ function Chat() {
       separator.scrollIntoView({ behavior: "instant", block: "center" });
     } else {
       // Separator yoxdursa (bütün mesajlar unread, separator yuxarıda) → ən aşağıya scroll et
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      area.scrollTop = area.scrollHeight;
     }
   }, [messages]);
 
@@ -595,25 +599,27 @@ function Chat() {
   }
 
   // handleScrollToBottom — scroll-to-bottom butonu basıldığında
-  // Əgər around mode-dadırsa (köhnə mesajlar yüklənib) → API-dən ən son mesajları yüklə
-  // Əks halda sadəcə son 30-u saxla və aşağı scroll et
+  // Həmişə API-dən ən son mesajları yüklə — around mode-da da, normal mode-da da
+  // Bu, SignalR ilə miss olmuş mesajların da görsənməsini təmin edir
   async function handleScrollToBottom() {
-    if (hasMoreDownRef.current && selectedChat) {
-      // Around mode — cari mesajlar köhnədir, ən sonları API-dən yüklə
-      try {
-        const endpoint = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
-        if (!endpoint) return;
-        const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
-        setMessages(data);
-      } catch {
-        // Fallback — mövcud mesajları saxla
-        setMessages((prev) => prev.slice(0, MESSAGE_PAGE_SIZE));
-      }
-    } else {
+    if (!selectedChat) return;
+    try {
+      const endpoint = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
+      if (!endpoint) return;
+      const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
+      // initialMsgIdsRef yenilə — yeni mesajlar "initial" sayılsın
+      // Bu, useEffect-in hasNewUnreadRef-i yenidən true etməsinin qarşısını alır
+      initialMsgIdsRef.current = new Set(data.map((m) => m.id));
+      setMessages(data);
+    } catch {
+      // API uğursuz → mövcud mesajlardan ən yenilərini saxla
       setMessages((prev) => prev.slice(0, MESSAGE_PAGE_SIZE));
     }
     hasMoreRef.current = true;
     hasMoreDownRef.current = false;
+    // Unread tracking sıfırla — istifadəçi açıq şəkildə aşağıya scroll etdi
+    hasNewUnreadRef.current = false;
+    firstUnreadMsgIdRef.current = null;
     setShouldScrollBottom(true);
   }
 
