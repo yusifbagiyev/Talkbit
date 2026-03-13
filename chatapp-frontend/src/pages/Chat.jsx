@@ -1527,6 +1527,8 @@ function Chat() {
     setImageViewer(null);
     setReadLaterMessageId(null); // Əvvəlki chatın read later mark-ını sıfırla
     setNewMessagesStartId(null); // Əvvəlki chatın new messages separator-ını sıfırla
+    setShowScrollDown(false); // Əvvəlki chatın scroll-to-bottom butonunu sıfırla
+    setNewUnreadCount(0); // Əvvəlki chatın unread badge-ini sıfırla
     hasMoreRef.current = true; // Yenidən köhnə mesaj yükləmək mümkündür
     hasMoreDownRef.current = false; // Around mode yox
 
