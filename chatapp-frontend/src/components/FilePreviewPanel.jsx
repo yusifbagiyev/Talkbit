@@ -3,7 +3,7 @@
 // Tək şəkil: böyük preview, çoxlu fayl: kiçik siyahı.
 // Drag-and-drop ilə faylların sırasını dəyişmək mümkündür.
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { formatFileSize } from "../utils/chatUtils";
 import FileTypeIcon from "./FileTypeIcon";
 
@@ -24,22 +24,25 @@ function FilePreviewPanel({
   const [overIndex, setOverIndex] = useState(null);
   const listRef = useRef(null);
 
-  // ─── Object URL-lər — useMemo ilə yaradılır, useEffect ilə cleanup olunur (React 19 safe) ───
-  const previews = useMemo(() => {
-    return selectedFiles.map((file) => ({
+  // ─── Object URL-lər — useEffect daxilində yaradılır + cleanup olunur ───
+  // URL.createObjectURL side-effect-dir, Strict Mode-da useMemo 2 dəfə run olur
+  // amma cleanup olmur → URL-lər revoke olunub qırılır. Ona görə useEffect istifadə edilir.
+  const [previews, setPreviews] = useState([]);
+
+  useEffect(() => {
+    const newPreviews = selectedFiles.map((file) => ({
       type: file.type.startsWith("image/") ? "image" : "file",
       url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
     }));
-  }, [selectedFiles]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Object URL lifecycle: yaratma + cleanup eyni effect-də olmalıdır
+    setPreviews(newPreviews);
 
-  // Köhnə URL-ları cleanup et (previews dəyişdikdə və unmount-da)
-  useEffect(() => {
     return () => {
-      for (const p of previews) {
+      for (const p of newPreviews) {
         if (p.url) URL.revokeObjectURL(p.url);
       }
     };
-  }, [previews]);
+  }, [selectedFiles]);
 
   // Tək şəkil olub-olmadığını yoxla
   const isSingleImage =

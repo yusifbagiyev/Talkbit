@@ -86,7 +86,8 @@
       "Bash(\"C:/Users/ybaghiyev/Desktop/ChatApp/tasks/lessons.md\":*)",
       "Bash(git restore:*)",
       "WebSearch",
-      "Bash(npx eslint src/)"
+      "Bash(npx eslint src/)",
+      "Bash(npx eslint src/components/FilePreviewPanel.jsx)"
     ],
     "deny": [],
     "ask": []
