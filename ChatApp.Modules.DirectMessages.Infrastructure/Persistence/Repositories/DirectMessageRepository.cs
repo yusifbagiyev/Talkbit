@@ -269,6 +269,8 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
             public long? FileSizeInBytes { get; init; }
             public string? FileStoragePath { get; init; }
             public string? FileThumbnailPath { get; init; }
+            public int? FileWidth { get; init; }
+            public int? FileHeight { get; init; }
             public bool IsEdited { get; init; }
             public bool IsDeleted { get; init; }
             public bool IsRead { get; init; }
@@ -321,6 +323,8 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
                        FileSizeInBytes = file != null ? (long?)file.FileSizeInBytes : null,
                        FileStoragePath = file != null ? file.StoragePath : null,
                        FileThumbnailPath = file != null ? file.ThumbnailPath : null,
+                       FileWidth = file != null ? file.Width : null,
+                       FileHeight = file != null ? file.Height : null,
                        IsEdited = message.IsEdited,
                        IsDeleted = message.IsDeleted,
                        IsRead = message.IsRead,
@@ -422,6 +426,8 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
                 r.FileSizeInBytes,
                 FileUrlHelper.ToUrl(r.FileStoragePath),      // FileUrl
                 FileUrlHelper.ToUrl(r.FileThumbnailPath), // ThumbnailUrl
+                r.FileWidth,
+                r.FileHeight,
                 r.IsEdited,
                 r.IsDeleted,
                 r.IsRead,

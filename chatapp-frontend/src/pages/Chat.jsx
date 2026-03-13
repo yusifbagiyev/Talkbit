@@ -180,6 +180,14 @@ function Chat() {
   // shouldScrollBottom — yeni mesaj gəldikdə / chat seçildikdə aşağıya scroll et
   const [shouldScrollBottom, setShouldScrollBottom] = useState(false);
 
+  // imageReScrollRef — şəkil yükləndikdə aşağıya re-scroll etmək üçün flag
+  // shouldScrollBottom true olduqda set olunur, 3 saniyə sonra söndürülür
+  const imageReScrollRef = useRef(false);
+  const imageReScrollTimerRef = useRef(null);
+
+  // chatLoading — conversation seçildikdə mesajlar yüklənənə qədər true
+  const [chatLoading, setChatLoading] = useState(false);
+
   // showScrollDown — 1 viewport yuxarı scroll edildikdə true → scroll-to-bottom butonu göstər
   const [showScrollDown, setShowScrollDown] = useState(false);
 
@@ -353,6 +361,10 @@ function Chat() {
     if (shouldScrollBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       setShouldScrollBottom(false);
+      // Şəkillər hələ yüklənməyib ola bilər — onLoad ilə re-scroll üçün flag set et
+      imageReScrollRef.current = true;
+      clearTimeout(imageReScrollTimerRef.current);
+      imageReScrollTimerRef.current = setTimeout(() => { imageReScrollRef.current = false; }, 3000);
       return;
     }
     // Yeni unread mesajlar varsa — viewport-a sığana qədər scroll, sığmayanda dayan
@@ -467,7 +479,8 @@ function Chat() {
     let scrollTimer = null;
     const onScroll = () => {
       const dist = area.scrollHeight - area.scrollTop - area.clientHeight;
-      setShowScrollDown(dist > area.clientHeight);
+      // scrollHeight <= clientHeight → content overflow yoxdur → button gizlə
+      setShowScrollDown(area.scrollHeight > area.clientHeight && dist > area.clientHeight);
       // Scrollbar göstər
       area.classList.add("scrolling");
       if (scrollTimer) clearTimeout(scrollTimer);
@@ -1481,6 +1494,7 @@ function Chat() {
     setMessageText(savedDraft);
 
     // State sıfırla — yeni chat seçildi
+    setChatLoading(true); // Mesajlar yüklənənə qədər loading overlay göstər
     setSelectedChat(chat);
     setMessages([]);
     setPinnedMessages([]);
@@ -1528,10 +1542,12 @@ function Chat() {
     setReadLaterMessageId(null); // Əvvəlki chatın read later mark-ını sıfırla
     setNewMessagesStartId(null); // Əvvəlki chatın new messages separator-ını sıfırla
     setShowScrollDown(false); // Əvvəlki chatın scroll-to-bottom butonunu sıfırla
-    setNewUnreadCount(0); // Əvvəlki chatın unread badge-ini sıfırla
+    // newUnreadCount useMemo-dur, setMessages([]) ilə avtomatik 0 olur
+    hasNewUnreadRef.current = false; // Əvvəlki chatın SignalR unread flag-ını sıfırla
+    firstUnreadMsgIdRef.current = null; // Əvvəlki chatın ilk unread mesaj ID-sini sıfırla
+    pendingScrollToUnreadRef.current = false; // Əvvəlki chatın pending scroll-unu sıfırla
     hasMoreRef.current = true; // Yenidən köhnə mesaj yükləmək mümkündür
     hasMoreDownRef.current = false; // Around mode yox
-
     // lastReadLaterMessageId varsa — around endpoint ilə yüklə, əks halda normal
     const hasReadLater = !!chat.lastReadLaterMessageId;
 
@@ -1692,6 +1708,7 @@ function Chat() {
           ? finalMsgData.map((m) => m.isRead ? m : { ...m, isRead: true })
           : finalMsgData,
       );
+      // setChatLoading(false) finally blokunda — hər halda çağırılır
 
       readBatchChatRef.current = {
         chatId: chat.id,
@@ -1757,6 +1774,9 @@ function Chat() {
     } catch (err) {
       console.error("Failed to load messages:", err);
       setMessages([]);
+    } finally {
+      setChatLoading(false); // Hər halda (uğurlu, xəta, early return) loading-i gizlət
+      setShowScrollDown(false); // Loading bitdikdə buton sıfırlansın — scroll event yenidən qiymətləndirəcək
     }
   }
 
@@ -3067,6 +3087,18 @@ function Chat() {
     setImageViewer(null);
   }, []);
 
+  // handleImageLoad — şəkil yükləndikdə, əgər ən aşağıya yaxındırsa re-scroll et
+  // Backend-dən fileWidth/fileHeight gəlməyən köhnə mesajlar üçün fallback
+  const handleImageLoad = useCallback(() => {
+    if (!imageReScrollRef.current) return;
+    const area = messagesAreaRef.current;
+    if (!area) return;
+    const dist = area.scrollHeight - area.scrollTop - area.clientHeight;
+    if (dist < 300) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+  }, []);
+
   // Add member paneli üçün — DM conversationlardan artıq üzv olmayanları göstər
   const addMemberUsers = useMemo(() => {
     if (!showAddMember || !selectedChat) return [];
@@ -3251,9 +3283,17 @@ function Chat() {
                 />
               )}
 
+              {/* chatLoading — mesajlar yüklənərkən overlay göstər */}
+              {chatLoading && (
+                <div className="chat-loading-overlay">
+                  <div className="chat-loading-spinner" />
+                  <span>Loading chat...</span>
+                </div>
+              )}
+
               {/* messages-area — scroll container */}
               <div
-                className="messages-area"
+                className={`messages-area${chatLoading ? " hidden-loading" : ""}`}
                 ref={messagesAreaRef}
                 onScroll={handleScroll} // useChatScroll-dan gəlir
               >
@@ -3319,6 +3359,7 @@ function Chat() {
                           onLoadReactionDetails={handleLoadReactionDetails}
                           onMentionClick={handleMentionClick}
                           onOpenImageViewer={handleOpenImageViewer}
+                          onImageLoad={handleImageLoad}
                         />
                       );
                     });
@@ -3360,6 +3401,7 @@ function Chat() {
                               onLoadReactionDetails={handleLoadReactionDetails}
                               onMentionClick={handleMentionClick}
                               onOpenImageViewer={handleOpenImageViewer}
+                          onImageLoad={handleImageLoad}
                             />
                           );
                         })}
@@ -3382,7 +3424,7 @@ function Chat() {
               </div>
 
               {/* Scroll-to-bottom butonu — 1 viewport yuxarı scroll olunduqda görünür */}
-              {showScrollDown && (
+              {showScrollDown && !chatLoading && (
                 <button
                   className={`scroll-to-bottom-btn${newUnreadCount > 0 ? " has-unread" : ""}`}
                   onClick={handleScrollToBottom}

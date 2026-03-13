@@ -113,6 +113,8 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                         FileSizeInBytes: null,
                         FileUrl: null,
                         ThumbnailUrl: null,
+                        FileWidth: null,
+                        FileHeight: null,
                         IsEdited: message.IsEdited,
                         IsDeleted: true,
                         IsPinned: message.IsPinned,

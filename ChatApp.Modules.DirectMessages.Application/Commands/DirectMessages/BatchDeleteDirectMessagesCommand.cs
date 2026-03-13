@@ -96,6 +96,8 @@ namespace ChatApp.Modules.DirectMessages.Application.Commands.DirectMessages
                         FileSizeInBytes: null,
                         FileUrl: null,
                         ThumbnailUrl: null,
+                        FileWidth: null,
+                        FileHeight: null,
                         IsEdited: message.IsEdited,
                         IsDeleted: true,
                         IsRead: message.IsRead,

@@ -60,3 +60,14 @@
 - **Context**: ImageViewer.jsx yeni komponent idi, user-ə izah edib yazdırmağa başladım
 - **Mistake**: Mövcud kodları (MessageBubble, Chat.jsx, CSS) birbaşa özüm yazdım, amma yeni komponenti user-ə öyrətməyə çalışdım — user haqlı olaraq "bu vaxta kimi özün etdin, indi mənə öyrədirsən?" dedi
 - **Rule**: Əgər task bug fix / feature implementasiyasıdırsa — həm mövcud kod dəyişikliyi, həm də yeni fayl yaratma birbaşa özün et. "User özü yazsın" qaydası YALNIZ React öyrətmə sessiyalarında (step-by-step migration) keçərlidir, normal development zamanı yox.
+
+### Lesson: useState vs useMemo — setter funksiyası yoxlama
+- **Date**: 2026-03-13
+- **Context**: `handleSelectChat`-a `setNewUnreadCount(0)` əlavə etdim, amma `newUnreadCount` useState deyil, useMemo idi. `setNewUnreadCount` mövcud olmadığına görə `ReferenceError` atıldı.
+- **Mistake**: State variable-ın necə yaradıldığını yoxlamadan setter funksiyası çağırdım. Xəta try-catch-finally blokunda XARIC idi, ona görə `setChatLoading(false)` heç vaxt çağırılmadı → loading sonsuz qaldı.
+- **Rule**: Hər hansı `setXxx()` çağırmazdan əvvəl HƏMİŞƏ `useState` yoxsa `useMemo`/`useRef` olduğunu yoxla. useMemo-nun setter-i yoxdur — o hesablanan dəyərdir. Əgər sıfırlamaq lazımdırsa, dependency-lərini sıfırla (məsələn `setMessages([])` → useMemo avtomatik yenilənir).
+
+### Lesson: try-catch-finally scope — əvvəlki kod unhandled qalır
+- **Date**: 2026-03-13
+- **Context**: `setChatLoading(true)` try blokunda XARIC idi (1496-cı sətir), `setChatLoading(false)` isə finally blokunda (1775-ci sətir). Aradakı `setNewUnreadCount(0)` ReferenceError atdıqda, finally bloku heç vaxt işləmədi.
+- **Rule**: Əgər bir state/ref `true` set edilib sonra `finally`-də `false` olunursa, `true` set edildikdən sonrakı BÜTÜN kod try bloku daxilində olmalıdır. try-catch-finally-nin coverage-i `setChatLoading(true)` setindən dərhal SONRA başlamalıdır. Əks halda aradakı unhandled error loading-i sonsuza kimi bloklaya bilər.

@@ -7,13 +7,9 @@
 - **UI Style**: Bitrix 24 style, use modern ui/ux tools
 
 ## React Migration Context
-- User is learning React from scratch. Teach step by step, one concept at a time.
-- User types all code manually to learn. Explain every line before writing.
-- Compare React concepts to .NET equivalents when helpful.
 - User works on 2 PCs. Always keep `tasks/todo.md` updated so progress syncs via GitHub.
 - Progress tracker: `tasks/todo.md` — read this first when resuming.
 - Lessons file: `tasks/lessons.md` — read this at session start.
-- When user says "Continue React migration", read `tasks/todo.md` and continue from next unchecked step.
 - React project location: `C:\Users\Joseph\Desktop\ChatApp\chatapp-frontend\`
 
 ## Modullar
@@ -24,6 +20,7 @@ Identity | Channels | DirectMessages | Files | Notifications | Search | Settings
 - Lazımsız kodları silməyi unutma
 - Həmişə kodları optimizasiya etmək, code refactor etmək və performansı yüksəltmək lazımdır.
 - Yeni bir kod yazmamışdan öncə yazılan arxitekturanı, yanaşmanı təhlil et , daha sonra kod yaz.
+- Hər dəfə plan yaratmağa ehtiyac yoxdur. Sadəcə fikrini cəmlə və həll et
 - Kodun strukturu , arxitekturası hansı üsullarla yazılıbsa, o qaydanı pozma!
 
 ## Workflow Orchestration

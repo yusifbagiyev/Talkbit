@@ -17,6 +17,8 @@ namespace ChatApp.Modules.DirectMessages.Application.DTOs.Response
         long? FileSizeInBytes,
         string? FileUrl,           // Statik fayl URL-i (API call əvəzinə)
         string? ThumbnailUrl,      // Şəkil thumbnail URL-i
+        int? FileWidth,            // Şəkil genişliyi (layout shift önləmək üçün)
+        int? FileHeight,           // Şəkil hündürlüyü
         bool IsEdited,
         bool IsDeleted,
         bool IsRead,

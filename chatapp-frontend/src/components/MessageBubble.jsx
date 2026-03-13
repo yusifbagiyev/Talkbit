@@ -8,14 +8,19 @@ import { memo, useState, useRef, useEffect, useLayoutEffect } from "react";
 import {
   getInitials,
   getAvatarColor,
-  formatMessageTime,    // "HH:mm" formatı
-  formatFileSize,        // Byte → "2.4 MB"
-  parseMentions,         // Mesaj mətnini mention segmentlərinə ayır
+  formatMessageTime, // "HH:mm" formatı
+  formatFileSize, // Byte → "2.4 MB"
+  parseMentions, // Mesaj mətnini mention segmentlərinə ayır
 } from "../utils/chatUtils";
 import { getFileUrl } from "../services/api"; // Backend file URL → tam URL
 import FileTypeIcon from "./FileTypeIcon"; // Fayl tipinə görə rəngli icon
 
-import { QUICK_REACTION_EMOJIS, EXPANDED_EXTRA_EMOJIS, emojiToUrl, renderTextWithEmojis } from "../utils/emojiConstants";
+import {
+  QUICK_REACTION_EMOJIS,
+  EXPANDED_EXTRA_EMOJIS,
+  emojiToUrl,
+  renderTextWithEmojis,
+} from "../utils/emojiConstants";
 import MessageActionMenu from "./MessageActionMenu"; // "⋮" menyu komponenti
 
 // renderEmojiContent — mətn içindəki Unicode emojiləri Apple CDN şəkillərinə çevirir
@@ -40,7 +45,7 @@ function renderEmojiContent(text) {
           e.target.replaceWith(span);
         }}
       />
-    )
+    ),
   );
 }
 
@@ -82,6 +87,7 @@ const MessageBubble = memo(function MessageBubble({
   onLoadReactionDetails,
   onMentionClick,
   onOpenImageViewer,
+  onImageLoad,
 }) {
   // --- LOKAL STATE ---
 
@@ -104,13 +110,13 @@ const MessageBubble = memo(function MessageBubble({
   const [pickerHovered, setPickerHovered] = useState(false);
 
   // --- DOM REFERANSLARI ---
-  const menuRef = useRef(null);     // MessageActionMenu div-i
+  const menuRef = useRef(null); // MessageActionMenu div-i
   const reactionRef = useRef(null); // Reaction picker div-i
-  const tooltipRef = useRef(null);  // Reaction tooltip div-i
-  const pickerTimerRef = useRef(null);     // Picker bağlanma gecikmə timer-i
+  const tooltipRef = useRef(null); // Reaction tooltip div-i
+  const pickerTimerRef = useRef(null); // Picker bağlanma gecikmə timer-i
   const pickerOpenTimerRef = useRef(null); // Picker açılma gecikmə timer-i
-  const menuBtnRectRef = useRef(null);    // More butonunun klik anındakı rect-i
-  const badgePressRef = useRef(null);     // Reaction badge hover timer-i (tooltip üçün)
+  const menuBtnRectRef = useRef(null); // More butonunun klik anındakı rect-i
+  const badgePressRef = useRef(null); // Reaction badge hover timer-i (tooltip üçün)
 
   // Komponent unmount olduqda timer-ləri təmizlə (memory leak qarşısını al)
   useEffect(() => {
@@ -126,7 +132,9 @@ const MessageBubble = memo(function MessageBubble({
   useEffect(() => {
     if (reactionOpen) {
       // Bu picker açıldı → digərlərinə xəbər ver
-      document.dispatchEvent(new CustomEvent("reaction-picker-open", { detail: msg.id }));
+      document.dispatchEvent(
+        new CustomEvent("reaction-picker-open", { detail: msg.id }),
+      );
     }
   }, [reactionOpen, msg.id]);
 
@@ -141,7 +149,11 @@ const MessageBubble = memo(function MessageBubble({
       }
     }
     document.addEventListener("reaction-picker-open", handleOtherPickerOpen);
-    return () => document.removeEventListener("reaction-picker-open", handleOtherPickerOpen);
+    return () =>
+      document.removeEventListener(
+        "reaction-picker-open",
+        handleOtherPickerOpen,
+      );
   }, [msg.id]);
 
   // --- KƏNAR KLİK HANDLER ---
@@ -149,12 +161,19 @@ const MessageBubble = memo(function MessageBubble({
   // Klik bunların xaricinə düşdükdə hamısını bağla
   useEffect(() => {
     function handleClickOutside(e) {
-      const clickedInsideMenu = menuRef.current && menuRef.current.contains(e.target);
-      const clickedInsideReaction = reactionRef.current && reactionRef.current.contains(e.target);
-      const clickedInsideTooltip = tooltipRef.current && tooltipRef.current.contains(e.target);
+      const clickedInsideMenu =
+        menuRef.current && menuRef.current.contains(e.target);
+      const clickedInsideReaction =
+        reactionRef.current && reactionRef.current.contains(e.target);
+      const clickedInsideTooltip =
+        tooltipRef.current && tooltipRef.current.contains(e.target);
 
       // Tooltip kənara klikləndikdə bağla (reaction badge-ə klik istisnası)
-      if (reactionTooltipOpen && !clickedInsideTooltip && !e.target.closest(".reaction-badge")) {
+      if (
+        reactionTooltipOpen &&
+        !clickedInsideTooltip &&
+        !e.target.closest(".reaction-badge")
+      ) {
         setReactionTooltipOpen(null);
       }
 
@@ -205,7 +224,8 @@ const MessageBubble = memo(function MessageBubble({
       left = btnRect.left;
     }
     if (left < 4) left = 4;
-    if (left + elWidth > window.innerWidth - 4) left = window.innerWidth - elWidth - 4;
+    if (left + elWidth > window.innerWidth - 4)
+      left = window.innerWidth - elWidth - 4;
 
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
@@ -226,7 +246,6 @@ const MessageBubble = memo(function MessageBubble({
     // Yuxarıda yer: quick picker wrap-ın yuxarısında açılır
     // Aşağıda yer yoxdursa yuxarıya, varsa aşağıya expand olur
     let top;
-    const spaceAbove = wrapRect.top;
     const spaceBelow = window.innerHeight - wrapRect.bottom;
 
     if (!reactionExpanded) {
@@ -260,14 +279,19 @@ const MessageBubble = memo(function MessageBubble({
 
     // Ekrandan kənara çıxmasın
     if (left < 4) left = 4;
-    if (left + elWidth > window.innerWidth - 4) left = window.innerWidth - elWidth - 4;
+    if (left + elWidth > window.innerWidth - 4)
+      left = window.innerWidth - elWidth - 4;
 
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
   }, [reactionOpen, reactionExpanded, isOwn]);
 
   // Image-only: şəkil + mətn yoxdur — xüsusi layout (overlay timestamp, kənar reaction)
-  const isImageOnly = !msg.isDeleted && msg.fileUrl && msg.fileContentType?.startsWith("image/") && !msg.content;
+  const isImageOnly =
+    !msg.isDeleted &&
+    msg.fileUrl &&
+    msg.fileContentType?.startsWith("image/") &&
+    !msg.content;
 
   // --- JSX RENDER ---
   return (
@@ -278,15 +302,16 @@ const MessageBubble = memo(function MessageBubble({
       className={`message-row ${isOwn ? "own" : ""} ${showAvatar ? "has-avatar" : ""} ${isSelected ? "selected" : ""}`}
       data-bubble-id={msg.id}
       // selectMode aktiv + mesaj silinməyibsə klik → toggle select
-      onClick={selectMode && !msg.isDeleted ? () => onToggleSelect(msg.id) : undefined}
+      onClick={
+        selectMode && !msg.isDeleted ? () => onToggleSelect(msg.id) : undefined
+      }
       // Spread operator ilə şərti data-* atributları əlavə et
       // !isOwn + !msg.isRead → IntersectionObserver üçün lazımdır
       {...(!isOwn &&
         !msg.isRead && {
           "data-unread": "true",
           "data-msg-id": msg.id,
-          "data-conv-id":
-            chatType === 0 ? msg.conversationId : msg.channelId,
+          "data-conv-id": chatType === 0 ? msg.conversationId : msg.channelId,
           "data-conv-type": String(chatType), // "0" (string) — dataset always string
         })}
     >
@@ -294,7 +319,14 @@ const MessageBubble = memo(function MessageBubble({
       {selectMode && !msg.isDeleted && (
         <div className={`select-checkbox ${isSelected ? "checked" : ""}`}>
           {isSelected && (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="3"
+            >
               <polyline points="20 6 9 17 4 12" />
             </svg>
           )}
@@ -308,18 +340,34 @@ const MessageBubble = memo(function MessageBubble({
       {/* actions-locked class: menyu/reaction açıq olduqda butonlar görünməyə davam etsin */}
       <div
         className={`message-bubble ${isOwn ? "own" : ""}${menuOpen ? " menu-open" : ""}${reactionOpen ? " reaction-open" : ""}${pickerHovered ? " picker-hovered" : ""}${selectMode ? " select-mode" : ""}${isImageOnly ? " image-only" : ""}`}
-        onContextMenu={selectMode ? undefined : (e) => {
-          e.preventDefault();
-          // Sağ klik pozisyasını saxla — menu orada açılacaq
-          menuBtnRectRef.current = { top: e.clientY, bottom: e.clientY, left: e.clientX, right: e.clientX };
-          setMenuOpen(true);
-          setReactionOpen(false);
-        }}
+        onContextMenu={
+          selectMode
+            ? undefined
+            : (e) => {
+                e.preventDefault();
+                // Sağ klik pozisyasını saxla — menu orada açılacaq
+                menuBtnRectRef.current = {
+                  top: e.clientY,
+                  bottom: e.clientY,
+                  left: e.clientX,
+                  right: e.clientX,
+                };
+                setMenuOpen(true);
+                setReactionOpen(false);
+              }
+        }
       >
         {/* Forwarded label — yönləndirilmiş mesaj */}
         {msg.isForwarded && !msg.isDeleted && (
           <div className="forwarded-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <polyline points="15 17 20 12 15 7" />
               <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
             </svg>
@@ -332,7 +380,9 @@ const MessageBubble = memo(function MessageBubble({
           <div
             className="reply-reference"
             // Reply-a klik → həmin mesaja scroll et
-            onClick={() => onScrollToMessage && onScrollToMessage(msg.replyToMessageId)}
+            onClick={() =>
+              onScrollToMessage && onScrollToMessage(msg.replyToMessageId)
+            }
           >
             <div className="reply-reference-bar" />
             <div className="reply-reference-body">
@@ -342,8 +392,12 @@ const MessageBubble = memo(function MessageBubble({
               <span className="reply-reference-text">
                 {msg.replyToFileId
                   ? msg.replyToFileContentType?.startsWith("image/")
-                    ? msg.replyToContent ? `[Image] ${msg.replyToContent}` : "[Image]"
-                    : msg.replyToContent ? `File: ${msg.replyToFileName || "File"} — ${msg.replyToContent}` : `File: ${msg.replyToFileName || "File"}`
+                    ? msg.replyToContent
+                      ? `[Image] ${msg.replyToContent}`
+                      : "[Image]"
+                    : msg.replyToContent
+                      ? `File: ${msg.replyToFileName || "File"} — ${msg.replyToContent}`
+                      : `File: ${msg.replyToFileName || "File"}`
                   : msg.replyToContent}
               </span>
             </div>
@@ -355,7 +409,14 @@ const MessageBubble = memo(function MessageBubble({
           {msg.isDeleted ? (
             // Silinmiş mesaj — məzmun yerinə standart mesaj
             <span className="deleted-message-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
@@ -364,15 +425,29 @@ const MessageBubble = memo(function MessageBubble({
           ) : (
             <>
               {/* Fayl/şəkil — mətn-dən ƏVVƏL render olunur */}
-              {msg.fileUrl && (
-                msg.fileContentType?.startsWith("image/") ? (
+              {msg.fileUrl &&
+                (msg.fileContentType?.startsWith("image/") ? (
                   // Şəkil — full-width preview, klikləmə ilə yeni tabda aç
-                  <div className={`bubble-file-image${!msg.content ? " image-only" : ""}`}>
+                  <div
+                    className={`bubble-file-image${!msg.content ? " image-only" : ""}`}
+                  >
                     <img
                       src={getFileUrl(msg.fileUrl)}
                       alt={msg.fileName || "Image"}
                       loading="lazy"
-                      onClick={() => onOpenImageViewer && onOpenImageViewer(msg.id)}
+                      width={msg.fileWidth || undefined}
+                      height={msg.fileHeight || undefined}
+                      style={
+                        msg.fileWidth && msg.fileHeight
+                          ? {
+                              aspectRatio: `${msg.fileWidth}/${msg.fileHeight}`,
+                            }
+                          : undefined
+                      }
+                      onLoad={onImageLoad}
+                      onClick={() =>
+                        onOpenImageViewer && onOpenImageViewer(msg.id)
+                      }
                     />
                   </div>
                 ) : (
@@ -410,48 +485,57 @@ const MessageBubble = memo(function MessageBubble({
                     <div className="bubble-file-icon">
                       {/* Fayl tipinə görə rəngli icon + extension badge */}
                       <FileTypeIcon fileName={msg.fileName} size={32} />
-                      <span className={`bubble-file-badge ${(msg.fileName?.split('.').pop() || '').toLowerCase()}`}>
-                        {(msg.fileName?.split('.').pop() || '').toUpperCase()}
+                      <span
+                        className={`bubble-file-badge ${(msg.fileName?.split(".").pop() || "").toLowerCase()}`}
+                      >
+                        {(msg.fileName?.split(".").pop() || "").toUpperCase()}
                       </span>
                     </div>
                     <div className="bubble-file-info">
                       <span className="bubble-file-name">{msg.fileName}</span>
-                      <span className="bubble-file-size">{formatFileSize(msg.fileSizeInBytes)}</span>
+                      <span className="bubble-file-size">
+                        {formatFileSize(msg.fileSizeInBytes)}
+                      </span>
                     </div>
                     <div className="bubble-file-download">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <circle cx="12" cy="12" r="10" strokeWidth="1.5" />
                         <polyline points="8 12 12 16 16 12" />
                         <line x1="12" y1="8" x2="12" y2="16" />
                       </svg>
                     </div>
                   </div>
-                )
-              )}
+                ))}
 
               {/* Mətn — yalnız content varsa render et (fayl-only mesaj üçün boş ola bilər) */}
-              {msg.content && (
-                msg.mentions && msg.mentions.length > 0 ? (
-                  parseMentions(msg.content, msg.mentions).map((seg, i) =>
-                    seg.type === "mention" ? (
-                      <span
-                        key={i}
-                        className="mention-highlight"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onMentionClick) onMentionClick(seg);
-                        }}
-                      >
-                        {seg.text}
-                      </span>
-                    ) : (
-                      <span key={i}>{renderEmojiContent(seg.text)}</span>
+              {msg.content &&
+                (msg.mentions && msg.mentions.length > 0
+                  ? parseMentions(msg.content, msg.mentions).map((seg, i) =>
+                      seg.type === "mention" ? (
+                        <span
+                          key={i}
+                          className="mention-highlight"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onMentionClick) onMentionClick(seg);
+                          }}
+                        >
+                          {seg.text}
+                        </span>
+                      ) : (
+                        <span key={i}>{renderEmojiContent(seg.text)}</span>
+                      ),
                     )
-                  )
-                ) : (
-                  renderEmojiContent(msg.content)
-                )
-              )}
+                  : renderEmojiContent(msg.content))}
             </>
           )}
         </div>
@@ -465,7 +549,10 @@ const MessageBubble = memo(function MessageBubble({
                   className="reaction-badge"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (reactionTooltipOpen === r.emoji) { setReactionTooltipOpen(null); return; }
+                    if (reactionTooltipOpen === r.emoji) {
+                      setReactionTooltipOpen(null);
+                      return;
+                    }
                     onReaction && onReaction(msg, r.emoji);
                   }}
                   onMouseEnter={() => {
@@ -482,26 +569,43 @@ const MessageBubble = memo(function MessageBubble({
                   onMouseLeave={() => clearTimeout(badgePressRef.current)}
                 >
                   <span className="reaction-badge-emoji">
-                    <img src={emojiToUrl(r.emoji)} alt={r.emoji} className="twemoji" draggable="false" />
+                    <img
+                      src={emojiToUrl(r.emoji)}
+                      alt={r.emoji}
+                      className="twemoji"
+                      draggable="false"
+                    />
                   </span>
-                  {r.count > 1 && <span className="reaction-badge-count">{r.count}</span>}
+                  {r.count > 1 && (
+                    <span className="reaction-badge-count">{r.count}</span>
+                  )}
                 </button>
                 {reactionTooltipOpen === r.emoji && (
                   <div className="reaction-tooltip visible" ref={tooltipRef}>
                     {reactionDetailsLoading ? (
                       <div className="reaction-tooltip-item">
-                        <span className="reaction-tooltip-name reaction-tooltip-loading">Loading...</span>
+                        <span className="reaction-tooltip-name reaction-tooltip-loading">
+                          Loading...
+                        </span>
                       </div>
                     ) : r.userFullNames && r.userFullNames.length > 0 ? (
                       r.userFullNames.map((name, i) => (
                         <div key={i} className="reaction-tooltip-item">
-                          <div className="reaction-tooltip-avatar" style={{ background: getAvatarColor(name) }}>{getInitials(name)}</div>
+                          <div
+                            className="reaction-tooltip-avatar"
+                            style={{ background: getAvatarColor(name) }}
+                          >
+                            {getInitials(name)}
+                          </div>
                           <span className="reaction-tooltip-name">{name}</span>
                         </div>
                       ))
                     ) : (
                       <div className="reaction-tooltip-item">
-                        <span className="reaction-tooltip-name">{r.count} {r.count === 1 ? "person" : "people"} reacted</span>
+                        <span className="reaction-tooltip-name">
+                          {r.count} {r.count === 1 ? "person" : "people"}{" "}
+                          reacted
+                        </span>
                       </div>
                     )}
                   </div>
@@ -522,7 +626,10 @@ const MessageBubble = memo(function MessageBubble({
                     className="reaction-badge"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (reactionTooltipOpen === r.emoji) { setReactionTooltipOpen(null); return; }
+                      if (reactionTooltipOpen === r.emoji) {
+                        setReactionTooltipOpen(null);
+                        return;
+                      }
                       onReaction && onReaction(msg, r.emoji);
                     }}
                     onMouseEnter={() => {
@@ -539,26 +646,45 @@ const MessageBubble = memo(function MessageBubble({
                     onMouseLeave={() => clearTimeout(badgePressRef.current)}
                   >
                     <span className="reaction-badge-emoji">
-                      <img src={emojiToUrl(r.emoji)} alt={r.emoji} className="twemoji" draggable="false" />
+                      <img
+                        src={emojiToUrl(r.emoji)}
+                        alt={r.emoji}
+                        className="twemoji"
+                        draggable="false"
+                      />
                     </span>
-                    {r.count > 1 && <span className="reaction-badge-count">{r.count}</span>}
+                    {r.count > 1 && (
+                      <span className="reaction-badge-count">{r.count}</span>
+                    )}
                   </button>
                   {reactionTooltipOpen === r.emoji && (
                     <div className="reaction-tooltip visible" ref={tooltipRef}>
                       {reactionDetailsLoading ? (
                         <div className="reaction-tooltip-item">
-                          <span className="reaction-tooltip-name reaction-tooltip-loading">Loading...</span>
+                          <span className="reaction-tooltip-name reaction-tooltip-loading">
+                            Loading...
+                          </span>
                         </div>
                       ) : r.userFullNames && r.userFullNames.length > 0 ? (
                         r.userFullNames.map((name, i) => (
                           <div key={i} className="reaction-tooltip-item">
-                            <div className="reaction-tooltip-avatar" style={{ background: getAvatarColor(name) }}>{getInitials(name)}</div>
-                            <span className="reaction-tooltip-name">{name}</span>
+                            <div
+                              className="reaction-tooltip-avatar"
+                              style={{ background: getAvatarColor(name) }}
+                            >
+                              {getInitials(name)}
+                            </div>
+                            <span className="reaction-tooltip-name">
+                              {name}
+                            </span>
                           </div>
                         ))
                       ) : (
                         <div className="reaction-tooltip-item">
-                          <span className="reaction-tooltip-name">{r.count} {r.count === 1 ? "person" : "people"} reacted</span>
+                          <span className="reaction-tooltip-name">
+                            {r.count} {r.count === 1 ? "person" : "people"}{" "}
+                            reacted
+                          </span>
                         </div>
                       )}
                     </div>
@@ -609,18 +735,23 @@ const MessageBubble = memo(function MessageBubble({
               className="bubble-action-btn"
               title="More"
               onClick={(e) => {
-                menuBtnRectRef.current = e.currentTarget.getBoundingClientRect();
+                menuBtnRectRef.current =
+                  e.currentTarget.getBoundingClientRect();
                 setMenuOpen(!menuOpen);
                 setReactionOpen(false);
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <circle cx="5" cy="12" r="2" />
                 <circle cx="12" cy="12" r="2" />
                 <circle cx="19" cy="12" r="2" />
               </svg>
             </button>
-
           </div>
         )}
 
@@ -675,7 +806,12 @@ const MessageBubble = memo(function MessageBubble({
                 onReaction && onReaction(msg, "👍");
               }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
                 <path d="M2 20h2V10H2v10zm19.8-9.2c-.3-.4-.8-.6-1.3-.6h-5.6l.8-4c.1-.5 0-1-.4-1.4-.3-.3-.8-.5-1.3-.5h-.3c-.4.1-.7.4-.9.8L10.6 10H8v10h8.3c.7 0 1.3-.4 1.5-1l2.7-7c.2-.4.1-.9-.2-1.2z" />
               </svg>
             </button>
@@ -689,7 +825,9 @@ const MessageBubble = memo(function MessageBubble({
               onMouseLeave={() => setPickerHovered(false)}
             >
               {/* Bütün emojilər — vahid grid + scroll */}
-              <div className={`reaction-emoji-grid${reactionExpanded ? " expanded" : ""}`}>
+              <div
+                className={`reaction-emoji-grid${reactionExpanded ? " expanded" : ""}`}
+              >
                 {QUICK_REACTION_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
@@ -700,22 +838,33 @@ const MessageBubble = memo(function MessageBubble({
                       setReactionExpanded(false);
                     }}
                   >
-                    <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
+                    <img
+                      src={emojiToUrl(emoji)}
+                      alt={emoji}
+                      className="twemoji"
+                      draggable="false"
+                    />
                   </button>
                 ))}
-                {reactionExpanded && EXPANDED_EXTRA_EMOJIS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    className="reaction-emoji-btn"
-                    onClick={() => {
-                      onReaction && onReaction(msg, emoji);
-                      setReactionOpen(false);
-                      setReactionExpanded(false);
-                    }}
-                  >
-                    <img src={emojiToUrl(emoji)} alt={emoji} className="twemoji" draggable="false" />
-                  </button>
-                ))}
+                {reactionExpanded &&
+                  EXPANDED_EXTRA_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      className="reaction-emoji-btn"
+                      onClick={() => {
+                        onReaction && onReaction(msg, emoji);
+                        setReactionOpen(false);
+                        setReactionExpanded(false);
+                      }}
+                    >
+                      <img
+                        src={emojiToUrl(emoji)}
+                        alt={emoji}
+                        className="twemoji"
+                        draggable="false"
+                      />
+                    </button>
+                  ))}
               </div>
               {/* Expand/collapse butonu */}
               {!reactionExpanded && (
@@ -723,7 +872,14 @@ const MessageBubble = memo(function MessageBubble({
                   className="reaction-expand-btn"
                   onClick={() => setReactionExpanded(true)}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </button>
