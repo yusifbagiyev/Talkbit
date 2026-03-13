@@ -180,11 +180,6 @@ function Chat() {
   // shouldScrollBottom — yeni mesaj gəldikdə / chat seçildikdə aşağıya scroll et
   const [shouldScrollBottom, setShouldScrollBottom] = useState(false);
 
-  // imageReScrollRef — şəkil yükləndikdə aşağıya re-scroll etmək üçün flag
-  // shouldScrollBottom true olduqda set olunur, 3 saniyə sonra söndürülür
-  const imageReScrollRef = useRef(false);
-  const imageReScrollTimerRef = useRef(null);
-
   // chatLoading — conversation seçildikdə mesajlar yüklənənə qədər true
   const [chatLoading, setChatLoading] = useState(false);
 
@@ -361,10 +356,6 @@ function Chat() {
     if (shouldScrollBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       setShouldScrollBottom(false);
-      // Şəkillər hələ yüklənməyib ola bilər — onLoad ilə re-scroll üçün flag set et
-      imageReScrollRef.current = true;
-      clearTimeout(imageReScrollTimerRef.current);
-      imageReScrollTimerRef.current = setTimeout(() => { imageReScrollRef.current = false; }, 3000);
       return;
     }
     // Yeni unread mesajlar varsa — viewport-a sığana qədər scroll, sığmayanda dayan
@@ -3087,18 +3078,6 @@ function Chat() {
     setImageViewer(null);
   }, []);
 
-  // handleImageLoad — şəkil yükləndikdə, əgər ən aşağıya yaxındırsa re-scroll et
-  // Backend-dən fileWidth/fileHeight gəlməyən köhnə mesajlar üçün fallback
-  const handleImageLoad = useCallback(() => {
-    if (!imageReScrollRef.current) return;
-    const area = messagesAreaRef.current;
-    if (!area) return;
-    const dist = area.scrollHeight - area.scrollTop - area.clientHeight;
-    if (dist < 300) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-    }
-  }, []);
-
   // Add member paneli üçün — DM conversationlardan artıq üzv olmayanları göstər
   const addMemberUsers = useMemo(() => {
     if (!showAddMember || !selectedChat) return [];
@@ -3359,7 +3338,6 @@ function Chat() {
                           onLoadReactionDetails={handleLoadReactionDetails}
                           onMentionClick={handleMentionClick}
                           onOpenImageViewer={handleOpenImageViewer}
-                          onImageLoad={handleImageLoad}
                         />
                       );
                     });
@@ -3401,7 +3379,6 @@ function Chat() {
                               onLoadReactionDetails={handleLoadReactionDetails}
                               onMentionClick={handleMentionClick}
                               onOpenImageViewer={handleOpenImageViewer}
-                          onImageLoad={handleImageLoad}
                             />
                           );
                         })}
