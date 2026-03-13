@@ -14,6 +14,7 @@ import { createContext, useContext, useState, useCallback, useRef } from "react"
 const ToastContext = createContext(null);
 
 // Custom hook — useToast() ilə kontekstə rahat giriş
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used within ToastProvider");

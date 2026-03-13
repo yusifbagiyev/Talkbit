@@ -3,7 +3,7 @@
 // Tək şəkil: böyük preview, çoxlu fayl: kiçik siyahı.
 // Drag-and-drop ilə faylların sırasını dəyişmək mümkündür.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { formatFileSize } from "../utils/chatUtils";
 import FileTypeIcon from "./FileTypeIcon";
 
@@ -24,37 +24,22 @@ function FilePreviewPanel({
   const [overIndex, setOverIndex] = useState(null);
   const listRef = useRef(null);
 
-  // ─── Object URL-lər — useRef ilə idarə (React strict mode safe) ───
-  // useMemo+useEffect pattern-i strict mode-da URL-ları erkən revoke edir.
-  // Bunun əvəzinə: useRef-də köhnə URL-ları saxla, useMemo-suz hər render-də yarat.
-  const prevUrlsRef = useRef([]);
-  const [previews, setPreviews] = useState([]);
-
-  useEffect(() => {
-    // Köhnə URL-ları revoke et
-    for (const url of prevUrlsRef.current) {
-      URL.revokeObjectURL(url);
-    }
-
-    // Yeni URL-lar yarat
-    const newPreviews = selectedFiles.map((file) => {
-      if (file.type.startsWith("image/")) {
-        return { type: "image", url: URL.createObjectURL(file) };
-      }
-      return { type: "file", url: null };
-    });
-
-    prevUrlsRef.current = newPreviews.filter((p) => p.url).map((p) => p.url);
-    setPreviews(newPreviews);
-
-    // Unmount və ya dependency dəyişəndə cleanup
-    return () => {
-      for (const url of prevUrlsRef.current) {
-        URL.revokeObjectURL(url);
-      }
-      prevUrlsRef.current = [];
-    };
+  // ─── Object URL-lər — useMemo ilə yaradılır, useEffect ilə cleanup olunur (React 19 safe) ───
+  const previews = useMemo(() => {
+    return selectedFiles.map((file) => ({
+      type: file.type.startsWith("image/") ? "image" : "file",
+      url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+    }));
   }, [selectedFiles]);
+
+  // Köhnə URL-ları cleanup et (previews dəyişdikdə və unmount-da)
+  useEffect(() => {
+    return () => {
+      for (const p of previews) {
+        if (p.url) URL.revokeObjectURL(p.url);
+      }
+    };
+  }, [previews]);
 
   // Tək şəkil olub-olmadığını yoxla
   const isSingleImage =

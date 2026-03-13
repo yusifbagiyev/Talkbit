@@ -11,7 +11,7 @@ import { getInitials, getAvatarColor, getLastSeenText } from "../utils/chatUtils
 //   onToggleSidebar   — sağ sidebar panelini aç/bağla
 //   onOpenSearch      — search panelini aç
 //   searchOpen        — search paneli açıqdır? (active class üçün)
-function ChatHeader({ selectedChat, onlineUsers, pinnedMessages, onTogglePinExpand, onOpenAddMember, addMemberOpen, onToggleSidebar, sidebarOpen, onOpenSearch, searchOpen }) {
+function ChatHeader({ selectedChat, onlineUsers, onOpenAddMember, addMemberOpen, onToggleSidebar, sidebarOpen, onOpenSearch, searchOpen }) {
   return (
     <div className="chat-header">
       {/* Sol tərəf: avatar + ad + status */}

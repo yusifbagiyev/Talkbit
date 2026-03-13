@@ -31,7 +31,7 @@ function ChatInputArea({
   editMessage, setEditMessage,
   emojiOpen, setEmojiOpen,
   emojiPanelRef, inputRef,
-  onSend, onKeyDown, onTyping,
+  onSend, onKeyDown,
   // Mention props
   onTextChange, mentionOpen, mentionItems,
   mentionSelectedIndex, mentionLoading, mentionPanelRef, onMentionSelect,

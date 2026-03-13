@@ -6,10 +6,12 @@ const ImageViewer = memo(function ImageViewer({ images, currentIndex, onClose, o
   const thumbStripRef = useRef(null);
   const currentImage = images[currentIndex];
 
-  // Şəkil dəyişdikdə zoom sıfırla
-  useEffect(() => {
+  // Şəkil dəyişdikdə zoom sıfırla — render zamanı (useState ilə, React 19 safe)
+  const [prevIndex, setPrevIndex] = useState(currentIndex);
+  if (prevIndex !== currentIndex) {
+    setPrevIndex(currentIndex);
     setZoom(1);
-  }, [currentIndex]);
+  }
 
   // Keyboard: Escape=bağla, ←/→=naviqasiya
   useEffect(() => {

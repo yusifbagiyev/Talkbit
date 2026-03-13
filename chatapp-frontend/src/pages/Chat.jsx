@@ -330,6 +330,7 @@ function Chat() {
       stopTypingSignal(); // Component unmount — typing dayandır
       flushReadBatch();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // useChatSignalR — real-time event-ləri dinlə (NewMessage, UserOnline, Typing, etc.)
@@ -404,7 +405,7 @@ function Chat() {
       area.scrollTop = saved.scrollTop + heightDiff;
       scrollRestoreRef.current = null;
     }
-  }, [messages]);
+  }, [messages, scrollRestoreRef]);
 
   // getAround endpoint-dən mesajlar yükləndikdən sonra
   // hədəf mesaja scroll et + highlight et
@@ -517,7 +518,7 @@ function Chat() {
       hasNewUnreadRef.current = false;
       firstUnreadMsgIdRef.current = null;
     }
-  }, [messages]);
+  }, [messages, user?.id]);
 
   // flushReadBatch — buferdəki mesajları batch göndər
   function flushReadBatch() {
@@ -1070,6 +1071,7 @@ function Chat() {
       );
       if (deptUser) handleSelectChat(deptUser);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations, selectedChat]);
 
   // ─── Search panel handler-ləri ──────────────────────────────────────────────
@@ -2589,6 +2591,7 @@ function Chat() {
         }));
       } catch { /* ignore */ }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddMember]);
 
   // Add member panel — debounced backend user search
@@ -2627,6 +2630,7 @@ function Chat() {
         console.error("Failed to load channel members for sidebar:", err);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSidebar, selectedChat?.id]);
 
   // ─── Mention search useEffect ─────────────────────────────────────────────
@@ -2760,6 +2764,7 @@ function Chat() {
     return () => {
       if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionOpen, mentionSearch, selectedChat?.id, selectedChat?.type, channelMembers, conversations, user?.id]);
 
   // Mention panel — click-outside bağlama
@@ -2882,7 +2887,7 @@ function Chat() {
         console.error("Failed to load messages around target:", err);
       }
     },
-    [selectedChat],
+    [selectedChat, hasMoreRef, hasMoreDownRef],
   );
 
   // handleKeyDown — textarea-da klaviatura hadisəsi

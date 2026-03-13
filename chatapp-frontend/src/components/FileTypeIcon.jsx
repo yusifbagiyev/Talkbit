@@ -140,5 +140,4 @@ function FileTypeIcon({ fileName, size = 24 }) {
   );
 }
 
-export { getFileTypeInfo };
 export default FileTypeIcon;

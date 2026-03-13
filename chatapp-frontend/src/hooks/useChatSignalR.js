@@ -37,16 +37,12 @@ export default function useChatSignalR(
     //   1. Əgər bu conversation açıqdırsa — messages state-ə əlavə et
     //   2. Conversation list-dəki son mesajı yenilə
     function handleNewDirectMessage(message) {
-      // isOpenChat — bu conversation hal-hazırda açıqdırmı?
-      let isOpenChat = false;
-
       setSelectedChat((current) => {
         if (
           current &&
           current.type === 0 &&
           current.id === message.conversationId
         ) {
-          isOpenChat = true;
           setMessages((prev) => {
             if (prev.some((m) => m.id === message.id)) return prev;
             if (message.senderId === userId) {
@@ -124,11 +120,8 @@ export default function useChatSignalR(
     // ─── handleNewChannelMessage ───────────────────────────────────────────────
     // handleNewDirectMessage-ın Channel versiyası (type === 1)
     function handleNewChannelMessage(message) {
-      let isOpenChat = false;
-
       setSelectedChat((current) => {
         if (current && current.type === 1 && current.id === message.channelId) {
-          isOpenChat = true;
           setMessages((prev) => {
             if (prev.some((m) => m.id === message.id)) return prev;
             if (message.senderId === userId) {
@@ -496,5 +489,5 @@ export default function useChatSignalR(
         conn.off("AddedToChannel", handleAddedToChannel);
       }
     };
-  }, [userId]); // [userId] — yalnız userId dəyişsə yenidən qur (re-login kimi)
+  }, [userId, setSelectedChat, setMessages, setConversations, setShouldScrollBottom, setOnlineUsers, setTypingUsers, setPinnedMessages, setCurrentPinIndex, setLastReadTimestamp]);
 }

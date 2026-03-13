@@ -1,7 +1,7 @@
 // useState — komponent daxili state (like C# reactive property)
 // useRef — re-render etmədən dəyər saxlamaq (timer id, DOM referansı)
 // useEffect — side effect (API çağrısı, event listener, cleanup)
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, formatTime } from "../utils/chatUtils";
@@ -101,11 +101,8 @@ function ConversationList({
       clearTimeout(searchTimerRef.current);
     }
 
-    // 2 hərfdən az → nəticələri sıfırla
-    if (searchText.length < 2) {
-      setSearchResults(null);
-      return;
-    }
+    // 2 hərfdən az → API çağırma (render zamanı nəticələr gizlədilir)
+    if (searchText.length < 2) return;
 
     // 300ms debounce — istifadəçi yazmağı dayandırdıqdan sonra API çağır
     searchTimerRef.current = setTimeout(async () => {
@@ -171,6 +168,13 @@ function ConversationList({
     action(conv);
   }
 
+  // exitSearchMode — search mode bağla, input təmizlə
+  const exitSearchMode = useCallback(() => {
+    setSearchMode(false);
+    onSearchChange(""); // Input-u təmizlə
+    setSearchResults(null);
+  }, [onSearchChange]);
+
   // --- Search mode kənar klik bağlama ---
   // Conversation paneldən kənarda (məs. chat panel) klik → search bağla
   useEffect(() => {
@@ -182,7 +186,7 @@ function ConversationList({
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [searchMode]);
+  }, [searchMode, exitSearchMode]);
 
   // handleSearchFocus — search input-a fokus olduqda search mode-a keç
   function handleSearchFocus() {
@@ -194,13 +198,6 @@ function ConversationList({
     if (e.key === "Escape") {
       exitSearchMode();
     }
-  }
-
-  // exitSearchMode — search mode bağla, input təmizlə
-  function exitSearchMode() {
-    setSearchMode(false);
-    onSearchChange(""); // Input-u təmizlə
-    setSearchResults(null);
   }
 
   // handleSelectUser — search nəticəsindən user-ə klik
@@ -237,7 +234,10 @@ function ConversationList({
         )
       : [];
 
-    if (!searchResults && matchedConversations.length === 0) {
+    // searchText 2 hərfdən azdırsa, backend nəticələrini göstərmə
+    const effectiveResults = searchText.length >= 2 ? searchResults : null;
+
+    if (!effectiveResults && matchedConversations.length === 0) {
       return (
         <div className="search-no-results">
           Type at least 2 characters to search
@@ -245,8 +245,8 @@ function ConversationList({
       );
     }
 
-    const users = searchResults?.users || [];
-    const channels = searchResults?.channels || [];
+    const users = effectiveResults?.users || [];
+    const channels = effectiveResults?.channels || [];
 
     // Dublikat çıxarma üçün Set-lər
     const convIds = new Set(conversations.map((c) => c.id));

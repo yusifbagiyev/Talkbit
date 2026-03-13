@@ -85,7 +85,8 @@
       "Bash(ping:*)",
       "Bash(\"C:/Users/ybaghiyev/Desktop/ChatApp/tasks/lessons.md\":*)",
       "Bash(git restore:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npx eslint src/)"
     ],
     "deny": [],
     "ask": []

@@ -302,7 +302,7 @@ function ChannelPanel({
   const [avatarPreview, setAvatarPreview] = useState(
     editMode && channelData?.avatarUrl ? channelData.avatarUrl : null,
   ); // data URL string və ya edit mode-da mövcud avatar URL
-  const [avatarFile, setAvatarFile] = useState(null); // File object — sonra backendə göndəriləcək
+  const [_avatarFile, setAvatarFile] = useState(null); // File object — sonra backendə göndəriləcək
   const fileInputRef = useRef(null);
 
   const handleAvatarClick = () => {
