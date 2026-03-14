@@ -132,12 +132,6 @@ namespace ChatApp.Modules.Identity.Domain.Entities
             UpdateTimestamp();
         }
 
-        public void UpdateLastVisit()
-        {
-            LastVisit = DateTime.UtcNow;
-            UpdateTimestamp();
-        }
-
         public void Activate()
         {
             IsActive = true;

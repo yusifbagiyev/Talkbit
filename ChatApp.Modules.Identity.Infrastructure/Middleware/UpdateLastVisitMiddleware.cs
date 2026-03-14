@@ -3,19 +3,19 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Security.Claims;
 
 namespace ChatApp.Modules.Identity.Infrastructure.Middleware
 {
-    /// <summary>
-    /// Middleware that automatically updates the LastVisit timestamp for authenticated users
-    /// This runs asynchronously without blocking the HTTP request
-    /// </summary>
     public class UpdateLastVisitMiddleware
     {
         private readonly RequestDelegate _next;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<UpdateLastVisitMiddleware> _logger;
+
+        private static readonly ConcurrentDictionary<Guid, DateTime> _lastUpdateTimes = new();
+        private static readonly TimeSpan _throttleInterval = TimeSpan.FromMinutes(1);
 
         public UpdateLastVisitMiddleware(
             RequestDelegate next,
@@ -29,48 +29,40 @@ namespace ChatApp.Modules.Identity.Infrastructure.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
-            // First, let the request continue
             await _next(context);
 
-            // Then update LastVisit asynchronously (fire-and-forget)
-            // Only for authenticated users and successful responses
-            if (context.User?.Identity?.IsAuthenticated == true &&
-                context.Response.StatusCode < 400)
+            if (context.User?.Identity?.IsAuthenticated != true || context.Response.StatusCode >= 400)
+                return;
+
+            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return;
+
+            var now = DateTime.UtcNow;
+
+            if (_lastUpdateTimes.TryGetValue(userId, out var lastUpdate) &&
+                now - lastUpdate < _throttleInterval)
+                return;
+
+            _lastUpdateTimes[userId] = now;
+
+            _ = Task.Run(async () =>
             {
-                var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-                if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+                try
                 {
-                    // Fire-and-forget: update LastVisit in background
-                    // Use IServiceScopeFactory (singleton) instead of IServiceProvider (request-scoped)
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            // Create a new scope for the background task
-                            using var scope = _scopeFactory.CreateScope();
-                            var identityContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+                    using var scope = _scopeFactory.CreateScope();
+                    var identityContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
 
-                            var user = await identityContext.Users
-                                .FirstOrDefaultAsync(u => u.Id == userId);
-
-                            if (user != null)
-                            {
-                                user.UpdateLastVisit();
-                                await identityContext.SaveChangesAsync(CancellationToken.None);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log but don't throw - this is a fire-and-forget operation
-                            _logger.LogWarning(
-                                ex,
-                                "Failed to update LastVisit for user {UserId}",
-                                userId);
-                        }
-                    });
+                    await identityContext.Users
+                        .Where(u => u.Id == userId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(
+                            u => u.LastVisit, now));
                 }
-            }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to update LastVisit for user {UserId}", userId);
+                }
+            });
         }
     }
 }

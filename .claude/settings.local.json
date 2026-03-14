@@ -87,7 +87,9 @@
       "Bash(git restore:*)",
       "WebSearch",
       "Bash(npx eslint src/)",
-      "Bash(npx eslint src/components/FilePreviewPanel.jsx)"
+      "Bash(npx eslint src/components/FilePreviewPanel.jsx)",
+      "Bash(for module:*)",
+      "Bash(do echo:*)"
     ],
     "deny": [],
     "ask": []
