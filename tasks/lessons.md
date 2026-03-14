@@ -71,3 +71,12 @@
 - **Date**: 2026-03-13
 - **Context**: `setChatLoading(true)` try blokunda XARIC idi (1496-cı sətir), `setChatLoading(false)` isə finally blokunda (1775-ci sətir). Aradakı `setNewUnreadCount(0)` ReferenceError atdıqda, finally bloku heç vaxt işləmədi.
 - **Rule**: Əgər bir state/ref `true` set edilib sonra `finally`-də `false` olunursa, `true` set edildikdən sonrakı BÜTÜN kod try bloku daxilində olmalıdır. try-catch-finally-nin coverage-i `setChatLoading(true)` setindən dərhal SONRA başlamalıdır. Əks halda aradakı unhandled error loading-i sonsuza kimi bloklaya bilər.
+
+### Lesson: Performans optimizasiyası zamanı diqqətli ol
+- **Date**: 2026-03-14
+- **Rule**: useCallback/useMemo/React.memo əlavə edərkən:
+  1. İşləyən funksiyanı POZMA — əvvəl kodu oxu, davranışı anla
+  2. Hər dəyişiklikdən sonra build yoxla + eslint xətalarını düzəlt
+  3. useCallback dependency array-ı düzgün yaz — əskik dep = stale closure bug
+  4. React.memo əlavə edərkən parent-dən gələn inline arrow-ları da useCallback-ə çevir, əks halda memo heç işləməz
+  5. Hook dependency dəyişdirərkən (useMention kimi) əvvəlki davranışı test et
