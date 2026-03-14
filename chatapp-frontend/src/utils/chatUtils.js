@@ -171,6 +171,32 @@ export function getLastSeenText(dateString) {
   return `Last seen ${diffDays} days ago`;
 }
 
+// ─── formatSectionDate ───────────────────────────────────────────────────────
+// Sidebar panel section headers üçün tam tarix formatı
+// "Monday, March 14, 2026" — həmişə eyni format, today/yesterday yoxdur
+export function formatSectionDate(dateString) {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+}
+
+// ─── formatRelativeDate ─────────────────────────────────────────────────────
+// Today → vaxt göstər, Yesterday → "yesterday", digər → short date
+export function formatRelativeDate(dateString) {
+  const d = new Date(dateString);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  if (isToday) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (isYesterday) return "yesterday";
+  if (d.getFullYear() === now.getFullYear()) {
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 // ─── formatDateSeparator ──────────────────────────────────────────────────────
 // Tarix separator-u üçün label formatı:
 //   Bugün      → "Today"
@@ -355,4 +381,39 @@ export function parseMentions(content, mentions) {
   }
 
   return segments;
+}
+
+// ─── mergeMessageWithPrev ────────────────────────────────────────────────────
+// API-dən gələn mesajı əvvəlki SignalR state ilə birləşdirir
+// SignalR status/readBy daha yüksəkdirsə — onu saxla (race condition qoruması)
+export function mergeMessageWithPrev(msg, prev) {
+  if (!prev) return msg;
+  let merged = msg;
+  if (prev.status !== undefined && prev.status > msg.status) {
+    merged = { ...merged, status: prev.status, isRead: prev.status >= 3 };
+  }
+  if (prev.readByCount !== undefined && prev.readByCount > (msg.readByCount || 0)) {
+    merged = { ...merged, readByCount: prev.readByCount, readBy: prev.readBy };
+  }
+  return merged;
+}
+
+// ─── highlightMatches ─────────────────────────────────────────────────────────
+// Mətndə axtarış sözünü tapıb {text, highlight} array qaytarır (case-insensitive)
+// İstifadə: highlightMatches(text, query).map((p, i) => p.highlight ? <mark key={i}>{p.text}</mark> : p.text)
+export function highlightMatches(text, query) {
+  if (!query || !text) return null;
+  const lower = text.toLowerCase();
+  const parts = [];
+  let last = 0;
+  let idx = lower.indexOf(query, last);
+  if (idx === -1) return null;
+  while (idx !== -1) {
+    if (idx > last) parts.push({ text: text.slice(last, idx) });
+    parts.push({ text: text.slice(idx, idx + query.length), highlight: true });
+    last = idx + query.length;
+    idx = lower.indexOf(query, last);
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
 }

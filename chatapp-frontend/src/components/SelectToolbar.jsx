@@ -1,13 +1,5 @@
-// SelectToolbar komponenti — çox mesaj seçmə rejiminin toolbar-ı
-// Mesajlar seçiləndə normal ChatInputArea-nın əvəzinə görünür
-// Props:
-//   selectedCount      — neçə mesaj seçilib
-//   hasOthersSelected  — seçimlər arasında başqasının mesajı varmı? (Delete üçün)
-//   onExit             — X düyməsi → select mode-dan çıx
-//   onDelete           — Delete düyməsi → seçilmiş mesajları sil
-//   onForward          — Forward düyməsi → ForwardPanel aç
-//   deleteConfirmOpen  — "Delete?" modalı açıq/bağlı
-//   setDeleteConfirmOpen — modalı aç/bağla
+import ConfirmDialog from "./ConfirmDialog";
+
 function SelectToolbar({
   selectedCount,
   hasOthersSelected,
@@ -72,39 +64,12 @@ function SelectToolbar({
         </div>
       </div>
 
-      {/* Delete Confirm Modal — deleteConfirmOpen true olduqda overlay göstər */}
       {deleteConfirmOpen && (
-        // Overlay-ə klik → modal bağlansın
-        <div className="delete-confirm-overlay" onClick={() => setDeleteConfirmOpen(false)}>
-          {/* e.stopPropagation() — modal içinə klik overlay-ə yayılmasın */}
-          <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="delete-confirm-header">
-              <span>Do you want to delete the selected messages ({selectedCount})?</span>
-              <button className="delete-confirm-close" onClick={() => setDeleteConfirmOpen(false)}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="delete-confirm-actions">
-              {/* DELETE — modalı bağla, sonra onDelete() çağır */}
-              <button
-                className="delete-confirm-btn"
-                onClick={() => {
-                  setDeleteConfirmOpen(false);
-                  onDelete();
-                }}
-              >
-                DELETE
-              </button>
-              {/* CANCEL — heç nə etmə, sadəcə modalı bağla */}
-              <button className="delete-cancel-btn" onClick={() => setDeleteConfirmOpen(false)}>
-                CANCEL
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message={`Do you want to delete the selected messages (${selectedCount})?`}
+          onConfirm={() => { setDeleteConfirmOpen(false); onDelete(); }}
+          onCancel={() => setDeleteConfirmOpen(false)}
+        />
       )}
     </>
   );

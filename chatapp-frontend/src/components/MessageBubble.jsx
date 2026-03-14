@@ -12,7 +12,7 @@ import {
   formatFileSize, // Byte → "2.4 MB"
   parseMentions, // Mesaj mətnini mention segmentlərinə ayır
 } from "../utils/chatUtils";
-import { getFileUrl } from "../services/api"; // Backend file URL → tam URL
+import { getFileUrl, downloadFile } from "../services/api"; // Backend file URL → tam URL
 import FileTypeIcon from "./FileTypeIcon"; // Fayl tipinə görə rəngli icon
 
 import {
@@ -494,27 +494,7 @@ const MessageBubble = memo(function MessageBubble({
                     className="bubble-file-card"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!msg.fileId) {
-                        // Fallback — fileId yoxdursa birbaşa statik linkdən aç
-                        window.open(getFileUrl(msg.fileUrl), "_blank");
-                        return;
-                      }
-                      // Download endpoint — əsl fayl adı ilə yükləyir
-                      fetch(getFileUrl(`/api/files/${msg.fileId}/download`), {
-                        credentials: "include",
-                      })
-                        .then((res) => res.blob())
-                        .then((blob) => {
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = msg.fileName || "file";
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        })
-                        .catch(() => {
-                          window.open(getFileUrl(msg.fileUrl), "_blank");
-                        });
+                      downloadFile(msg.fileId, msg.fileName, msg.fileUrl);
                     }}
                     role="button"
                     tabIndex={0}

@@ -256,5 +256,35 @@ function getFileUrl(path) {
   return BASE_URL + path;
 }
 
+// downloadFile — fayl yükləmə üçün mərkəzləşdirilmiş funksiya
+// fileId varsa API endpoint-dən blob ilə yükləyir, yoxdursa birbaşa URL açır
+function downloadFile(fileId, fileName, fallbackUrl) {
+  if (!fileId) {
+    if (fallbackUrl) window.open(getFileUrl(fallbackUrl), "_blank");
+    return;
+  }
+  fetch(getFileUrl(`/api/files/${fileId}/download`), { credentials: "include" })
+    .then((res) => res.blob())
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName || "file";
+      a.click();
+      URL.revokeObjectURL(url);
+    })
+    .catch(() => {
+      if (fallbackUrl) window.open(getFileUrl(fallbackUrl), "_blank");
+    });
+}
+
+// downloadFileByUrl — birbaşa URL-dən yükləmə (DetailSidebar files tab üçün)
+function downloadFileByUrl(fileUrl, fileName) {
+  const a = document.createElement("a");
+  a.href = fileUrl;
+  a.download = fileName || "file";
+  a.click();
+}
+
 // Named exports — başqa fayllar bunları import edə bilsin
-export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, scheduleRefresh, stopRefreshTimer, resetSessionExpired };
+export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, scheduleRefresh, stopRefreshTimer, resetSessionExpired };

@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useRef, useCallback } from "react";
-import { getFileUrl } from "../services/api";
+import { getFileUrl, downloadFile } from "../services/api";
 
 const ImageViewer = memo(function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
   const [zoom, setZoom] = useState(1);
@@ -46,22 +46,9 @@ const ImageViewer = memo(function ImageViewer({ images, currentIndex, onClose, o
   }, []);
 
   // Download
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(() => {
     if (!currentImage?.fileId) return;
-    try {
-      const res = await fetch(getFileUrl(`/api/files/${currentImage.fileId}/download`), {
-        credentials: "include",
-      });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = currentImage.fileName || "image";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(getFileUrl(currentImage.fileUrl), "_blank");
-    }
+    downloadFile(currentImage.fileId, currentImage.fileName || "image", currentImage.fileUrl);
   }, [currentImage]);
 
   if (!currentImage) return null;

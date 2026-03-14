@@ -1,7 +1,7 @@
 // memo — komponenti cache-lər, props dəyişmədikdə yenidən render etmə
 // .NET ekvivalenti: IEqualityComparer ilə dəyər müqayisəsi
 import { memo } from "react";
-import { getFileUrl } from "../services/api";
+import { downloadFile } from "../services/api";
 
 // MessageActionMenu komponenti — mesaj üzərindəki "⋮" menyusu
 // memo ilə wrap edilib — MessageBubble yenidən render olunsa belə,
@@ -103,21 +103,7 @@ const MessageActionMenu = memo(function MessageActionMenu({
             <button
               className="action-menu-item"
               onClick={() => {
-                fetch(getFileUrl(`/api/files/${msg.fileId}/download`), {
-                  credentials: "include",
-                })
-                  .then((res) => res.blob())
-                  .then((blob) => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = msg.fileName || "file";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  })
-                  .catch(() => {
-                    window.open(getFileUrl(msg.fileUrl), "_blank");
-                  });
+                downloadFile(msg.fileId, msg.fileName, msg.fileUrl);
                 onClose();
               }}
             >

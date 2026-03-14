@@ -4,7 +4,14 @@
 // sidebar/channel/search hook obyektləri prop olaraq gəlir — state + ref qarışıqdır
 /* eslint-disable react-hooks/refs */
 
-import { getInitials, getAvatarColor, getMessagePreview } from "../utils/chatUtils";
+import { getInitials, getAvatarColor, getMessagePreview, highlightMatches, formatFileSize, formatSectionDate, formatRelativeDate } from "../utils/chatUtils";
+import { downloadFileByUrl } from "../services/api";
+
+// highlightMatches helper — parts array-dan JSX render edir
+const renderHighlight = (text, query) => {
+  const parts = highlightMatches(text, query);
+  return parts ? parts.map((p, i) => p.highlight ? <mark key={i}>{p.text}</mark> : p.text) : text;
+};
 
 function DetailSidebar({
   selectedChat,
@@ -323,21 +330,8 @@ function DetailSidebar({
               }
 
               return filtered.map((msg, idx) => {
-                const msgDate = new Date(msg.createdAtUtc).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                });
-                // filtered array-dəki əvvəlki mesajın tarixi ilə müqayisə et
-                const prevDate = idx > 0
-                  ? new Date(filtered[idx - 1].createdAtUtc).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : null;
+                const msgDate = formatSectionDate(msg.createdAtUtc);
+                const prevDate = idx > 0 ? formatSectionDate(filtered[idx - 1].createdAtUtc) : null;
                 const showDate = idx === 0 || msgDate !== prevDate;
 
                 return (
@@ -365,25 +359,7 @@ function DetailSidebar({
                       <div className="ds-favorites-body">
                         <span className="ds-favorites-sender">{msg.senderFullName}</span>
                         <span className="ds-favorites-text">
-                          {/* Axtarış varsa — uyğun gələn hissəni sarı highlight et */}
-                          {(() => {
-                            const preview = getMessagePreview(msg);
-                            if (query && preview) {
-                              const lowerContent = preview.toLowerCase();
-                              const parts = [];
-                              let lastIdx = 0;
-                              let searchIdx = lowerContent.indexOf(query, lastIdx);
-                              while (searchIdx !== -1) {
-                                if (searchIdx > lastIdx) parts.push(preview.slice(lastIdx, searchIdx));
-                                parts.push(<mark key={searchIdx}>{preview.slice(searchIdx, searchIdx + query.length)}</mark>);
-                                lastIdx = searchIdx + query.length;
-                                searchIdx = lowerContent.indexOf(query, lastIdx);
-                              }
-                              if (lastIdx < preview.length) parts.push(preview.slice(lastIdx));
-                              return parts;
-                            }
-                            return preview;
-                          })()}
+                          {renderHighlight(getMessagePreview(msg), query)}
                         </span>
                       </div>
                       {/* More menu — hover-də görünür */}
@@ -502,20 +478,8 @@ function DetailSidebar({
               }
 
               return filtered.map((link, idx) => {
-                const msgDate = new Date(link.createdAtUtc).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                });
-                const prevDate = idx > 0
-                  ? new Date(filtered[idx - 1].createdAtUtc).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : null;
+                const msgDate = formatSectionDate(link.createdAtUtc);
+                const prevDate = idx > 0 ? formatSectionDate(filtered[idx - 1].createdAtUtc) : null;
                 const showDate = idx === 0 || msgDate !== prevDate;
 
                 return (
@@ -544,20 +508,7 @@ function DetailSidebar({
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {query ? (() => {
-                            const lower = link.url.toLowerCase();
-                            const parts = [];
-                            let last = 0;
-                            let si = lower.indexOf(query, last);
-                            while (si !== -1) {
-                              if (si > last) parts.push(link.url.slice(last, si));
-                              parts.push(<mark key={si}>{link.url.slice(si, si + query.length)}</mark>);
-                              last = si + query.length;
-                              si = lower.indexOf(query, last);
-                            }
-                            if (last < link.url.length) parts.push(link.url.slice(last));
-                            return parts;
-                          })() : link.url}
+                          {renderHighlight(link.url, query)}
                         </a>
                         {/* Göndərən */}
                         <div className="ds-link-sender">
@@ -690,8 +641,7 @@ function DetailSidebar({
                 const q = search.searchQuery.trim().toLowerCase();
                 let lastDate = "";
                 return search.searchResultsList.map((r) => {
-                  const d = new Date(r.createdAtUtc);
-                  const dateStr = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+                  const dateStr = formatSectionDate(r.createdAtUtc);
                   const showDate = dateStr !== lastDate;
                   if (showDate) lastDate = dateStr;
                   return (
@@ -716,20 +666,7 @@ function DetailSidebar({
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="ds-favorites-sender">{r.senderFullName}</div>
                           <div className="ds-favorites-text">
-                            {q && r.content ? (() => {
-                              const lowerContent = r.content.toLowerCase();
-                              const parts = [];
-                              let lastIdx = 0;
-                              let searchIdx = lowerContent.indexOf(q, lastIdx);
-                              while (searchIdx !== -1) {
-                                if (searchIdx > lastIdx) parts.push(r.content.slice(lastIdx, searchIdx));
-                                parts.push(<mark key={searchIdx}>{r.content.slice(searchIdx, searchIdx + q.length)}</mark>);
-                                lastIdx = searchIdx + q.length;
-                                searchIdx = lowerContent.indexOf(q, lastIdx);
-                              }
-                              if (lastIdx < r.content.length) parts.push(r.content.slice(lastIdx));
-                              return parts;
-                            })() : r.content}
+                            {renderHighlight(r.content, q)}
                           </div>
                         </div>
                       </div>
@@ -777,25 +714,7 @@ function DetailSidebar({
               <div className="ds-favorites-empty">No shared chats</div>
             ) : (
               sidebar.chatsWithUserData.map((ch) => {
-                // Tarix formatı — bugün/dünən/tarix
-                let dateStr = "";
-                if (ch.lastMessageAtUtc) {
-                  const d = new Date(ch.lastMessageAtUtc);
-                  const now = new Date();
-                  const isToday = d.toDateString() === now.toDateString();
-                  const yesterday = new Date(now);
-                  yesterday.setDate(yesterday.getDate() - 1);
-                  const isYesterday = d.toDateString() === yesterday.toDateString();
-                  if (isToday) {
-                    dateStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                  } else if (isYesterday) {
-                    dateStr = "yesterday";
-                  } else if (d.getFullYear() === now.getFullYear()) {
-                    dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  } else {
-                    dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                  }
-                }
+                const dateStr = ch.lastMessageAtUtc ? formatRelativeDate(ch.lastMessageAtUtc) : "";
 
                 // Channel tipinə görə mətn (ChannelType: Public=1, Private=2)
                 const typeLabel = ch.type === 1 ? "Channel" : "Group chat";
@@ -928,9 +847,7 @@ function DetailSidebar({
                 let lastDate = null;
                 const elements = [];
                 filtered.forEach((f, idx) => {
-                  const msgDate = new Date(f.createdAtUtc).toLocaleDateString("en-US", {
-                    weekday: "long", year: "numeric", month: "long", day: "numeric",
-                  });
+                  const msgDate = formatSectionDate(f.createdAtUtc);
                   if (msgDate !== lastDate) {
                     if (elements.length > 0) elements.push(<div key={`grid-end-${idx}`} className="ds-fm-grid-break" />);
                     elements.push(<div key={`date-${idx}`} className="ds-favorites-date"><span>{msgDate}</span></div>);
@@ -978,10 +895,7 @@ function DetailSidebar({
                               View context
                             </button>
                             <button className="ds-dropdown-item" onClick={() => {
-                              const a = document.createElement("a");
-                              a.href = f.fileUrl;
-                              a.download = f.fileName || "file";
-                              a.click();
+                              downloadFileByUrl(f.fileUrl, f.fileName);
                               sidebar.setFilesMenuId(null);
                             }}>
                               Download file
@@ -1003,21 +917,10 @@ function DetailSidebar({
 
               // Files tab — siyahı formatında
               return filtered.map((f, idx) => {
-                const msgDate = new Date(f.createdAtUtc).toLocaleDateString("en-US", {
-                  weekday: "long", year: "numeric", month: "long", day: "numeric",
-                });
-                const prevDate = idx > 0
-                  ? new Date(filtered[idx - 1].createdAtUtc).toLocaleDateString("en-US", {
-                      weekday: "long", year: "numeric", month: "long", day: "numeric",
-                    })
-                  : null;
+                const msgDate = formatSectionDate(f.createdAtUtc);
+                const prevDate = idx > 0 ? formatSectionDate(filtered[idx - 1].createdAtUtc) : null;
                 const showDate = idx === 0 || msgDate !== prevDate;
-                // Fayl ölçüsü formatı
-                const sizeStr = f.fileSizeInBytes
-                  ? f.fileSizeInBytes < 1024 ? `${f.fileSizeInBytes} B`
-                    : f.fileSizeInBytes < 1048576 ? `${(f.fileSizeInBytes / 1024).toFixed(1)} KB`
-                    : `${(f.fileSizeInBytes / 1048576).toFixed(1)} MB`
-                  : "";
+                const sizeStr = formatFileSize(f.fileSizeInBytes);
 
                 return (
                   <div key={f.id}>
@@ -1032,20 +935,7 @@ function DetailSidebar({
                       </div>
                       <div className="ds-fm-file-body">
                         <span className="ds-fm-file-name">
-                          {query ? (() => {
-                            const lower = (f.fileName || "").toLowerCase();
-                            const parts = [];
-                            let last = 0;
-                            let si = lower.indexOf(query, last);
-                            while (si !== -1) {
-                              if (si > last) parts.push(f.fileName.slice(last, si));
-                              parts.push(<mark key={si}>{f.fileName.slice(si, si + query.length)}</mark>);
-                              last = si + query.length;
-                              si = lower.indexOf(query, last);
-                            }
-                            if (last < f.fileName.length) parts.push(f.fileName.slice(last));
-                            return parts;
-                          })() : f.fileName}
+                          {renderHighlight(f.fileName, query)}
                         </span>
                         <span className="ds-fm-file-meta">{sizeStr} · {f.senderFullName}</span>
                       </div>
@@ -1066,10 +956,7 @@ function DetailSidebar({
                           <div className="ds-dropdown">
                             <button className="ds-dropdown-item" onClick={() => { onScrollToMessage(f.id); sidebar.setFilesMenuId(null); }}>View context</button>
                             <button className="ds-dropdown-item" onClick={() => {
-                              const a = document.createElement("a");
-                              a.href = f.fileUrl;
-                              a.download = f.fileName || "file";
-                              a.click();
+                              downloadFileByUrl(f.fileUrl, f.fileName);
                               sidebar.setFilesMenuId(null);
                             }}>Download file</button>
                             <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => { onDeleteMessage(f.id); sidebar.setFilesMenuId(null); }}>Delete file</button>

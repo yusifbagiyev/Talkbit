@@ -58,6 +58,7 @@ import ImageViewer from "../components/ImageViewer"; // şəkil lightbox viewer
 import SelectToolbar from "../components/SelectToolbar"; // çox mesaj seç toolbar
 import ChannelPanel from "../components/ChannelPanel"; // channel yaratma/redaktə paneli
 import PinnedBar, { PinnedExpanded } from "../components/PinnedBar"; // pinlənmiş mesajlar
+import ConfirmDialog from "../components/ConfirmDialog"; // təsdiqləmə modalı
 
 // Util-lər və sabitlər
 import {
@@ -71,6 +72,7 @@ import {
   TYPING_DEBOUNCE_MS, // typing siqnalı debounce müddəti
   BATCH_DELETE_THRESHOLD, // batch delete üçün minimum mesaj sayı
   MAX_BATCH_FILES, // backend batch limit (max 20 mesaj bir request-də)
+  mergeMessageWithPrev, // API + SignalR state merge
 } from "../utils/chatUtils";
 
 import "./Chat.css";
@@ -1430,24 +1432,9 @@ function Chat() {
         );
         hasMoreDownRef.current = false;
         setShouldScrollBottom(true);
-        // Functional merge — SignalR status yenilikləri qorunur (DM status + Channel readBy)
         setMessages((prev) => {
-          const prevMap = new Map();
-          for (const m of prev) {
-            prevMap.set(m.id, m);
-          }
-          return data.map((m) => {
-            const p = prevMap.get(m.id);
-            if (!p) return m;
-            let merged = m;
-            if (p.status !== undefined && p.status > m.status) {
-              merged = { ...merged, status: p.status, isRead: p.status >= 3 };
-            }
-            if (p.readByCount !== undefined && p.readByCount > (m.readByCount || 0)) {
-              merged = { ...merged, readByCount: p.readByCount, readBy: p.readBy };
-            }
-            return merged;
-          });
+          const prevMap = new Map(prev.map(m => [m.id, m]));
+          return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
         });
       }
     } catch (err) {
@@ -1712,20 +1699,8 @@ function Chat() {
       hasMoreDownRef.current = false;
       setShouldScrollBottom(true);
       setMessages((prev) => {
-        const prevMap = new Map();
-        for (const m of prev) prevMap.set(m.id, m);
-        return data.map((m) => {
-          const p = prevMap.get(m.id);
-          if (!p) return m;
-          let merged = m;
-          if (p.status !== undefined && p.status > m.status) {
-            merged = { ...merged, status: p.status, isRead: p.status >= 3 };
-          }
-          if (p.readByCount !== undefined && p.readByCount > (m.readByCount || 0)) {
-            merged = { ...merged, readByCount: p.readByCount, readBy: p.readBy };
-          }
-          return merged;
-        });
+        const prevMap = new Map(prev.map(m => [m.id, m]));
+        return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
       });
     } catch (err) {
       console.error("Failed to send files:", err);
@@ -1903,29 +1878,10 @@ function Chat() {
       const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
       hasMoreDownRef.current = false;
       setShouldScrollBottom(true); // Yeni mesajdan sonra aşağıya scroll et
-      // Functional merge — SignalR-dan gələn status yenilikləri (Read, Delivered)
-      // API data-dan üstün tutulur. Əks halda race condition:
-      // DM: "MessageRead" event status=3 edir, amma apiGet köhnə status=1 gətirir və üzərinə yazır.
-      // Channel: "ChannelMessagesRead" event readByCount/readBy edir, apiGet köhnə data gətirir.
+      // Functional merge — SignalR status > API status (race condition qoruması)
       setMessages((prev) => {
-        const prevMap = new Map();
-        for (const m of prev) {
-          prevMap.set(m.id, m);
-        }
-        return data.map((m) => {
-          const p = prevMap.get(m.id);
-          if (!p) return m;
-          let merged = m;
-          // DM status qoru (daha yüksək status üstündür)
-          if (p.status !== undefined && p.status > m.status) {
-            merged = { ...merged, status: p.status, isRead: p.status >= 3 };
-          }
-          // Channel readByCount/readBy qoru (daha yüksək count üstündür)
-          if (p.readByCount !== undefined && p.readByCount > (m.readByCount || 0)) {
-            merged = { ...merged, readByCount: p.readByCount, readBy: p.readBy };
-          }
-          return merged;
-        });
+        const prevMap = new Map(prev.map(m => [m.id, m]));
+        return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
       });
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -2559,99 +2515,29 @@ function Chat() {
                 />
               )}
 
-              {/* Tək mesaj silmə təsdiqləməsi — action menu-dan Delete basıldıqda */}
               {pendingDeleteMsg && (
-                <div className="delete-confirm-overlay" onClick={() => setPendingDeleteMsg(null)}>
-                  <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
-                    <div className="delete-confirm-header">
-                      <span>Do you want to delete this message?</span>
-                      <button className="delete-confirm-close" onClick={() => setPendingDeleteMsg(null)}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="delete-confirm-actions">
-                      <button
-                        className="delete-confirm-btn"
-                        onClick={() => {
-                          handleDeleteMessage(pendingDeleteMsg);
-                          setPendingDeleteMsg(null);
-                        }}
-                      >
-                        DELETE
-                      </button>
-                      <button className="delete-cancel-btn" onClick={() => setPendingDeleteMsg(null)}>
-                        CANCEL
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ConfirmDialog
+                  message="Do you want to delete this message?"
+                  onConfirm={() => { handleDeleteMessage(pendingDeleteMsg); setPendingDeleteMsg(null); }}
+                  onCancel={() => setPendingDeleteMsg(null)}
+                />
               )}
 
-              {/* Channel-dan ayrılma təsdiqləməsi */}
               {pendingLeaveChannel && (
-                <div className="delete-confirm-overlay" onClick={() => setPendingLeaveChannel(null)}>
-                  <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
-                    <div className="delete-confirm-header">
-                      <span>Are you sure you want to leave this channel?</span>
-                      <button className="delete-confirm-close" onClick={() => setPendingLeaveChannel(null)}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="delete-confirm-actions">
-                      <button
-                        className="delete-confirm-btn"
-                        onClick={() => {
-                          handleLeaveChannel(pendingLeaveChannel);
-                          setPendingLeaveChannel(null);
-                          sidebar.setShowSidebar(false);
-                        }}
-                      >
-                        LEAVE
-                      </button>
-                      <button className="delete-cancel-btn" onClick={() => setPendingLeaveChannel(null)}>
-                        CANCEL
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ConfirmDialog
+                  message="Are you sure you want to leave this channel?"
+                  confirmText="LEAVE"
+                  onConfirm={() => { handleLeaveChannel(pendingLeaveChannel); setPendingLeaveChannel(null); sidebar.setShowSidebar(false); }}
+                  onCancel={() => setPendingLeaveChannel(null)}
+                />
               )}
 
-              {/* Conversation/channel silmə təsdiqləməsi */}
               {pendingDeleteConv && (
-                <div className="delete-confirm-overlay" onClick={() => setPendingDeleteConv(null)}>
-                  <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
-                    <div className="delete-confirm-header">
-                      <span>Are you sure you want to delete this chat?</span>
-                      <button className="delete-confirm-close" onClick={() => setPendingDeleteConv(null)}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="delete-confirm-actions">
-                      <button
-                        className="delete-confirm-btn"
-                        onClick={() => {
-                          handleDeleteConversation(pendingDeleteConv);
-                          setPendingDeleteConv(null);
-                          sidebar.setShowSidebar(false);
-                        }}
-                      >
-                        DELETE
-                      </button>
-                      <button className="delete-cancel-btn" onClick={() => setPendingDeleteConv(null)}>
-                        CANCEL
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ConfirmDialog
+                  message="Are you sure you want to delete this chat?"
+                  onConfirm={() => { handleDeleteConversation(pendingDeleteConv); setPendingDeleteConv(null); sidebar.setShowSidebar(false); }}
+                  onCancel={() => setPendingDeleteConv(null)}
+                />
               )}
 
               {/* forwardMessage varsa ForwardPanel-i göstər (modal overlay) */}
