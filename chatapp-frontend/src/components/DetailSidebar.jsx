@@ -1,3 +1,4 @@
+import { memo } from "react";
 // ─── DetailSidebar.jsx — Bitrix24 stilində sağ detail panel ────────────────
 // Chat.jsx-dən çıxarılmış sidebar JSX bloku.
 // Panellər: Profile, Favorites, Links, Search, ChatsWithUser, FilesMedia, Members
@@ -1123,4 +1124,4 @@ function DetailSidebar({
   );
 }
 
-export default DetailSidebar;
+export default memo(DetailSidebar);

@@ -132,6 +132,7 @@ function Chat() {
 
   // highlightTimerRef — highlight setTimeout ID-si (unmount-da təmizləmək üçün)
   const highlightTimerRef = useRef(null);
+  const handleSendMessageRef = useRef(null);
 
   // allReadPatchRef — unreadCount===0 ilə girdikdə true olur
   // useChatScroll-da scroll ilə yüklənən mesajları da isRead:true patch etmək üçün
@@ -507,7 +508,7 @@ function Chat() {
 
   // markAllAsReadForCurrentChat — bütün unread mesajları oxundu et
   // Yazmağa başlayanda və ya mesaj göndərəndə çağırılır
-  function markAllAsReadForCurrentChat() {
+  const markAllAsReadForCurrentChat = useCallback(() => {
     if (!hasNewUnreadRef.current) return;
     hasNewUnreadRef.current = false;
     firstUnreadMsgIdRef.current = null;
@@ -516,18 +517,15 @@ function Chat() {
     if (!chatInfo) return;
     const { chatId, chatType } = chatInfo;
 
-    // Frontend-də mesajları isRead: true et
     setMessages((prev) =>
       prev.map((m) => m.isRead ? m : { ...m, isRead: true }),
     );
 
-    // Backend-ə mark-all-read göndər
     const endpoint = chatType === "0"
       ? `/api/conversations/${chatId}/messages/mark-all-read`
       : `/api/channels/${chatId}/messages/mark-as-read`;
     apiPost(endpoint).catch(() => {});
 
-    // Conversation list-dəki unreadCount-u sıfırla
     setConversations((prev) =>
       prev.map((c) =>
         c.id === chatId ? { ...c, unreadCount: 0 } : c,
@@ -535,7 +533,7 @@ function Chat() {
     );
 
     visibleUnreadRef.current = new Set();
-  }
+  }, []);
 
   // handleScrollToBottom — scroll-to-bottom butonu basıldığında
   // Həmişə API-dən ən son mesajları yüklə — around mode-da da, normal mode-da da
@@ -841,12 +839,10 @@ function Chat() {
   }
 
   // handleLeaveChannel — channel-dan ayrıl
-  async function handleLeaveChannel(conv) {
+  const handleLeaveChannel = useCallback(async (conv) => {
     try {
       await apiPost(`/api/channels/${conv.id}/members/leave`);
-      // Siyahıdan sil
       setConversations((prev) => prev.filter((c) => c.id !== conv.id));
-      // Channel hazırda seçilmişdirsə → seçimi sıfırla
       if (selectedChat && selectedChat.id === conv.id) {
         leaveChannel(conv.id);
         setSelectedChat(null);
@@ -855,18 +851,16 @@ function Chat() {
     } catch (err) {
       console.error("Failed to leave channel:", err);
     }
-  }
+  }, [selectedChat]);
 
   // handleDeleteConversation — conversation/channel-ı sil
-  async function handleDeleteConversation(conv) {
+  const handleDeleteConversation = useCallback(async (conv) => {
     try {
       const endpoint = conv.type === 1
         ? `/api/channels/${conv.id}`
         : `/api/conversations/${conv.id}`;
       await apiDelete(endpoint);
-      // Siyahıdan sil
       setConversations((prev) => prev.filter((c) => c.id !== conv.id));
-      // Hazırda seçilmişdirsə — seçimi sıfırla
       if (selectedChat && selectedChat.id === conv.id) {
         if (conv.type === 1) leaveChannel(conv.id);
         else leaveConversation(conv.id);
@@ -876,23 +870,22 @@ function Chat() {
     } catch (err) {
       console.error("Failed to delete conversation:", err);
     }
-  }
+  }, [selectedChat]);
 
   // handleMessageTextChange — textarea onChange (mention detection ilə birlikdə)
-  function handleMessageTextChange(newText, caretPos) {
+  const handleMessageTextChange = useCallback((newText, caretPos) => {
     setMessageText(newText);
     markAllAsReadForCurrentChat();
     mention.detectMentionInText(newText, caretPos, () => { if (emojiOpen) setEmojiOpen(false); });
-  }
+  }, [emojiOpen, mention, markAllAsReadForCurrentChat]);
 
   // handleInputResize — textarea böyüdükdə/kiçildikdə mesajları aşağı scroll et
-  // scrollTop istifadə edir (scrollIntoView bütün səhifəni scroll edə bilər)
-  function handleInputResize() {
+  const handleInputResize = useCallback(() => {
     requestAnimationFrame(() => {
       const area = messagesAreaRef.current;
       if (area) area.scrollTop = area.scrollHeight;
     });
-  }
+  }, []);
 
   // handleMentionClick — mesajdakı mention-a klik (conversation-a keçid)
   const handleMentionClick = useCallback((m) => {
@@ -918,7 +911,12 @@ function Chat() {
 
   // ─── Search panel handler-ləri (state useSearchPanel hook-unda) ──────────────
 
-  function handleOpenSearch() {
+  const handleCloseSearch = useCallback(() => {
+    search.resetSearch();
+    if (!search.searchFromSidebar) sidebar.setShowSidebar(false);
+  }, [search, sidebar]);
+
+  const handleOpenSearch = useCallback(() => {
     if (search.showSearchPanel) { handleCloseSearch(); return; }
     search.setSearchFromSidebar(sidebar.showSidebar);
     sidebar.setShowSidebar(true);
@@ -929,12 +927,7 @@ function Chat() {
     sidebar.setShowMembersPanel(false);
     sidebar.setMembersPanelDirect(false);
     sidebar.setShowChatsWithUser(false);
-  }
-
-  function handleCloseSearch() {
-    search.resetSearch();
-    if (!search.searchFromSidebar) sidebar.setShowSidebar(false);
-  }
+  }, [search, sidebar, handleCloseSearch]);
 
   // refreshChannelMembers, loadMembersPanelPage, handleMakeAdmin,
   // handleRemoveAdmin, handleRemoveFromChat → useChannelManagement hook-una çıxarılıb
@@ -1598,16 +1591,6 @@ function Chat() {
 
   // handleDeleteSelected → useMessageSelection hook-una çıxarılıb
 
-  // handlePinBarClick — PinnedBar-a klik edildikdə
-  // 1) Həmin mesaja scroll et, 2) Növbəti pin-ə keç
-  function handlePinBarClick(messageId) {
-    handleScrollToMessage(messageId);
-    // Modulo əməliyyatı — axırıncı pin-dən sonra birinciyə qayıt (circular)
-    setCurrentPinIndex((prev) =>
-      prev >= pinnedMessages.length - 1 ? 0 : prev + 1,
-    );
-  }
-
   // handleFilesSelected, handleRemoveFile, handleReorderFiles, handleClearFiles → useFileUpload hook-una çıxarılıb
 
   // handleSendFiles — faylları yüklə + mesaj göndər
@@ -1888,6 +1871,9 @@ function Chat() {
     }
   }
 
+  // handleSendMessage ref — handleKeyDown useCallback-ında stale closure-dan qoruyur
+  handleSendMessageRef.current = handleSendMessage;
+
   // ─── Birləşdirilmiş click-outside handler ───
   // 7 ayrı useEffect əvəzinə tək event listener — daha az memory, daha az GC
   useEffect(() => {
@@ -1939,63 +1925,43 @@ function Chat() {
 
   // stopTypingSignal — typing siqnalını dərhal dayandır
   // Mesaj göndəriləndə / conversation dəyişdirildikdə çağırılır
-  function stopTypingSignal() {
-    if (!isTypingRef.current) return; // Artıq yazılmır — heç nə etmə
+  const stopTypingSignal = useCallback(() => {
+    if (!isTypingRef.current) return;
     isTypingRef.current = false;
-    // Gözləyən timeout-u sil — artıq lazım deyil
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-    // "isTyping: false" siqnalı göndər
     if (!selectedChat || selectedChat.type === 2 || selectedChat.isNotes) return;
     const conn = getConnection();
     if (!conn) return;
     if (selectedChat.type === 0) {
-      conn.invoke(
-        "TypingInConversation",
-        selectedChat.id,
-        selectedChat.otherUserId,
-        false,
-      );
+      conn.invoke("TypingInConversation", selectedChat.id, selectedChat.otherUserId, false);
     } else if (selectedChat.type === 1) {
       conn.invoke("TypingInChannel", selectedChat.id, false);
     }
-  }
+  }, [selectedChat]);
 
   // sendTypingSignal — istifadəçi yazarkən SignalR hub-a "typing" siqnalı göndər
-  // Debounce pattern: TYPING_DEBOUNCE_MS sonra "stopped typing" göndər
-  function sendTypingSignal() {
-    // DepartmentUser (type=2) və Notes üçün typing yoxdur
+  const sendTypingSignal = useCallback(() => {
     if (!selectedChat || selectedChat.type === 2 || selectedChat.isNotes) return;
     const conn = getConnection();
     if (!conn) return;
 
-    // İlk dəfə yazılır — "isTyping: true" siqnalı göndər
     if (!isTypingRef.current) {
       isTypingRef.current = true;
       if (selectedChat.type === 0) {
-        conn.invoke(
-          "TypingInConversation",
-          selectedChat.id,
-          selectedChat.otherUserId,
-          true, // isTyping = true
-        );
+        conn.invoke("TypingInConversation", selectedChat.id, selectedChat.otherUserId, true);
       } else if (selectedChat.type === 1) {
         conn.invoke("TypingInChannel", selectedChat.id, true);
       }
     }
 
-    // Əvvəlki timeout-u sil (debounce reset)
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // TYPING_DEBOUNCE_MS ms sonra "stopped typing" göndər
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       stopTypingSignal();
     }, TYPING_DEBOUNCE_MS);
-  }
+  }, [selectedChat, stopTypingSignal]);
 
   // handleScrollToMessage — mesaja scroll et (reply reference / pin bar klik)
   // Mesaj DOM-da varsa birbaşa scroll et, yoxdursa around endpoint-dən yüklə
@@ -2043,31 +2009,124 @@ function Chat() {
     [selectedChat, hasMoreRef, hasMoreDownRef],
   );
 
+  // handlePinBarClick — PinnedBar-a klik edildikdə
+  const handlePinBarClick = useCallback((messageId) => {
+    handleScrollToMessage(messageId);
+    setCurrentPinIndex((prev) =>
+      prev >= pinnedMessages.length - 1 ? 0 : prev + 1,
+    );
+  }, [handleScrollToMessage, pinnedMessages.length]);
+
   // handleKeyDown — textarea-da klaviatura hadisəsi
   // Enter → mesaj göndər (Shift+Enter → yeni sətir)
-  function handleKeyDown(e) {
-    // ── Mention panel keyboard navigation (hook-a delegasiya) ──
+  const handleKeyDown = useCallback((e) => {
     if (mention.handleMentionKeyDown(e)) return;
 
-    // Modifier/shortcut düymələr typing siqnalı göndərməsin
-    // Ctrl+R, Ctrl+C, Alt+Tab vs. — bunlar yazı deyil, typing indicator göstərməməlidir
     if (e.ctrlKey || e.altKey || e.metaKey) {
-      // Enter hər halda yoxla (bəzi OS-lərdə Ctrl+Enter istifadə olunur)
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSendMessage();
+        handleSendMessageRef.current();
       }
       return;
     }
-    // Tək modifier düymələr (Shift, CapsLock, Fn vs.) — yazı deyil
     if (e.key === "Shift" || e.key === "CapsLock") return;
 
     sendTypingSignal();
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSendMessageRef.current();
     }
-  }
+  }, [mention, sendTypingSignal]);
+
+  // --- CONFIRM DIALOG useCallback HANDLERS ---
+
+  const handleConfirmDeleteMsg = useCallback(() => {
+    handleDeleteMessage(pendingDeleteMsg);
+    setPendingDeleteMsg(null);
+  }, [handleDeleteMessage, pendingDeleteMsg]);
+
+  const handleCancelDeleteMsg = useCallback(() => setPendingDeleteMsg(null), []);
+
+  const handleConfirmLeaveChannel = useCallback(() => {
+    handleLeaveChannel(pendingLeaveChannel);
+    setPendingLeaveChannel(null);
+    sidebar.setShowSidebar(false);
+  }, [handleLeaveChannel, pendingLeaveChannel, sidebar]);
+
+  const handleCancelLeaveChannel = useCallback(() => setPendingLeaveChannel(null), []);
+
+  const handleConfirmDeleteConv = useCallback(() => {
+    handleDeleteConversation(pendingDeleteConv);
+    setPendingDeleteConv(null);
+    sidebar.setShowSidebar(false);
+  }, [handleDeleteConversation, pendingDeleteConv, sidebar]);
+
+  const handleCancelDeleteConv = useCallback(() => setPendingDeleteConv(null), []);
+
+  const handleCloseForward = useCallback(() => setForwardMessage(null), []);
+
+  // onFindChatsWithUser — DetailSidebar prop
+  const handleFindChatsWithUser = useCallback((otherUserId) => {
+    sidebar.setShowSidebar(true);
+    sidebar.handleOpenChatsWithUser(otherUserId, "context");
+  }, [sidebar]);
+
+  // AddMember close/cancel handler (eyni handler — 2 yerdə istifadə olunur)
+  const handleCloseAddMember = useCallback(() => {
+    channel.setShowAddMember(false);
+    channel.setAddMemberSearch("");
+    channel.setAddMemberSearchActive(false);
+    channel.setAddMemberSelected(new Set());
+  }, [channel]);
+
+  // AddMember chip remove handler (loop daxilində)
+  const handleRemoveAddMemberChip = useCallback((uid) => {
+    channel.setAddMemberSelected((prev) => { const next = new Set(prev); next.delete(uid); return next; });
+  }, [channel]);
+
+  // AddMember user select/toggle handler (loop daxilində)
+  const handleToggleAddMemberUser = useCallback((userId) => {
+    channel.setAddMemberSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+    channel.setAddMemberSearch("");
+    channel.setAddMemberSearchActive(false);
+    channel.setAddMemberSearchResults([]);
+  }, [channel]);
+
+  // AddMember filtered users — useMemo (hər render-də Set+filter əvəzinə)
+  const addMemberFilteredUsers = useMemo(() => {
+    if (!channel.showAddMember) return [];
+    const query = channel.addMemberSearch.trim();
+    const existingIds = channelMembers[selectedChat?.id]
+      ? new Set(Object.keys(channelMembers[selectedChat.id]))
+      : new Set();
+    if (query.length >= 2) {
+      return channel.addMemberSearchResults
+        .filter((u) => !existingIds.has(u.id))
+        .map((u) => ({
+          id: u.id,
+          fullName: u.fullName || `${u.firstName} ${u.lastName}`,
+          avatarUrl: u.avatarUrl,
+          position: u.position || "User",
+        }));
+    }
+    return channel.addMemberUsers;
+  }, [channel.showAddMember, channel.addMemberSearch, channel.addMemberSearchResults, channel.addMemberUsers, channelMembers, selectedChat?.id]);
+
+  // AddMember chip lookup — useMemo (O(n²) → O(1) Map lookup)
+  const addMemberChipMap = useMemo(() => {
+    if (!channel.showAddMember || channel.addMemberSelected.size === 0) return new Map();
+    const map = new Map();
+    for (const u of channel.addMemberUsers) map.set(u.id, u.fullName || u.name || "User");
+    for (const c of conversations) {
+      if (c.otherUserId && !map.has(c.otherUserId)) map.set(c.otherUserId, c.name || "User");
+    }
+    return map;
+  }, [channel.showAddMember, channel.addMemberSelected.size, channel.addMemberUsers, conversations]);
 
   // --- MEMOIZED DƏYƏRLƏR ---
 
@@ -2260,10 +2319,7 @@ function Chat() {
           onToggleReadLater={handleToggleReadLater}
           onHide={handleToggleHide}
           onLeaveChannel={handleLeaveChannel}
-          onFindChatsWithUser={(otherUserId) => {
-            sidebar.setShowSidebar(true);
-            sidebar.handleOpenChatsWithUser(otherUserId, "context");
-          }}
+          onFindChatsWithUser={handleFindChatsWithUser}
         />
 
         {/* chat-panel — sağ panel, mesajlar */}
@@ -2518,8 +2574,8 @@ function Chat() {
               {pendingDeleteMsg && (
                 <ConfirmDialog
                   message="Do you want to delete this message?"
-                  onConfirm={() => { handleDeleteMessage(pendingDeleteMsg); setPendingDeleteMsg(null); }}
-                  onCancel={() => setPendingDeleteMsg(null)}
+                  onConfirm={handleConfirmDeleteMsg}
+                  onCancel={handleCancelDeleteMsg}
                 />
               )}
 
@@ -2527,16 +2583,16 @@ function Chat() {
                 <ConfirmDialog
                   message="Are you sure you want to leave this channel?"
                   confirmText="LEAVE"
-                  onConfirm={() => { handleLeaveChannel(pendingLeaveChannel); setPendingLeaveChannel(null); sidebar.setShowSidebar(false); }}
-                  onCancel={() => setPendingLeaveChannel(null)}
+                  onConfirm={handleConfirmLeaveChannel}
+                  onCancel={handleCancelLeaveChannel}
                 />
               )}
 
               {pendingDeleteConv && (
                 <ConfirmDialog
                   message="Are you sure you want to delete this chat?"
-                  onConfirm={() => { handleDeleteConversation(pendingDeleteConv); setPendingDeleteConv(null); sidebar.setShowSidebar(false); }}
-                  onCancel={() => setPendingDeleteConv(null)}
+                  onConfirm={handleConfirmDeleteConv}
+                  onCancel={handleCancelDeleteConv}
                 />
               )}
 
@@ -2545,7 +2601,7 @@ function Chat() {
                 <ForwardPanel
                   conversations={conversations}
                   onForward={handleForward}
-                  onClose={() => setForwardMessage(null)}
+                  onClose={handleCloseForward}
                 />
               )}
 
@@ -2620,7 +2676,7 @@ function Chat() {
                 <span className="ds-am-title">Add chat members</span>
                 <button
                   className="ds-am-close"
-                  onClick={() => { channel.setShowAddMember(false); channel.setAddMemberSearch(""); channel.setAddMemberSearchActive(false); channel.setAddMemberSelected(new Set()); }}
+                  onClick={handleCloseAddMember}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -2634,15 +2690,14 @@ function Chat() {
                 {channel.addMemberSearchActive || channel.addMemberSelected.size > 0 ? (
                   <div className="ds-am-search-box">
                     {[...channel.addMemberSelected].map((uid) => {
-                      const u = channel.addMemberUsers.find((x) => x.id === uid) || conversations.find((c) => c.otherUserId === uid);
-                      const name = u?.fullName || u?.name || "User";
+                      const name = addMemberChipMap.get(uid) || "User";
                       return (
                         <span key={uid} className="ds-am-chip">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" /></svg>
                           {name}
                           <button
                             className="ds-am-chip-remove"
-                            onClick={() => channel.setAddMemberSelected((prev) => { const next = new Set(prev); next.delete(uid); return next; })}
+                            onClick={() => handleRemoveAddMemberChip(uid)}
                           >×</button>
                         </span>
                       );
@@ -2685,49 +2740,16 @@ function Chat() {
               </div>
 
               <div className="ds-am-list">
-                {(() => {
-                  const query = channel.addMemberSearch.trim();
-                  const existingIds = channelMembers[selectedChat?.id]
-                    ? new Set(Object.keys(channelMembers[selectedChat.id]))
-                    : new Set();
-
-                  // Axtarış varsa backend nəticələri, yoxdursa recent DM-lər
-                  let users;
-                  if (query.length >= 2) {
-                    users = channel.addMemberSearchResults
-                      .filter((u) => !existingIds.has(u.id))
-                      .map((u) => ({
-                        id: u.id,
-                        fullName: u.fullName || `${u.firstName} ${u.lastName}`,
-                        avatarUrl: u.avatarUrl,
-                        position: u.position || "User",
-                      }));
-                  } else {
-                    users = channel.addMemberUsers;
-                  }
-
-                  if (users.length === 0) {
-                    return <div className="ds-am-empty">{query.length >= 2 ? "No matching users" : "No recent chats"}</div>;
-                  }
-
-                  return users.map((u) => {
+                {addMemberFilteredUsers.length === 0 ? (
+                  <div className="ds-am-empty">{channel.addMemberSearch.trim().length >= 2 ? "No matching users" : "No recent chats"}</div>
+                ) : (
+                  addMemberFilteredUsers.map((u) => {
                     const isSelected = channel.addMemberSelected.has(u.id);
                     return (
                       <div
                         key={u.id}
                         className={`ds-am-user${isSelected ? " selected" : ""}`}
-                        onClick={() => {
-                          channel.setAddMemberSelected((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(u.id)) next.delete(u.id);
-                            else next.add(u.id);
-                            return next;
-                          });
-                          // User seçildikdə search input reset olsun
-                          channel.setAddMemberSearch("");
-                          channel.setAddMemberSearchActive(false);
-                          channel.setAddMemberSearchResults([]);
-                        }}
+                        onClick={() => handleToggleAddMemberUser(u.id)}
                       >
                         <div className="ds-am-user-avatar" style={{ background: getAvatarColor(u.fullName) }}>
                           {u.avatarUrl ? (
@@ -2747,8 +2769,8 @@ function Chat() {
                         )}
                       </div>
                     );
-                  });
-                })()}
+                  })
+                )}
               </div>
 
               {/* Footer — INVITE + CANCEL */}
@@ -2762,7 +2784,7 @@ function Chat() {
                 </button>
                 <button
                   className="ds-am-cancel-btn"
-                  onClick={() => { channel.setShowAddMember(false); channel.setAddMemberSearch(""); channel.setAddMemberSearchActive(false); channel.setAddMemberSelected(new Set()); }}
+                  onClick={handleCloseAddMember}
                 >
                   CANCEL
                 </button>

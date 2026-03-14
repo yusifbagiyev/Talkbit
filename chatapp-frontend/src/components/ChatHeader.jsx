@@ -1,3 +1,4 @@
+import { memo } from "react";
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, getLastSeenText } from "../utils/chatUtils";
 
@@ -122,4 +123,4 @@ function ChatHeader({ selectedChat, onlineUsers, onOpenAddMember, addMemberOpen,
   );
 }
 
-export default ChatHeader;
+export default memo(ChatHeader);

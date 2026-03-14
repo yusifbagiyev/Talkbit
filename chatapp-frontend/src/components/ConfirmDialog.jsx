@@ -1,3 +1,4 @@
+import { memo } from "react";
 // ─── ConfirmDialog.jsx — Təsdiqləmə modalı ──────────────────────────────────
 // Bütün silmə/ayrılma əməliyyatları üçün universal confirm dialog.
 // Props: message, confirmText, onConfirm, onCancel
@@ -28,4 +29,4 @@ function ConfirmDialog({ message, confirmText = "DELETE", onConfirm, onCancel })
   );
 }
 
-export default ConfirmDialog;
+export default memo(ConfirmDialog);

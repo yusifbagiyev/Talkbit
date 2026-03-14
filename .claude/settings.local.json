@@ -90,7 +90,8 @@
       "Bash(npx eslint src/components/FilePreviewPanel.jsx)",
       "Bash(for module:*)",
       "Bash(do echo:*)",
-      "Bash(cut -d'{' -f1)"
+      "Bash(cut -d'{' -f1)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []

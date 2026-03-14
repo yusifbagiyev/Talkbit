@@ -31,6 +31,8 @@ export default function useMention({ selectedChat, channelMembers, conversations
   const mentionPanelRef = useRef(null);        // Click-outside ref
   const mentionSearchTimerRef = useRef(null);  // Debounce timer
   const activeMentionsRef = useRef([]);        // Seçilmiş mention-lar (göndərmə üçün)
+  const conversationsRef = useRef(conversations); // conversations ref — useEffect dep-dən çıxarır
+  conversationsRef.current = conversations;
 
   // ─── closeMentionPanel ─────────────────────────────────────────────────────
   function closeMentionPanel() {
@@ -215,7 +217,7 @@ export default function useMention({ selectedChat, channelMembers, conversations
     // Recent chats-dan istifadəçiləri əlavə et
     const existingLocalIds = new Set(localResults.map((r) => r.id).filter(Boolean));
     existingLocalIds.add(user.id);
-    const recentUsers = conversations
+    const recentUsers = conversationsRef.current
       .filter((c) => (c.type === 0 || c.type === 2) && c.id !== selectedChat.id)
       .filter((c) => {
         const uid = c.otherUserId || c.userId || c.id;
@@ -236,7 +238,7 @@ export default function useMention({ selectedChat, channelMembers, conversations
         u.fullName.toLowerCase().includes(q)
       );
       localResults = [...localResults, ...filteredRecent];
-      const channelResults = conversations
+      const channelResults = conversationsRef.current
         .filter((c) => c.type === 1 && c.name && c.name.toLowerCase().includes(q))
         .filter((c) => c.id !== selectedChat.id)
         .slice(0, 5)
@@ -286,7 +288,7 @@ export default function useMention({ selectedChat, channelMembers, conversations
       if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mentionOpen, mentionSearch, selectedChat?.id, selectedChat?.type, channelMembers, conversations, user?.id]);
+  }, [mentionOpen, mentionSearch, selectedChat?.id, selectedChat?.type, channelMembers, user?.id]);
 
   // ─── Mention click-outside useEffect ───────────────────────────────────────
   useEffect(() => {

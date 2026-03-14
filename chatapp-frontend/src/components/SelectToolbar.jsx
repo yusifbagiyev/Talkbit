@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ConfirmDialog from "./ConfirmDialog";
 
 function SelectToolbar({
@@ -75,4 +76,4 @@ function SelectToolbar({
   );
 }
 
-export default SelectToolbar;
+export default memo(SelectToolbar);

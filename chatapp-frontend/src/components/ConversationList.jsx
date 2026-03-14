@@ -1,7 +1,7 @@
 // useState — komponent daxili state (like C# reactive property)
 // useRef — re-render etmədən dəyər saxlamaq (timer id, DOM referansı)
 // useEffect — side effect (API çağrısı, event listener, cleanup)
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, formatTime } from "../utils/chatUtils";
@@ -667,4 +667,4 @@ function ConversationList({
   );
 }
 
-export default ConversationList;
+export default memo(ConversationList);

@@ -1,5 +1,5 @@
 // Sabitlər import et
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, memo } from "react";
 import { MESSAGE_MAX_LENGTH, MAX_FILE_SIZE, formatFileSize, isAllowedFileExtension } from "../utils/chatUtils";
 import { useToast } from "../context/ToastContext";               // Toast notification sistemi
 import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Apple img çevirici
@@ -426,4 +426,4 @@ function ChatInputArea({
   );
 }
 
-export default ChatInputArea;
+export default memo(ChatInputArea);

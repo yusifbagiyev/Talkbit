@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { getInitials, getAvatarColor } from "../utils/chatUtils";
 import { apiGet, apiPost, apiPut, apiDelete } from "../services/api";
 
@@ -851,4 +851,4 @@ function ChannelPanel({
   );
 }
 
-export default ChannelPanel;
+export default memo(ChannelPanel);

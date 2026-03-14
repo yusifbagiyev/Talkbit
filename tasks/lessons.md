@@ -80,3 +80,21 @@
   3. useCallback dependency array-ı düzgün yaz — əskik dep = stale closure bug
   4. React.memo əlavə edərkən parent-dən gələn inline arrow-ları da useCallback-ə çevir, əks halda memo heç işləməz
   5. Hook dependency dəyişdirərkən (useMention kimi) əvvəlki davranışı test et
+
+### Lesson: CSS dəyişiklik işləmirsə — inline style yoxla, kök səbəbi tap
+- **Date**: 2026-03-14
+- **Context**: Image+text bubble-da şəkil kənarlarında F0F6EE background göstərmək istədik. `object-fit: contain`, `max-width`, `display: flex` — heç biri işləmədi. 4-5 dəfə yanlış yanaşma sınandı.
+- **Kök səbəb**: React-dan gələn inline `style={{ aspectRatio: "1080/1920", maxHeight: 400 }}` konteynerin **enini daraldırdı**. `aspect-ratio` + `max-height` = brauzer eni proporsional kiçildir (məs: maxH=400, ratio=9:16 → en=225px). Konteyner şəkil qədər olur → kənarda F0F6EE üçün yer qalmır.
+- **Həll**: `aspect-ratio: auto !important` — inline style-ı override edir, konteyner tam eni tutur.
+- **Rule**:
+  1. CSS dəyişiklik **görünmürsə** → ilk addım: brauzerdə DevTools açıb elementin **computed styles** və **inline styles**-ına bax. React `style={}` prop-u CSS-dən güclüdür
+  2. `aspect-ratio` + `max-height`/`max-width` birlikdə istifadə edildikdə brauzer DİGƏR ölçünü proporsional kiçildir — bu gözlənilməz davranışdır
+  3. Inline style-ı CSS-dən override etmək üçün `!important` lazımdır
+  4. User konkret rəng deyirsə (F0F6EE), DƏQIQ o rəngi istifadə et — özündən "daha yaxşı" variant uydurma (#c8e6c9 kimi)
+  5. **Kor-koranə CSS property dəyişmə** — əvvəl problemi anla, SONRA bir dəyişiklik et. 4-5 fərqli yanaşma sınamaq əvəzinə, DevTools-da kök səbəbi tap
+
+### Lesson: function → useCallback çevirərkən TDZ (Temporal Dead Zone) yoxla
+- **Date**: 2026-03-14
+- **Context**: `handlePinBarClick`-ı `function` → `const useCallback` çevirdim. Bu funksiya `handleScrollToMessage`-ı çağırırdı, amma `handleScrollToMessage` kodda AŞAĞIDA təyin olunmuşdu.
+- **Mistake**: `function` hoisting olur (təyin olunmamışdan əvvəl istifadə oluna bilər), amma `const` hoisting OLMUR → `Cannot access before initialization` xətası.
+- **Rule**: `function` → `const useCallback` çevirərkən HƏMİŞƏ dependency-lərin KOD SIRASInda ƏVVƏL təyin olunduğunu yoxla. Əgər dependency aşağıdadırsa, ya funksiyanı dependency-dən SONRAYA köçür, ya da ref pattern istifadə et.
