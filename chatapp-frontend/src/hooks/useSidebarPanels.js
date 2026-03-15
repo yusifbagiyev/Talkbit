@@ -60,7 +60,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   const memberMenuRef = useRef(null);
 
   // ─── loadFavoriteMessages ──────────────────────────────────────────────────
-  async function loadFavoriteMessages(chat) {
+  const loadFavoriteMessages = useCallback(async (chat) => {
     try {
       setFavoritesLoading(true);
       const endpoint = getChatEndpoint(chat.id, chat.type, "/messages/favorites");
@@ -76,7 +76,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     } finally {
       setFavoritesLoading(false);
     }
-  }
+  }, []);
 
   // ─── handleFavoriteMessage — mesajı favorilərə əlavə et ────────────────────
   const handleFavoriteMessage = useCallback(
@@ -122,7 +122,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   );
 
   // ─── handleOpenChatsWithUser ───────────────────────────────────────────────
-  async function handleOpenChatsWithUser(otherUserId, source = "sidebar") {
+  const handleOpenChatsWithUser = useCallback(async (otherUserId, source = "sidebar") => {
     if (!otherUserId) return;
     setChatsWithUserSource(source);
     setShowChatsWithUser(true);
@@ -132,11 +132,13 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     } catch {
       setChatsWithUserData([]);
     }
-  }
+  }, []);
 
   // ─── loadMembersPanelPage — Members paneli paginated yükləmə ───────────────
-  async function loadMembersPanelPage(channelId, skip = 0, reset = false) {
-    if (membersPanelLoading) return;
+  const membersPanelLoadingRef = useRef(false);
+  const loadMembersPanelPage = useCallback(async (channelId, skip = 0, reset = false) => {
+    if (membersPanelLoadingRef.current) return;
+    membersPanelLoadingRef.current = true;
     setMembersPanelLoading(true);
     try {
       const members = await apiGet(`/api/channels/${channelId}/members?skip=${skip}&take=30`);
@@ -149,9 +151,10 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     } catch (err) {
       console.error("Failed to load members page:", err);
     } finally {
+      membersPanelLoadingRef.current = false;
       setMembersPanelLoading(false);
     }
-  }
+  }, []);
 
   // ─── Sidebar açılanda channel members yüklə ───────────────────────────────
   useEffect(() => {
@@ -222,7 +225,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   }, [messages]);
 
   // ─── resetSidebarPanels — handleSelectChat-da çağırılır ────────────────────
-  function resetSidebarPanels() {
+  const resetSidebarPanels = useCallback(() => {
     setShowFavorites(false);
     setFavoriteMessages([]);
     setFavMenuId(null);
@@ -240,19 +243,21 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     setShowMembersPanel(false);
     setMembersPanelDirect(false);
     setMemberMenuId(null);
-  }
+  }, []);
 
   // ─── resetChatsWithUser — source-a görə bağlama ────────────────────────────
-  function resetChatsWithUser() {
-    if (chatsWithUserSource === "sidebar") {
+  const chatsWithUserSourceRef = useRef(chatsWithUserSource);
+  chatsWithUserSourceRef.current = chatsWithUserSource;
+  const resetChatsWithUser = useCallback(() => {
+    if (chatsWithUserSourceRef.current === "sidebar") {
       setShowChatsWithUser(false);
       setChatsWithUserData([]);
       setChatsWithUserSource(null);
     }
-  }
+  }, []);
 
   // ─── closeSidebar — tam bağlama (X düyməsi) ───────────────────────────────
-  function closeSidebar() {
+  const closeSidebar = useCallback(() => {
     setShowSidebar(false);
     setShowFavorites(false);
     setFavSearchOpen(false);
@@ -269,7 +274,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     setShowMembersPanel(false);
     setMembersPanelDirect(false);
     setMemberMenuId(null);
-  }
+  }, []);
 
   return {
     // Core

@@ -497,5 +497,6 @@ export default function useChatSignalR(
         conn.off("AddedToChannel", handleAddedToChannel);
       }
     };
-  }, [userId, setSelectedChat, setMessages, setConversations, setShouldScrollBottom, setOnlineUsers, setTypingUsers, setPinnedMessages, setCurrentPinIndex, setLastReadTimestamp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 }
