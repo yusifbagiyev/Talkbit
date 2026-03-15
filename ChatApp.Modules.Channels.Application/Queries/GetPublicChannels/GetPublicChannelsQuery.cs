@@ -27,21 +27,7 @@ namespace ChatApp.Modules.Channels.Application.Queries.GetPublicChannels
         {
             try
             {
-                var channels = await _unitOfWork.Channels.GetPublicChannelsAsync(cancellationToken);
-
-                var channelDtos = channels
-                    .Select(c => new ChannelDto(
-                        c.Id,
-                        c.Name,
-                        c.Description,
-                        c.Type,
-                        c.CreatedBy,
-                        c.Members.Count,
-                        c.CreatedAtUtc,
-                        c.AvatarUrl
-                    ))
-                    .OrderByDescending(c => c.CreatedAtUtc)
-                    .ToList();
+                var channelDtos = await _unitOfWork.Channels.GetPublicChannelsAsync(cancellationToken);
 
                 return Result.Success(channelDtos);
             }

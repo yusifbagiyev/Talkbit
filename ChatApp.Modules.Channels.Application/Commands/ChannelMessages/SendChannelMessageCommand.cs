@@ -79,18 +79,24 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                     request.ChannelId,
                     request.SenderId);
 
-                // Verify channel exists
-                var channel = await _unitOfWork.Channels.GetByIdAsync(
+                // OPTIMIZED: Members-i əvvəl yüklə — channel existence + membership + unhide + broadcast üçün istifadə et
+                // Əvvəl: 3 ayrı query (GetByIdAsync + IsUserMemberAsync + GetChannelMembersAsync)
+                // İndi: 1 query (GetChannelMembersAsync) + 1 query (GetByIdAsync yalnız channel yoxdursa)
+                var members = await _unitOfWork.ChannelMembers.GetChannelMembersAsync(
                     request.ChannelId,
-                    cancellationToken) 
-                    ?? throw new NotFoundException($"Channel with ID {request.ChannelId} not found");
-                // Verify user is a member
-                var isMember = await _unitOfWork.Channels.IsUserMemberAsync(
-                    request.ChannelId,
-                    request.SenderId,
                     cancellationToken);
 
-                if (!isMember)
+                if (members.Count == 0)
+                {
+                    // Members boşdursa — ya channel yoxdur, ya üzv yoxdur
+                    var channelExists = await _unitOfWork.Channels.ExistsAsync(
+                        c => c.Id == request.ChannelId, cancellationToken);
+                    if (!channelExists)
+                        throw new NotFoundException($"Channel with ID {request.ChannelId} not found");
+                    return Result.Failure<Guid>("You must be a member to send messages to this channel");
+                }
+
+                if (!members.Any(m => m.UserId == request.SenderId))
                 {
                     return Result.Failure<Guid>("You must be a member to send messages to this channel");
                 }
@@ -121,32 +127,23 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                     }
                 }
 
+                // Auto-unhide: mesaj gəldikdə gizli üzvləri unhide et
+                var hiddenMembers = members.Where(m => m.IsHidden).ToList();
+                foreach (var hiddenMember in hiddenMembers)
+                {
+                    hiddenMember.Unhide();
+                }
+
+                // OPTIMIZED: Mesaj insert + unhide bir SaveChanges-da (əvvəl 2 ayrı SaveChanges idi)
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                // Get the message DTO using GetByIdAsDtoAsync instead of GetChannelMessagesAsync
-                // Brand new messages should have ReadBy=empty and ReadByCount=0 (not yet read by anyone)
-                // GetByIdAsDtoAsync returns the message with correct initial read status
+                // Get the message DTO
                 var messageDto = await _unitOfWork.ChannelMessages.GetByIdAsDtoAsync(
                     message.Id,
                     cancellationToken);
 
                 if(messageDto != null)
                 {
-                    // Get all active members to calculate TotalMemberCount
-                    var members = await _unitOfWork.ChannelMembers.GetChannelMembersAsync(
-                        request.ChannelId,
-                        cancellationToken);
-
-                    // Auto-unhide: When new message arrives, unhide channel for all hidden members (including sender)
-                    var hiddenMembers = members.Where(m => m.IsHidden).ToList();
-                    foreach (var hiddenMember in hiddenMembers)
-                    {
-                        hiddenMember.Unhide();
-                    }
-                    if (hiddenMembers.Count != 0)
-                    {
-                        await _unitOfWork.SaveChangesAsync(cancellationToken);
-                    }
 
                     // Count active members except the sender (sender is not in ReadBy list)
                     var adjustedMemberCount = members.Count(m => m.UserId != request.SenderId);

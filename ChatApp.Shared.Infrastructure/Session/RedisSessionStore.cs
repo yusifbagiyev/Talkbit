@@ -26,7 +26,7 @@ public class RedisSessionStore : ISessionStore
         _logger = logger;
     }
 
-    public string CreateSession(Guid userId, string accessToken, string refreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime)
+    public async Task<string> CreateSessionAsync(Guid userId, string accessToken, string refreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime)
     {
         var sessionId = GenerateOpaqueId();
 
@@ -46,8 +46,8 @@ public class RedisSessionStore : ISessionStore
 
         try
         {
-            _cache.SetString(SessionKey(sessionId), JsonSerializer.Serialize(sessionData, _jsonOptions), options);
-            AddSessionToUser(userId, sessionId, refreshTokenLifetime);
+            await _cache.SetStringAsync(SessionKey(sessionId), JsonSerializer.Serialize(sessionData, _jsonOptions), options);
+            await AddSessionToUserAsync(userId, sessionId, refreshTokenLifetime);
         }
         catch (Exception ex)
         {
@@ -58,9 +58,9 @@ public class RedisSessionStore : ISessionStore
         return sessionId;
     }
 
-    public string? GetAccessToken(string sessionId)
+    public async Task<string?> GetAccessTokenAsync(string sessionId)
     {
-        var data = GetSessionData(sessionId);
+        var data = await GetSessionDataAsync(sessionId);
 
         if (data != null && data.AccessTokenExpiresAt > DateTime.UtcNow)
             return data.AccessToken;
@@ -68,9 +68,9 @@ public class RedisSessionStore : ISessionStore
         return null;
     }
 
-    public string? GetRefreshToken(string sessionId)
+    public async Task<string?> GetRefreshTokenAsync(string sessionId)
     {
-        var data = GetSessionData(sessionId);
+        var data = await GetSessionDataAsync(sessionId);
 
         if (data != null && data.RefreshTokenExpiresAt > DateTime.UtcNow)
             return data.RefreshToken;
@@ -78,11 +78,11 @@ public class RedisSessionStore : ISessionStore
         return null;
     }
 
-    public void UpdateTokens(string sessionId, string newAccessToken, string newRefreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime)
+    public async Task UpdateTokensAsync(string sessionId, string newAccessToken, string newRefreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime)
     {
         try
         {
-            var data = GetSessionData(sessionId);
+            var data = await GetSessionDataAsync(sessionId);
 
             if (data != null)
             {
@@ -96,10 +96,10 @@ public class RedisSessionStore : ISessionStore
                     AbsoluteExpirationRelativeToNow = refreshTokenLifetime
                 };
 
-                _cache.SetString(SessionKey(sessionId), JsonSerializer.Serialize(data, _jsonOptions), options);
+                await _cache.SetStringAsync(SessionKey(sessionId), JsonSerializer.Serialize(data, _jsonOptions), options);
 
                 // Sliding expiration: user_sessions TTL-ini də yenilə
-                RefreshUserSessionsTtl(data.UserId, refreshTokenLifetime);
+                await RefreshUserSessionsTtlAsync(data.UserId, refreshTokenLifetime);
             }
         }
         catch (Exception ex)
@@ -108,16 +108,16 @@ public class RedisSessionStore : ISessionStore
         }
     }
 
-    public void RemoveSession(string sessionId)
+    public async Task RemoveSessionAsync(string sessionId)
     {
         try
         {
-            var data = GetSessionData(sessionId);
+            var data = await GetSessionDataAsync(sessionId);
 
             if (data != null)
             {
-                _cache.Remove(SessionKey(sessionId));
-                RemoveSessionFromUser(data.UserId, sessionId);
+                await _cache.RemoveAsync(SessionKey(sessionId));
+                await RemoveSessionFromUserAsync(data.UserId, sessionId);
             }
         }
         catch (Exception ex)
@@ -126,20 +126,20 @@ public class RedisSessionStore : ISessionStore
         }
     }
 
-    public void RemoveAllUserSessions(Guid userId)
+    public async Task RemoveAllUserSessionsAsync(Guid userId)
     {
         try
         {
-            var sessions = GetUserSessions(userId);
+            var sessions = await GetUserSessionsAsync(userId);
 
             if (sessions != null)
             {
                 foreach (var sid in sessions)
                 {
-                    _cache.Remove(SessionKey(sid));
+                    await _cache.RemoveAsync(SessionKey(sid));
                 }
 
-                _cache.Remove(UserSessionsKey(userId));
+                await _cache.RemoveAsync(UserSessionsKey(userId));
             }
         }
         catch (Exception ex)
@@ -148,11 +148,11 @@ public class RedisSessionStore : ISessionStore
         }
     }
 
-    private SessionData? GetSessionData(string sessionId)
+    private async Task<SessionData?> GetSessionDataAsync(string sessionId)
     {
         try
         {
-            var json = _cache.GetString(SessionKey(sessionId));
+            var json = await _cache.GetStringAsync(SessionKey(sessionId));
 
             if (string.IsNullOrEmpty(json))
                 return null;
@@ -166,11 +166,11 @@ public class RedisSessionStore : ISessionStore
         }
     }
 
-    private HashSet<string>? GetUserSessions(Guid userId)
+    private async Task<HashSet<string>?> GetUserSessionsAsync(Guid userId)
     {
         try
         {
-            var json = _cache.GetString(UserSessionsKey(userId));
+            var json = await _cache.GetStringAsync(UserSessionsKey(userId));
 
             if (string.IsNullOrEmpty(json))
                 return null;
@@ -184,9 +184,9 @@ public class RedisSessionStore : ISessionStore
         }
     }
 
-    private void AddSessionToUser(Guid userId, string sessionId, TimeSpan lifetime)
+    private async Task AddSessionToUserAsync(Guid userId, string sessionId, TimeSpan lifetime)
     {
-        var sessions = GetUserSessions(userId) ?? [];
+        var sessions = await GetUserSessionsAsync(userId) ?? [];
         sessions.Add(sessionId);
 
         var options = new DistributedCacheEntryOptions
@@ -194,25 +194,25 @@ public class RedisSessionStore : ISessionStore
             AbsoluteExpirationRelativeToNow = lifetime
         };
 
-        _cache.SetString(UserSessionsKey(userId), JsonSerializer.Serialize(sessions, _jsonOptions), options);
+        await _cache.SetStringAsync(UserSessionsKey(userId), JsonSerializer.Serialize(sessions, _jsonOptions), options);
     }
 
-    private void RefreshUserSessionsTtl(Guid userId, TimeSpan lifetime)
+    private async Task RefreshUserSessionsTtlAsync(Guid userId, TimeSpan lifetime)
     {
-        var sessions = GetUserSessions(userId);
+        var sessions = await GetUserSessionsAsync(userId);
         if (sessions != null && sessions.Count > 0)
         {
             var options = new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = lifetime
             };
-            _cache.SetString(UserSessionsKey(userId), JsonSerializer.Serialize(sessions, _jsonOptions), options);
+            await _cache.SetStringAsync(UserSessionsKey(userId), JsonSerializer.Serialize(sessions, _jsonOptions), options);
         }
     }
 
-    private void RemoveSessionFromUser(Guid userId, string sessionId)
+    private async Task RemoveSessionFromUserAsync(Guid userId, string sessionId)
     {
-        var sessions = GetUserSessions(userId);
+        var sessions = await GetUserSessionsAsync(userId);
 
         if (sessions != null)
         {
@@ -220,11 +220,11 @@ public class RedisSessionStore : ISessionStore
 
             if (sessions.Count > 0)
             {
-                _cache.SetString(UserSessionsKey(userId), JsonSerializer.Serialize(sessions, _jsonOptions));
+                await _cache.SetStringAsync(UserSessionsKey(userId), JsonSerializer.Serialize(sessions, _jsonOptions));
             }
             else
             {
-                _cache.Remove(UserSessionsKey(userId));
+                await _cache.RemoveAsync(UserSessionsKey(userId));
             }
         }
     }

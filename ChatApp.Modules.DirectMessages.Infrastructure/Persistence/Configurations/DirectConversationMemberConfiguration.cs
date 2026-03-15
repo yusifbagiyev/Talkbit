@@ -60,6 +60,10 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Configuratio
 
             builder.HasIndex(m => new { m.UserId, m.IsActive });
 
+            // Conversation list filter — user_id + is_active + is_hidden ilə sürətli filtr
+            builder.HasIndex(m => new { m.UserId, m.IsActive, m.IsHidden })
+                .HasDatabaseName("ix_dm_members_userId_isActive_isHidden");
+
             // Relationship
             builder.HasOne(m => m.Conversation)
                 .WithMany(c => c.Members)

@@ -75,6 +75,10 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Configurations
             builder.HasIndex(m => m.UserId)
                 .HasDatabaseName("ix_channel_members_user_id");
 
+            // Conversation list filter — user_id + is_hidden ilə sürətli filtr
+            builder.HasIndex(m => new { m.UserId, m.IsHidden })
+                .HasDatabaseName("ix_channel_members_userId_isHidden");
+
         }
     }
 }

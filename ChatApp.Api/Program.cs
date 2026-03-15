@@ -165,7 +165,7 @@ builder.Services.AddAuthentication(options =>
     // Configure JWT to read from session store (BFF pattern) and SignalR
     options.Events = new JwtBearerEvents
     {
-        OnMessageReceived = context =>
+        OnMessageReceived = async context =>
         {
             string? accessToken = null;
 
@@ -174,7 +174,7 @@ builder.Services.AddAuthentication(options =>
             if (!string.IsNullOrEmpty(sessionId))
             {
                 var sessionStore = context.HttpContext.RequestServices.GetRequiredService<ISessionStore>();
-                accessToken = sessionStore.GetAccessToken(sessionId);
+                accessToken = await sessionStore.GetAccessTokenAsync(sessionId);
             }
 
             // Priority 2: For SignalR, read from query string (cookies not available in WebSocket handshake)
@@ -188,7 +188,6 @@ builder.Services.AddAuthentication(options =>
                 context.Token = accessToken;
             }
 
-            return Task.CompletedTask;
         }
     };
 });

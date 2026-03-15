@@ -90,12 +90,14 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                 .FirstOrDefaultAsync(c => c.Name == name, cancellationToken);
         }
 
-        public async Task<List<Channel>> GetUserChannelsAsync(Guid userId, CancellationToken cancellationToken = default)
+        public async Task<List<ChannelDto>> GetUserChannelsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             return await _context.Channels
-                .Include(c => c.Members)
                 .Where(c => c.Members.Any(m => m.UserId == userId))
                 .OrderByDescending(c => c.CreatedAtUtc)
+                .Select(c => new ChannelDto(
+                    c.Id, c.Name, c.Description, c.Type, c.CreatedBy,
+                    c.Members.Count, c.CreatedAtUtc, c.AvatarUrl))
                 .ToListAsync(cancellationToken);
         }
 
@@ -333,12 +335,14 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             return PagedResult<ChannelDto>.Create(items, pageNumber, pageSize, totalCount);
         }
 
-        public async Task<List<Channel>> GetPublicChannelsAsync(CancellationToken cancellationToken = default)
+        public async Task<List<ChannelDto>> GetPublicChannelsAsync(CancellationToken cancellationToken = default)
         {
             return await _context.Channels
-                .Include(c => c.Members)
                 .Where(c => c.Type == ChannelType.Public)
                 .OrderByDescending(c => c.CreatedAtUtc)
+                .Select(c => new ChannelDto(
+                    c.Id, c.Name, c.Description, c.Type, c.CreatedBy,
+                    c.Members.Count, c.CreatedAtUtc, c.AvatarUrl))
                 .ToListAsync(cancellationToken);
         }
 

@@ -99,6 +99,16 @@ namespace ChatApp.Modules.Notifications.Infrastructure.Persistence.Configuration
 
             builder.HasIndex(n => new { n.Channel, n.Status })
                 .HasDatabaseName("ix_notifications_channel_status");
+
+            // Unread notifications by user — filtered index (yalnız oxunmamış)
+            builder.HasIndex(n => new { n.UserId, n.CreatedAtUtc })
+                .HasFilter("status != 4") // 4 = Read
+                .IsDescending(false, true)
+                .HasDatabaseName("ix_notifications_userId_createdAt_unread");
+
+            // Cleanup job üçün — köhnə oxunmuş/göndərilmiş bildirişləri tapmaq
+            builder.HasIndex(n => new { n.CreatedAtUtc, n.Status })
+                .HasDatabaseName("ix_notifications_created_status");
         }
     }
 }

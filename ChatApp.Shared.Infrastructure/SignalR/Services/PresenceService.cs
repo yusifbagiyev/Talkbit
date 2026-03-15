@@ -33,11 +33,11 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
 
         public async Task<Dictionary<Guid, bool>> GetUsersOnlineStatusAsync(List<Guid> userIds)
         {
-            var result=new Dictionary<Guid, bool>();
-            foreach(var userId in userIds)
+            var connections = await _connectionManager.GetUsersConnectionsAsync(userIds);
+            var result = new Dictionary<Guid, bool>(userIds.Count);
+            foreach (var userId in userIds)
             {
-                var isOnline = await _connectionManager.IsUserOnlineAsync(userId);
-                result[userId]=isOnline;
+                result[userId] = connections.ContainsKey(userId);
             }
             return result;
         }

@@ -11,9 +11,9 @@ namespace ChatApp.Modules.Channels.Application.Interfaces
         Task<Channel?> GetByIdWithMembersAsync(Guid id, CancellationToken cancellationToken = default);
         Task<ChannelDetailsDto?> GetChannelDetailsByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task<Channel?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
-        Task<List<Channel>> GetUserChannelsAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<List<ChannelDto>> GetUserChannelsAsync(Guid userId, CancellationToken cancellationToken = default);
         Task<PagedResult<ChannelDto>> GetUserChannelDtosPagedAsync(Guid userId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
-        Task<List<Channel>> GetPublicChannelsAsync(CancellationToken cancellationToken = default);
+        Task<List<ChannelDto>> GetPublicChannelsAsync(CancellationToken cancellationToken = default);
         Task<bool> IsUserMemberAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default);
         Task<List<Guid>> GetMemberUserIdsAsync(Guid channelId, CancellationToken cancellationToken = default);
         Task<List<SharedChannelDto>> GetSharedChannelsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken = default);

@@ -9,30 +9,30 @@ public interface ISessionStore
     /// <summary>
     /// Creates a new session with opaque ID mapped to access + refresh tokens
     /// </summary>
-    string CreateSession(Guid userId, string accessToken, string refreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime);
+    Task<string> CreateSessionAsync(Guid userId, string accessToken, string refreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime);
 
     /// <summary>
     /// Gets the access token by opaque session ID
     /// </summary>
-    string? GetAccessToken(string sessionId);
+    Task<string?> GetAccessTokenAsync(string sessionId);
 
     /// <summary>
     /// Gets the refresh token by opaque session ID
     /// </summary>
-    string? GetRefreshToken(string sessionId);
+    Task<string?> GetRefreshTokenAsync(string sessionId);
 
     /// <summary>
     /// Updates tokens for an existing session (used during token rotation)
     /// </summary>
-    void UpdateTokens(string sessionId, string newAccessToken, string newRefreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime);
+    Task UpdateTokensAsync(string sessionId, string newAccessToken, string newRefreshToken, TimeSpan accessTokenLifetime, TimeSpan refreshTokenLifetime);
 
     /// <summary>
     /// Removes a session (used during logout)
     /// </summary>
-    void RemoveSession(string sessionId);
+    Task RemoveSessionAsync(string sessionId);
 
     /// <summary>
     /// Removes all sessions for a user (used during login to invalidate old sessions)
     /// </summary>
-    void RemoveAllUserSessions(Guid userId);
+    Task RemoveAllUserSessionsAsync(Guid userId);
 }

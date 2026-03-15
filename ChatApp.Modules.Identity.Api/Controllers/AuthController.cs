@@ -69,7 +69,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             var refreshTokenDays = _configuration.GetValue("JwtSettings:RefreshTokenExpirationDays", 30);
             var refreshTokenLifetime = TimeSpan.FromDays(refreshTokenDays);
 
-            var sessionId = _sessionStore.CreateSession(
+            var sessionId = await _sessionStore.CreateSessionAsync(
                 userId,
                 loginResponse.AccessToken,
                 loginResponse.RefreshToken,
@@ -96,7 +96,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
                 return BadRequest(new { error = "No session found" });
 
             // Get refresh token from server-side session store
-            var refreshToken = _sessionStore.GetRefreshToken(sessionId);
+            var refreshToken = await _sessionStore.GetRefreshTokenAsync(sessionId);
 
             if (string.IsNullOrEmpty(refreshToken))
                 return BadRequest(new { error = "Session expired" });
@@ -106,7 +106,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (result.IsFailure)
             {
                 // Session is invalid — clear it
-                _sessionStore.RemoveSession(sessionId);
+                await _sessionStore.RemoveSessionAsync(sessionId);
                 ClearSessionCookie();
                 return BadRequest(new { error = result.Error });
             }
@@ -118,7 +118,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             var refreshTokenDays = _configuration.GetValue("JwtSettings:RefreshTokenExpirationDays", 30);
             var refreshTokenLifetime = TimeSpan.FromDays(refreshTokenDays);
 
-            _sessionStore.UpdateTokens(sessionId, refreshResponse.AccessToken, refreshResponse.RefreshToken, accessTokenLifetime, refreshTokenLifetime);
+            await _sessionStore.UpdateTokensAsync(sessionId, refreshResponse.AccessToken, refreshResponse.RefreshToken, accessTokenLifetime, refreshTokenLifetime);
 
             // Sliding cookie expiration — refresh zamanı cookie müddəti yenilənir
             SetSessionCookie(sessionId, true, refreshTokenLifetime);
@@ -136,14 +136,14 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         [Authorize]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public IActionResult GetSignalRToken()
+        public async Task<IActionResult> GetSignalRToken()
         {
             var sessionId = Request.Cookies[SessionCookieName];
 
             if (string.IsNullOrEmpty(sessionId))
                 return Unauthorized(new { error = "No session found" });
 
-            var accessToken = _sessionStore.GetAccessToken(sessionId);
+            var accessToken = await _sessionStore.GetAccessTokenAsync(sessionId);
 
             if (string.IsNullOrEmpty(accessToken))
                 return Unauthorized(new { error = "Session expired" });
@@ -171,7 +171,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             var sessionId = Request.Cookies[SessionCookieName];
             if (!string.IsNullOrEmpty(sessionId))
             {
-                _sessionStore.RemoveSession(sessionId);
+                await _sessionStore.RemoveSessionAsync(sessionId);
             }
 
             // Clear session cookie

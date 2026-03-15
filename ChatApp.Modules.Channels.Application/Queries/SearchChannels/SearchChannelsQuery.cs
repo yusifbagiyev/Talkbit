@@ -36,7 +36,7 @@ namespace ChatApp.Modules.Channels.Application.Queries.SearchChannels
                     return Result.Success(new List<ChannelDto>());
                 }
 
-                // Get all public channels
+                // Get all public channels (DTO projection — Members yüklənmir)
                 var publicChannels = await _unitOfWork.Channels.GetPublicChannelsAsync(cancellationToken);
 
                 // Get user's channels (includes private ones they're member of)
@@ -44,21 +44,10 @@ namespace ChatApp.Modules.Channels.Application.Queries.SearchChannels
                     request.RequestedBy,
                     cancellationToken);
 
-                // Combine and filter by search term
+                // Combine and filter by search term — artıq DTO-dur, birbaşa filter et
                 var allAccessibleChannels = publicChannels
-                    .Union(userChannels)
+                    .UnionBy(userChannels, c => c.Id)
                     .Where(c => c.Name.Contains(request.SearchTerm, StringComparison.OrdinalIgnoreCase))
-                    .Distinct()
-                    .Select(c => new ChannelDto(
-                        c.Id,
-                        c.Name,
-                        c.Description,
-                        c.Type,
-                        c.CreatedBy,
-                        c.Members.Count,
-                        c.CreatedAtUtc,
-                        c.AvatarUrl
-                    ))
                     .OrderByDescending(c => c.CreatedAtUtc)
                     .ToList();
 
