@@ -1,10 +1,10 @@
-﻿using ChatApp.Shared.Infrastructure.SignalR.Hubs;
+using ChatApp.Shared.Infrastructure.SignalR.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Shared.Infrastructure.SignalR.Services
 {
-    public class SignalRNotificationService:ISignalRNotificationService
+    public class SignalRNotificationService : ISignalRNotificationService
     {
         private readonly IHubContext<ChatHub> _hubContext;
         private readonly IConnectionManager _connectionManager;
@@ -15,10 +15,12 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             IConnectionManager connectionManager,
             ILogger<SignalRNotificationService> logger)
         {
-            _hubContext= hubContext;
-            _connectionManager= connectionManager;
-            _logger= logger;
+            _hubContext = hubContext;
+            _connectionManager = connectionManager;
+            _logger = logger;
         }
+
+        // ─── Channel Messages ─────────────────────────────────────────────────────
 
         public async Task NotifyChannelMessageAsync(Guid channelId, object messageDto)
         {
@@ -34,10 +36,7 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             _logger?.LogDebug("Broadcasting new message to channel {ChannelId} to {MemberCount} members",
                 channelId, memberUserIds.Count);
 
-            // Direct connections only — group broadcast silindi (dublikat yaradırdı)
-            // Bütün üzv connection-larını toplayıb bir dəfə göndəririk
             var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
             if (allConnections.Count > 0)
             {
                 await _hubContext.Clients
@@ -46,13 +45,97 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
+        public async Task NotifyChannelMessageEditedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
+        {
+            _logger?.LogDebug("Broadcasting edited message to channel {ChannelId} to {MemberCount} members",
+                channelId, memberUserIds.Count);
+
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelMessageEdited", messageDto);
+            }
+        }
+
+        public async Task NotifyChannelMessageDeletedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
+        {
+            _logger?.LogDebug("Broadcasting deleted message to channel {ChannelId} to {MemberCount} members",
+                channelId, memberUserIds.Count);
+
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelMessageDeleted", messageDto);
+            }
+        }
+
+        public async Task NotifyChannelMessageReactionsUpdatedToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid messageId, object reactions)
+        {
+            _logger?.LogDebug("Broadcasting reactions updated for message {MessageId} to channel {ChannelId} to {MemberCount} members",
+                messageId, channelId, memberUserIds.Count);
+
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelMessageReactionsUpdated", new { messageId, reactions });
+            }
+        }
+
+        public async Task NotifyChannelMessagesReadToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid userId, Dictionary<Guid, int> messageReadCounts)
+        {
+            _logger?.LogDebug("Broadcasting {Count} messages read for user {UserId} to channel {ChannelId} to {MemberCount} members",
+                messageReadCounts.Count, userId, channelId, memberUserIds.Count);
+
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelMessagesRead", channelId, userId, messageReadCounts);
+            }
+        }
+
+        public async Task NotifyChannelMessagePinnedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
+        {
+            _logger?.LogDebug("Broadcasting pinned message to channel {ChannelId} to {MemberCount} members",
+                channelId, memberUserIds.Count);
+
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelMessagePinned", messageDto);
+            }
+        }
+
+        public async Task NotifyChannelMessageUnpinnedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
+        {
+            _logger?.LogDebug("Broadcasting unpinned message to channel {ChannelId} to {MemberCount} members",
+                channelId, memberUserIds.Count);
+
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelMessageUnpinned", messageDto);
+            }
+        }
+
+        // ─── Direct Messages ──────────────────────────────────────────────────────
 
         public async Task NotifyDirectMessageAsync(Guid conversationId, Guid receiverId, object messageDto)
         {
             _logger?.LogDebug(
                 "Sending direct message notification to user {ReceiverId} in conversation {ConversationId}",
-                receiverId,
-                conversationId);
+                receiverId, conversationId);
 
             // Send to conversation group
             await _hubContext.Clients
@@ -69,41 +152,16 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
-
-        public async Task NotifyMessageDeletedAsync(Guid channelId, Guid messageId)
-        {
-            _logger?.LogDebug("Broadcasting message deletion for message {MessageId} in channel {ChannelId}",
-                messageId, channelId);
-
-            await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("MessageDeleted", new { channelId, messageId });
-        }
-
-
-        public async Task NotifyMessageEditedAsync(Guid channelId, Guid messageId)
-        {
-            _logger?.LogDebug("Broadcasting message edit for message {MessageId} in channel {ChannelId}",
-                messageId, channelId);
-
-            await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("MessageEdited", new { channelId, messageId });
-        }
-
         public async Task NotifyDirectMessageEditedAsync(Guid conversationId, Guid receiverId, object messageDto)
         {
             _logger?.LogDebug(
                 "Sending edited direct message notification to user {ReceiverId} in conversation {ConversationId}",
-                receiverId,
-                conversationId);
+                receiverId, conversationId);
 
-            // Send to conversation group
             await _hubContext.Clients
                 .Group($"conversation_{conversationId}")
                 .SendAsync("DirectMessageEdited", messageDto);
 
-            // Also send directly to receiver's connections
             var receiverConnections = await _connectionManager.GetUserConnectionsAsync(receiverId);
             if (receiverConnections.Count != 0)
             {
@@ -113,73 +171,22 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
-        public async Task NotifyChannelMessageEditedAsync(Guid channelId, object messageDto)
-        {
-            _logger?.LogDebug("Broadcasting edited channel message to channel {ChannelId}", channelId);
-
-            await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("ChannelMessageEdited", messageDto);
-        }
-
-        public async Task NotifyChannelMessageEditedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
-        {
-            _logger?.LogDebug("Broadcasting edited message to channel {ChannelId} to {MemberCount} members",
-                channelId, memberUserIds.Count);
-
-            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
-            if (allConnections.Count > 0)
-            {
-                await _hubContext.Clients
-                    .Clients(allConnections)
-                    .SendAsync("ChannelMessageEdited", messageDto);
-            }
-        }
-
         public async Task NotifyDirectMessageDeletedAsync(Guid conversationId, Guid receiverId, object messageDto)
         {
             _logger?.LogDebug(
                 "Sending deleted direct message notification to user {ReceiverId} in conversation {ConversationId}",
-                receiverId,
-                conversationId);
+                receiverId, conversationId);
 
-            // Send to conversation group
             await _hubContext.Clients
                 .Group($"conversation_{conversationId}")
                 .SendAsync("DirectMessageDeleted", messageDto);
 
-            // Also send directly to receiver's connections
             var receiverConnections = await _connectionManager.GetUserConnectionsAsync(receiverId);
             if (receiverConnections.Count != 0)
             {
                 await _hubContext.Clients
                     .Clients(receiverConnections)
                     .SendAsync("DirectMessageDeleted", messageDto);
-            }
-        }
-
-        public async Task NotifyChannelMessageDeletedAsync(Guid channelId, object messageDto)
-        {
-            _logger?.LogDebug("Broadcasting deleted channel message to channel {ChannelId}", channelId);
-
-            await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("ChannelMessageDeleted", messageDto);
-        }
-
-        public async Task NotifyChannelMessageDeletedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
-        {
-            _logger?.LogDebug("Broadcasting deleted message to channel {ChannelId} to {MemberCount} members",
-                channelId, memberUserIds.Count);
-
-            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
-            if (allConnections.Count > 0)
-            {
-                await _hubContext.Clients
-                    .Clients(allConnections)
-                    .SendAsync("ChannelMessageDeleted", messageDto);
             }
         }
 
@@ -195,7 +202,6 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
                 .SendAsync("MessageRead", notification);
 
             // ALSO send directly to sender specifically
-            // This ensures sender gets notification even if they're not actively in the conversation group
             var senderConnections = await _connectionManager.GetUserConnectionsAsync(senderId);
             if (senderConnections.Count != 0)
             {
@@ -205,85 +211,51 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
-        public async Task NotifyChannelMessagesReadAsync(Guid channelId, Guid userId, Dictionary<Guid, int> messageReadCounts)
+        public async Task NotifyDirectMessagePinnedAsync(Guid conversationId, Guid receiverId, object messageDto)
         {
-            _logger?.LogDebug("Broadcasting {Count} messages read for user {UserId} in channel {ChannelId}",
-                messageReadCounts.Count, userId, channelId);
+            _logger?.LogDebug(
+                "Sending pinned direct message notification to user {ReceiverId} in conversation {ConversationId}",
+                receiverId, conversationId);
 
-            // Broadcast to all members in the channel group
-            // Send messageId -> readByCount pairs so conversation list can update status correctly
             await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("ChannelMessagesRead", channelId, userId, messageReadCounts);
-        }
+                .Group($"conversation_{conversationId}")
+                .SendAsync("DirectMessagePinned", messageDto);
 
-        public async Task NotifyChannelMessagesReadToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid userId, Dictionary<Guid, int> messageReadCounts)
-        {
-            _logger?.LogDebug("Broadcasting {Count} messages read for user {UserId} to channel {ChannelId} to {MemberCount} members",
-                messageReadCounts.Count, userId, channelId, memberUserIds.Count);
-
-            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
-            if (allConnections.Count > 0)
+            var receiverConnections = await _connectionManager.GetUserConnectionsAsync(receiverId);
+            if (receiverConnections.Count != 0)
             {
                 await _hubContext.Clients
-                    .Clients(allConnections)
-                    .SendAsync("ChannelMessagesRead", channelId, userId, messageReadCounts);
+                    .Clients(receiverConnections)
+                    .SendAsync("DirectMessagePinned", messageDto);
             }
         }
 
-
-        public async Task NotifyReactionAddedAsync(Guid channelId, Guid messageId, Guid userId, string reaction)
+        public async Task NotifyDirectMessageUnpinnedAsync(Guid conversationId, Guid receiverId, object messageDto)
         {
-            _logger?.LogDebug("Broadcasting reaction added to message {MessageId}", messageId);
+            _logger?.LogDebug(
+                "Sending unpinned direct message notification to user {ReceiverId} in conversation {ConversationId}",
+                receiverId, conversationId);
 
             await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("ReactionAdded", channelId, messageId, userId, reaction);
-        }
+                .Group($"conversation_{conversationId}")
+                .SendAsync("DirectMessageUnpinned", messageDto);
 
-
-        public async Task NotifyReactionRemovedAsync(Guid channelId, Guid messageId, Guid userId, string reaction)
-        {
-            _logger?.LogDebug("Broadcasting reaction removed from message {MessageId}", messageId);
-
-            await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("ReactionRemoved", channelId, messageId, userId, reaction);
-        }
-
-        public async Task NotifyChannelMessageReactionsUpdatedAsync(Guid channelId, Guid messageId, object reactions)
-        {
-            _logger?.LogDebug("Broadcasting reactions updated for message {MessageId} in channel {ChannelId}",
-                messageId, channelId);
-
-            await _hubContext.Clients
-                .Group($"channel_{channelId}")
-                .SendAsync("ChannelMessageReactionsUpdated", new { messageId, reactions });
-        }
-
-        public async Task NotifyChannelMessageReactionsUpdatedToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid messageId, object reactions)
-        {
-            _logger?.LogDebug("Broadcasting reactions updated for message {MessageId} to channel {ChannelId} to {MemberCount} members",
-                messageId, channelId, memberUserIds.Count);
-
-            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
-            if (allConnections.Count > 0)
+            var receiverConnections = await _connectionManager.GetUserConnectionsAsync(receiverId);
+            if (receiverConnections.Count != 0)
             {
                 await _hubContext.Clients
-                    .Clients(allConnections)
-                    .SendAsync("ChannelMessageReactionsUpdated", new { messageId, reactions });
+                    .Clients(receiverConnections)
+                    .SendAsync("DirectMessageUnpinned", messageDto);
             }
         }
 
+        // ─── User / Channel Membership ────────────────────────────────────────────
 
         public async Task NotifyUserAsync(Guid userId, string eventName, object data)
         {
             _logger?.LogDebug("Sending event {EventName} to user {UserId}", eventName, userId);
 
             var userConnections = await _connectionManager.GetUserConnectionsAsync(userId);
-
             if (userConnections.Count != 0)
             {
                 await _hubContext.Clients
@@ -292,13 +264,11 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
-
         public async Task NotifyMemberAddedToChannelAsync(Guid userId, object channelDto)
         {
             _logger?.LogDebug("Notifying user {UserId} about being added to channel", userId);
 
             var userConnections = await _connectionManager.GetUserConnectionsAsync(userId);
-
             if (userConnections.Count != 0)
             {
                 await _hubContext.Clients
@@ -312,29 +282,19 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             _logger?.LogDebug("Broadcasting member left to channel {ChannelId} group. Left user: {LeftUserId}",
                 channelId, leftUserId);
 
-            var notification = new
-            {
-                channelId,
-                leftUserId,
-                leftUserFullName
-            };
-
-            // Send only to channel group (no hybrid pattern needed)
-            // Members who left the group won't need this notification
             await _hubContext.Clients
                 .Group($"channel_{channelId}")
-                .SendAsync("MemberLeftChannel", notification);
+                .SendAsync("MemberLeftChannel", new { channelId, leftUserId, leftUserFullName });
         }
 
+        // ─── Typing Indicators ────────────────────────────────────────────────────
 
         public async Task NotifyUserTypingInChannelToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid typingUserId, string fullName, bool isTyping)
         {
             _logger?.LogDebug("Broadcasting typing indicator to channel {ChannelId} to {MemberCount} members",
                 channelId, memberUserIds.Count);
 
-            // memberUserIds artıq sender-siz gəlir (ChatHub-da exclude olunub)
             var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
             if (allConnections.Count > 0)
             {
                 await _hubContext.Clients
@@ -343,15 +303,12 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
-
         public async Task NotifyUserTypingInConversationToMembersAsync(Guid conversationId, List<Guid> memberUserIds, Guid typingUserId, bool isTyping)
         {
             _logger?.LogDebug("Broadcasting typing indicator to conversation {ConversationId} to {MemberCount} members",
                 conversationId, memberUserIds.Count);
 
-            // memberUserIds artıq sender-siz gəlir (ChatHub-da exclude olunub)
             var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
             if (allConnections.Count > 0)
             {
                 await _hubContext.Clients
@@ -360,82 +317,8 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
+        // ─── Helper ───────────────────────────────────────────────────────────────
 
-        public async Task NotifyDirectMessagePinnedAsync(Guid conversationId, Guid receiverId, object messageDto)
-        {
-            _logger?.LogInformation(
-                "Sending pinned direct message notification to user {ReceiverId} in conversation {ConversationId}",
-                receiverId,
-                conversationId);
-
-            // Send to conversation group
-            await _hubContext.Clients
-                .Group($"conversation_{conversationId}")
-                .SendAsync("DirectMessagePinned", messageDto);
-
-            // Also send directly to receiver's connections
-            var receiverConnections = await _connectionManager.GetUserConnectionsAsync(receiverId);
-            if (receiverConnections.Count != 0)
-            {
-                await _hubContext.Clients
-                    .Clients(receiverConnections)
-                    .SendAsync("DirectMessagePinned", messageDto);
-            }
-        }
-
-        public async Task NotifyDirectMessageUnpinnedAsync(Guid conversationId, Guid receiverId, object messageDto)
-        {
-            _logger?.LogInformation(
-                "Sending unpinned direct message notification to user {ReceiverId} in conversation {ConversationId}",
-                receiverId,
-                conversationId);
-
-            // Send to conversation group
-            await _hubContext.Clients
-                .Group($"conversation_{conversationId}")
-                .SendAsync("DirectMessageUnpinned", messageDto);
-
-            // Also send directly to receiver's connections
-            var receiverConnections = await _connectionManager.GetUserConnectionsAsync(receiverId);
-            if (receiverConnections.Count != 0)
-            {
-                await _hubContext.Clients
-                    .Clients(receiverConnections)
-                    .SendAsync("DirectMessageUnpinned", messageDto);
-            }
-        }
-
-        public async Task NotifyChannelMessagePinnedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
-        {
-            _logger?.LogInformation("Broadcasting pinned message to channel {ChannelId} to {MemberCount} members",
-                channelId, memberUserIds.Count);
-
-            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
-            if (allConnections.Count > 0)
-            {
-                await _hubContext.Clients
-                    .Clients(allConnections)
-                    .SendAsync("ChannelMessagePinned", messageDto);
-            }
-        }
-
-        public async Task NotifyChannelMessageUnpinnedToMembersAsync(Guid channelId, List<Guid> memberUserIds, object messageDto)
-        {
-            _logger?.LogInformation("Broadcasting unpinned message to channel {ChannelId} to {MemberCount} members",
-                channelId, memberUserIds.Count);
-
-            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
-
-            if (allConnections.Count > 0)
-            {
-                await _hubContext.Clients
-                    .Clients(allConnections)
-                    .SendAsync("ChannelMessageUnpinned", messageDto);
-            }
-        }
-        // ─── Helper: Bütün üzv connection-larını toplayır ────────────────────────
-        // Təkrarlanan foreach loop əvəzinə ortaq metod
         private async Task<List<string>> CollectMemberConnectionsAsync(List<Guid> memberUserIds)
         {
             var allConnections = new List<string>();
