@@ -535,6 +535,8 @@ function Chat() {
           const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
           if (target) {
             if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+            target.classList.remove("highlight-message");
+            void target.offsetWidth;
             target.classList.add("highlight-message");
             highlightTimerRef.current = setTimeout(() => {
               target.classList.remove("highlight-message");
@@ -2225,6 +2227,10 @@ function Chat() {
           const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
           if (target) {
             if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+            // Eyni mesaja təkrar klik — class artıq varsa animasiya yenidən başlamır.
+            // Əvvəl sil, reflow məcbur et, sonra əlavə et → animasiya hər dəfə restart olur.
+            target.classList.remove("highlight-message");
+            void target.offsetWidth;
             target.classList.add("highlight-message");
             highlightTimerRef.current = setTimeout(() => {
               target.classList.remove("highlight-message");
