@@ -1273,8 +1273,7 @@
   flex-shrink: 0;
   pointer-events: none;
   opacity: 0;
-  transform: scaleX(0.3);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.3s ease;
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -1286,13 +1285,12 @@
   background-size: 200% 100%;
   animation: loadingGlow 1.2s ease-in-out infinite;
   box-shadow:
-    0 1px 6px rgba(0, 172, 227, 0.4),
-    0 0 12px rgba(0, 172, 227, 0.15);
+    0 1px 6px rgba(0, 172, 227, 0.5),
+    0 0 12px rgba(0, 172, 227, 0.25);
 }
 
 .loading-older.active {
   opacity: 1;
-  transform: scaleX(1);
 }
 
 @keyframes loadingGlow {
