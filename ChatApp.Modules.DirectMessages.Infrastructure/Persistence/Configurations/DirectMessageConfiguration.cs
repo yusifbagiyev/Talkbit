@@ -78,13 +78,11 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Configuratio
 
             builder.Property(m => m.IsForwarded)
                 .HasColumnName("is_forwarded")
-                .IsRequired()
-                .HasDefaultValue(false);
+                .IsRequired();
 
             builder.Property(m => m.IsPinned)
                 .HasColumnName("is_pinned")
-                .IsRequired()
-                .HasDefaultValue(false);
+                .IsRequired();
 
             builder.Property(m => m.PinnedAtUtc)
                 .HasColumnName("pinned_at_utc")

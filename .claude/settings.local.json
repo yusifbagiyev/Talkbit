@@ -92,7 +92,8 @@
       "Bash(do echo:*)",
       "Bash(cut -d'{' -f1)",
       "Bash(npx eslint:*)",
-      "Bash(xargs -I {} basename {})"
+      "Bash(xargs -I {} basename {})",
+      "Bash(xargs -0 grep -l \"[əüöğışç]\")"
     ],
     "deny": [],
     "ask": []

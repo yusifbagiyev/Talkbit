@@ -238,9 +238,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Migrations
                         .HasColumnName("is_edited");
 
                     b.Property<bool>("IsForwarded")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(false)
                         .HasColumnName("is_forwarded");
 
                     b.Property<bool>("IsPinned")

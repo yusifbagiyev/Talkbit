@@ -77,8 +77,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Configurations
 
             builder.Property(m => m.IsForwarded)
                 .HasColumnName("is_forwarded")
-                .IsRequired()
-                .HasDefaultValue(false);
+                .IsRequired();
 
             // Indexes for performance
             builder.HasIndex(m => m.ChannelId)

@@ -290,15 +290,11 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Migrations
                         .HasColumnName("is_edited");
 
                     b.Property<bool>("IsForwarded")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(false)
                         .HasColumnName("is_forwarded");
 
                     b.Property<bool>("IsPinned")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(false)
                         .HasColumnName("is_pinned");
 
                     b.Property<bool>("IsRead")
