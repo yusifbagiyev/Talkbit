@@ -93,7 +93,10 @@
       "Bash(cut -d'{' -f1)",
       "Bash(npx eslint:*)",
       "Bash(xargs -I {} basename {})",
-      "Bash(xargs -0 grep -l \"[əüöğışç]\")"
+      "Bash(xargs -0 grep -l \"[əüöğışç]\")",
+      "WebFetch(domain:virtuoso.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx vite:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,32 +1,21 @@
-// ─── useChatScroll.js — Custom Hook: Infinite Scroll for Chat ────────────────
-// Bu hook chat mesajları üçün "infinite scroll" (sonsuz scroll) məntiğini idarə edir.
+// ─── useChatScroll.js — Custom Hook: Infinite Scroll for Chat (Virtuoso) ─────
+// Bu hook chat mesajları üçün "infinite scroll" pagination məntiğini idarə edir.
+// Scroll listener (Chat.jsx) bu hook-un funksiyalarını çağırır.
 //
 // Problem: Chat-ı açanda yalnız son 30 mesaj yüklənir.
-//   - Yuxarı scroll etdikdə → köhnə mesajlar yüklənir (load older)
-//   - "Around" mesaja scroll etdikdə aşağı scroll edəndə → yeni mesajlar yüklənir (load newer)
-//
-// Mühüm anlayışlar:
-//   - useRef vs useState fərqi: useRef render etmədən dərhal dəyişir (sinxron flag üçün ideal)
-//   - requestAnimationFrame (RAF): scroll event-i çox sürətli işləyir, RAF ilə throttle edirik
-//   - scrollRestoreRef: köhnə mesajlar yüklənəndə scroll pozisiyası qaçmasın
+//   - Yuxarı scroll etdikdə → köhnə mesajlar yüklənir (handleStartReached)
+//   - "Around" mesaja scroll etdikdə aşağı scroll edəndə → yeni mesajlar yüklənir (handleEndReached)
 
 import { useState, useRef } from "react";
 import { apiGet } from "../services/api";
 import { getChatEndpoint, MESSAGE_PAGE_SIZE } from "../utils/chatUtils";
 
 // ─── useChatScroll ────────────────────────────────────────────────────────────
-// messagesAreaRef: scroll olan div-in DOM referansı
 // messages: hal-hazırdakı mesajlar array-ı (ən yeni index 0-da, ən köhnə sonda)
 // selectedChat: hansı chat açıqdır
 // setMessages: messages state-ini yeniləmək üçün
 // allReadPatchRef: unreadCount===0 ilə girdikdə true — scroll ilə yüklənən mesajları isRead:true patch et
-// setShowScrollDown: scroll-to-bottom butonunun görünürlüyünü idarə et (Chat.jsx-dəki ayrı effect buraya birləşdirilib)
-export default function useChatScroll(messagesAreaRef, messages, selectedChat, setMessages, allReadPatchRef, floatingDateRef, setShowScrollDown) {
-
-  // ─── useRef-lər ─────────────────────────────────────────────────────────────
-  // useRef nədir? DOM referansı ya da "mutable container" üçün.
-  // useState-dən fərqi: dəyişdikdə component re-render ETMEZ.
-  // Bu flag-lar üçün idealdır — "yükləmə gedir/getmir?" yoxlamaq lazımdır.
+export default function useChatScroll(messages, selectedChat, setMessages, allReadPatchRef) {
 
   // loadingMoreRef: hal-hazırda köhnə/yeni mesajlar yüklənirmi? (race condition önləmək üçün)
   const loadingMoreRef = useRef(false);
@@ -37,132 +26,84 @@ export default function useChatScroll(messagesAreaRef, messages, selectedChat, s
   // hasMoreDownRef: aşağıda daha yeni mesaj varmı? (around scroll zamanı)
   const hasMoreDownRef = useRef(false);
 
-  // scrollRestoreRef: köhnə mesajlar yüklənəndə scroll pozisiyasını saxla
-  // useLayoutEffect-də restore edilir — "sıçrama" olmasın
-  const scrollRestoreRef = useRef(null);
+  // loadOlderTriggeredRef: köhnə mesaj yükləndi → Chat.jsx firstItemIndex-i azaltmalıdır
+  // Həmçinin scroll listener guard kimi istifadə olunur — Virtuoso firstItemIndex-i
+  // tətbiq edənə qədər yeni handleStartReached çağırılmasını bloklayır
+  const loadOlderTriggeredRef = useRef(false);
 
-  // scrollRafRef: requestAnimationFrame ID-si — throttling üçün
-  const scrollRafRef = useRef(null);
-
-  // scrollbarTimerRef: scrollbar gizlənmə timer-i (800ms inactivity sonra)
-  const scrollbarTimerRef = useRef(null);
-
-  // loadingOlder: "köhnə mesajlar yüklənir" spinner-i göstərmək üçün (UI state)
-  // Bu useState-dir — UI-ya təsir edir
+  // loadingOlder: "köhnə mesajlar yüklənir" loading bar göstərmək üçün (UI state)
   const [loadingOlder, setLoadingOlder] = useState(false);
 
-  // ─── handleScrollUp ──────────────────────────────────────────────────────────
-  // İstifadəçi yuxarı scroll edəndə → köhnə mesajları yüklə
-  // "Cursor-based pagination" — ən köhnə mesajın tarixi "before" cursor kimi istifadə olunur
-  async function handleScrollUp() {
-    const area = messagesAreaRef.current; // DOM elementini al
-    if (!area) return;                    // DOM hələ mount olmayıbsa → çıx
+  // ─── handleStartReached ──────────────────────────────────────────────────────
+  // Scroll listener trigger — istifadəçi yuxarıya yaxın olduqda çağırılır
+  // Köhnə mesajları yükləyir (cursor-based pagination)
+  async function handleStartReached() {
+    if (loadingMoreRef.current) return;
+    if (!hasMoreRef.current) return;
+    if (!selectedChat) return;
 
-    // Guard clause-lar: şərtlər ödənmədikdə dərhal çıx
-    if (loadingMoreRef.current) return;   // Artıq yükləmə gedir → bir daha yükləmə
-    if (!hasMoreRef.current) return;      // Daha köhnə mesaj yoxdur → yükləmə
-    if (!selectedChat) return;            // Chat seçilməyib → yükləmə
-
-    // Threshold: scroll-un yuxarıdan yarım viewport-dan az olması lazımdır
-    // clientHeight = görünən hissənin hündürlüyü (məsələn 600px)
-    // scrollTop = yuxarıdan nə qədər aşağı scroll edilib (0 = ən yuxarı)
-    const threshold = area.clientHeight / 2;
-    if (area.scrollTop > threshold) return; // Hələ yuxarıya çatmayıb → yükləmə
-
-    // Ən köhnə mesaj — array-ın sonundakı element (desc order: index 0 = ən yeni)
     const oldestMsg = messages[messages.length - 1];
     if (!oldestMsg) return;
 
-    // Bu mesajın tarixi — cursor kimi istifadə edilir
     const beforeDate = oldestMsg.createdAtUtc || oldestMsg.sentAt;
     if (!beforeDate) return;
 
-    // API endpoint: ?before=2026-02-15T12:00:00Z&pageSize=30
-    // Server bu tarixdən əvvəlki 30 mesajı qaytarır
     const base = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
     if (!base) return;
     const endpoint = `${base}?pageSize=${MESSAGE_PAGE_SIZE}&before=${encodeURIComponent(beforeDate)}`;
 
-    // Yükləmə başlayır
-    loadingMoreRef.current = true;  // Race condition flag (re-render etmez)
-    setLoadingOlder(true);           // Spinner göstər (re-render edir)
+    loadingMoreRef.current = true;
+    setLoadingOlder(true);
 
     try {
       const olderMessages = await apiGet(endpoint);
 
-      // Backend boş array qaytardı → daha köhnə mesaj yoxdur
       if (!olderMessages || olderMessages.length === 0) {
-        hasMoreRef.current = false; // Bir daha yuxarı scroll edəndə sorğu göndərmə
+        hasMoreRef.current = false;
         return;
       }
 
-      // Scroll pozisiyasını yadda saxla (yeni mesajlar render olunmadan əvvəl)
-      // scrollHeight: div-in ümumi hündürlüyü (görünən + gizli)
-      // scrollTop: yuxarıdan nə qədər aşağı scroll edilib
-      scrollRestoreRef.current = {
-        scrollHeight: area.scrollHeight,
-        scrollTop: area.scrollTop,
-      };
-
-      // Köhnə mesajları messages array-ının SONUNA əlavə et
-      // (Yeni mesajlar yuxarıda, köhnə mesajlar aşağıda — desc order)
-      // Deduplication: around mode-da overlap ola bilər, eyni id-li mesajları əlavə etmə
+      // loadOlderTriggeredRef yalnız YENİ mesajlar əlavə olunduqda true olur
+      // Bu, Chat.jsx-in firstItemIndex-i azaltmasını və scroll listener-in
+      // Virtuoso pozisiyanı bərpa edənə qədər yeni fetch başlatmamasını təmin edir
+      let hasNew = false;
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const unique = olderMessages.filter((m) => !existingIds.has(m.id));
-        if (unique.length === 0) {
-          // hasMoreRef = false ETMƏ! Stale closure ilə eyni data gələ bilər.
-          // Scroll yalnız API boş cavab qaytaranda dayanır (length === 0 check).
-          return prev;
-        }
-        // allReadPatchRef true → bütün mesajlar artıq oxunub, isRead:true patch et
-        // Backend channel mesajları üçün oxunmuş olsa belə isRead:false qaytarır
+        if (unique.length === 0) return prev;
+        hasNew = true;
         const final = allReadPatchRef?.current
           ? unique.map((m) => m.isRead ? m : { ...m, isRead: true })
           : unique;
         return [...prev, ...final];
       });
 
-      // useLayoutEffect (Chat.jsx-də) bu dəyişikliyi görüb scroll-u restore edəcək
+      if (hasNew) loadOlderTriggeredRef.current = true;
     } catch (err) {
       console.error("Failed to load older messages:", err);
-      // "Session expired" → session bitib, daha API call etmə
-      // Bu, 401 infinite retry loop-un qarşısını alır:
-      //   scroll → 401 → refresh fail → throw → catch buraya düşür → hasMore=false → loop bitdi
       if (err.message === "Session expired") {
         hasMoreRef.current = false;
       }
     } finally {
-      // Hər halda — yükləmə bitdi
       loadingMoreRef.current = false;
-      setLoadingOlder(false); // Spinner gizlə
+      setLoadingOlder(false);
     }
   }
 
-  // ─── handleScrollDown ────────────────────────────────────────────────────────
-  // İstifadəçi aşağı scroll edəndə → daha yeni mesajları yüklə
-  // Bu yalnız "around" scroll zamanı lazımdır (köhnə mesaja jump etdikdə)
-  async function handleScrollDown() {
-    const area = messagesAreaRef.current;
-    if (!area) return;
+  // ─── handleEndReached ──────────────────────────────────────────────────────────
+  // Scroll listener trigger — istifadəçi aşağıya yaxın olduqda çağırılır
+  // Yalnız around mode-da aktiv (hasMoreDownRef === true)
+  async function handleEndReached() {
     if (loadingMoreRef.current) return;
-    if (!hasMoreDownRef.current) return; // Normal chat-da false — yalnız around modunda true
+    if (!hasMoreDownRef.current) return;
     if (!selectedChat) return;
 
-    // Aşağıya 1 viewport məsafəyə yaxınlaşdıqda yüklə
-    const threshold = area.clientHeight;
-    // scrollHeight - scrollTop - clientHeight = dibin qalanmış məsafəsi
-    const distanceFromBottom = area.scrollHeight - area.scrollTop - area.clientHeight;
-    if (distanceFromBottom > threshold) return; // Hələ kifayət qədər aşağı deyil
-
-    // messages array-ın index 0-dakı element — ən yeni mesaj
     const newestMsg = messages[0];
     if (!newestMsg) return;
 
     const afterDate = newestMsg.createdAtUtc || newestMsg.sentAt;
     if (!afterDate) return;
 
-    // API endpoint: /messages/after?date=...&limit=30
     const base = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages/after");
     if (!base) return;
     const endpoint = `${base}?date=${encodeURIComponent(afterDate)}&limit=${MESSAGE_PAGE_SIZE}`;
@@ -173,22 +114,14 @@ export default function useChatScroll(messagesAreaRef, messages, selectedChat, s
       const newerMessages = await apiGet(endpoint);
 
       if (!newerMessages || newerMessages.length === 0) {
-        hasMoreDownRef.current = false; // Daha yeni mesaj yoxdur
+        hasMoreDownRef.current = false;
         return;
       }
 
-      // .reverse() — server ən köhnəni birinci qaytarır, biz ən yenini birinci istəyirik
-      // Deduplication: around mode-da overlap ola bilər, eyni id-li mesajları əlavə etmə
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const unique = newerMessages.filter((m) => !existingIds.has(m.id));
-        if (unique.length === 0) {
-          // hasMoreDownRef = false ETMƏ! Stale closure səbəbindən eyni data gələ bilər.
-          // React re-render sonrası yenidən düzgün cursor ilə yüklənəcək.
-          // Scroll yalnız API boş cavab qaytaranda dayanır (yuxarıdakı length === 0 check).
-          return prev;
-        }
-        // allReadPatchRef true → bütün mesajlar artıq oxunub, isRead:true patch et
+        if (unique.length === 0) return prev;
         const reversed = unique.reverse();
         const final = allReadPatchRef?.current
           ? reversed.map((m) => m.isRead ? m : { ...m, isRead: true })
@@ -197,7 +130,6 @@ export default function useChatScroll(messagesAreaRef, messages, selectedChat, s
       });
     } catch (err) {
       console.error("Failed to load newer messages:", err);
-      // "Session expired" → daha aşağıya yükləmə cəhd etmə
       if (err.message === "Session expired") {
         hasMoreDownRef.current = false;
       }
@@ -206,77 +138,13 @@ export default function useChatScroll(messagesAreaRef, messages, selectedChat, s
     }
   }
 
-  // ─── updateFloatingDate ──────────────────────────────────────────────────────
-  // Scroll zamanı cari bölmənin tarixini floating indicator-da göstər
-  // setState yoxdur — birbaşa DOM manipulation (performans üçün)
-  function updateFloatingDate() {
-    const el = floatingDateRef?.current;
-    if (!el) return;
-    const area = messagesAreaRef.current;
-    if (!area) return;
-
-    const separators = area.querySelectorAll(".date-separator");
-    const areaTop = area.getBoundingClientRect().top;
-    let label = "";
-
-    // Yalnız viewport-dan tam çıxmış separator-un label-ini göstər
-    // bottom <= areaTop → separator (padding daxil) artıq görünmür
-    // Həmçinin: növbəti separator yuxarıya yaxınlaşırsa floating-date-i gizlət (üst-üstə düşməsin)
-    for (const sep of separators) {
-      const rect = sep.getBoundingClientRect();
-      if (rect.bottom <= areaTop) {
-        label = sep.querySelector("span")?.textContent || "";
-      } else {
-        // İlk görünən separator — floating-date ilə üst-üstə düşürsə label-i sıfırla
-        // el.offsetHeight + 24 = floating-date hündürlüyü + top padding + extra margin
-        if (label && rect.top < areaTop + el.offsetHeight + 24) {
-          label = "";
-        }
-        break;
-      }
-    }
-
-    // Birbaşa DOM yenilə — re-render yoxdur
-    if (el.textContent !== label) {
-      el.textContent = label;
-    }
-  }
-
-  // ─── handleScroll ─────────────────────────────────────────────────────────────
-  // Hər scroll event-i üçün çağırılan throttled funksiya.
-  // requestAnimationFrame (RAF): bir frame-dən çox çağırılmaz (~16ms-də bir = 60fps)
-  // Scroll event-i saniyədə 100+ dəfə ata bilər — RAF ilə yalnız 60 dəfəyə endiririk
-  function handleScroll() {
-    // Artıq RAF gözlənilirsə → skip et (throttle effekti)
-    if (scrollRafRef.current) return;
-
-    // requestAnimationFrame: növbəti "çerçivə" (frame) render edilməmişdən əvvəl işlə
-    scrollRafRef.current = requestAnimationFrame(() => {
-      scrollRafRef.current = null; // Sıfırla — növbəti scroll event-i üçün hazır ol
-      handleScrollUp();            // Yuxarı scroll yoxla
-      handleScrollDown();          // Aşağı scroll yoxla
-      updateFloatingDate();        // Cari tarix label-ini yenilə
-
-      // ─── Scroll-to-bottom butonu + scrollbar görünürlüyü ───
-      // Chat.jsx-dəki ayrı useEffect buraya birləşdirilib — dublikat event listener aradan qaldırılıb
-      const area = messagesAreaRef.current;
-      if (area && setShowScrollDown) {
-        const dist = area.scrollHeight - area.scrollTop - area.clientHeight;
-        setShowScrollDown(area.scrollHeight > area.clientHeight && dist > area.clientHeight);
-        // Scrollbar göstər, 800ms sonra gizlə
-        area.classList.add("scrolling");
-        if (scrollbarTimerRef.current) clearTimeout(scrollbarTimerRef.current);
-        scrollbarTimerRef.current = setTimeout(() => area.classList.remove("scrolling"), 800);
-      }
-    });
-  }
-
-  // ─── Return ───────────────────────────────────────────────────────────────────
-  // Bu hook-dan lazım olan hər şeyi return et.
-  // Chat.jsx bunları alıb istifadə edir:
-  //   - handleScroll: messages-area-nın onScroll prop-una verilir
-  //   - hasMoreRef, hasMoreDownRef: handleSelectChat-da sıfırlanır
-  //   - loadingOlder: "yüklənir" spinner-i göstərmək üçün
-  //   - scrollRestoreRef: useLayoutEffect-də scroll bərpası üçün
-  return { handleScroll, hasMoreRef, hasMoreDownRef, loadingOlder, scrollRestoreRef };
+  return {
+    handleStartReached,
+    handleEndReached,
+    hasMoreRef,
+    hasMoreDownRef,
+    loadingOlder,
+    loadOlderTriggeredRef,
+    loadingMoreRef,
+  };
 }

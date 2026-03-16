@@ -1,15 +1,10 @@
-// React hook-ları import edirik
-// useState    — state yaratmaq (like C# reactive property)
-// useEffect   — side effect (API çağrısı, event listener qeydiyyatı)
-// useLayoutEffect — DOM paint-dən ƏVVƏL işləyir (scroll restore üçün)
-// useContext  — global state-ə daxil olmaq (like @inject)
-// useRef      — re-render etmədən dəyər saxlamaq (like C# field)
-// useMemo     — hesablamanı cache-lər, yalnız dependency dəyişəndə yenidən hesablar
-// useCallback — funksiyanı cache-lər, yalnız dependency dəyişəndə yenidən yaradır
+// React hook-ları
+// useState — state, useEffect — side effect, useContext — global state
+// useRef — re-render etmədən dəyər saxlamaq, useMemo — hesablamanı cache-lər
+// useCallback — funksiyanı cache-lər
 import {
   useState,
   useEffect,
-  useLayoutEffect,
   useContext,
   useRef,
   useMemo,
@@ -72,6 +67,7 @@ import {
   mergeMessageWithPrev, // API + SignalR state merge
 } from "../utils/chatUtils";
 
+import { Virtuoso } from "react-virtuoso";
 import "./Chat.css";
 
 
@@ -116,8 +112,7 @@ function Chat() {
   // scrollIntoView() ilə ən yeni mesaja scroll etmək üçün
   const messagesEndRef = useRef(null);
 
-  // messagesAreaRef — scroll container-i (messages-area div-i)
-  // handleScroll, IntersectionObserver üçün lazımdır
+  // messagesAreaRef — scroll container-i (Virtuoso scrollerRef ilə bağlanır)
   const messagesAreaRef = useRef(null);
 
   // floatingDateRef — scroll zamanı cari tarixi göstərən sabit element
@@ -240,19 +235,33 @@ function Chat() {
 
   // --- CUSTOM HOOKS ---
 
-  // useChatScroll — infinite scroll (yuxarı scroll → köhnə mesajlar yüklə)
-  // handleScroll — scroll event handler (throttled)
-  // hasMoreRef — daha köhnə mesaj varmı? false → daha yükləmə
-  // hasMoreDownRef — around mode-da altda mesaj varmı?
-  // loadingOlder — köhnə mesajlar yüklənirkən true (spinner)
-  // scrollRestoreRef — scroll bərpası üçün əvvəlki scroll vəziyyəti
+  // useChatScroll — infinite scroll pagination (Virtuoso callback-ları çağırır)
   const {
-    handleScroll,
+    handleStartReached,
+    handleEndReached,
     hasMoreRef,
     hasMoreDownRef,
     loadingOlder,
-    scrollRestoreRef,
-  } = useChatScroll(messagesAreaRef, messages, selectedChat, setMessages, allReadPatchRef, floatingDateRef, setShowScrollDown);
+    loadOlderTriggeredRef,
+    loadingMoreRef,
+  } = useChatScroll(messages, selectedChat, setMessages, allReadPatchRef);
+
+  // virtuosoRef — Virtuoso komponentinə ref (scrollToIndex üçün)
+  const virtuosoRef = useRef(null);
+
+  // virtuosoResetKey — Virtuoso-nu tam remount etmək üçün (height cache sıfırlamaq)
+  // Data tamamilə dəyişdikdə (handleScrollToBottom, around mode) Virtuoso-nun
+  // daxili height cache-i köhnə data-dan qalır → scrollHeight yanlış olur.
+  // Key dəyişdikdə Virtuoso remount olur → initialTopMostItemIndex tətbiq olunur.
+  const [virtuosoResetKey, setVirtuosoResetKey] = useState(0);
+
+  // firstItemIndex — Virtuoso prepend mexanizmi üçün (köhnə mesajlar yüklənəndə azalır)
+  // QEYD: useRef istifadə olunur, useState DEYİL — çünki firstItemIndex senderRuns ilə
+  // EYNİ RENDER-də dəyişməlidir. useEffect 1-render gecikmə yaradır → scroll jump.
+  const firstItemIndexRef = useRef(100_000);
+
+  // scrollbarTimerRef — scrollbar gizlənmə timer-i (800ms inactivity sonra)
+  const scrollbarTimerRef = useRef(null);
 
   // useMessageSelection — mesaj seçmə rejimi (SelectToolbar)
   const {
@@ -365,125 +374,195 @@ function Chat() {
     };
   }, []);
 
-  // shouldScrollBottom true olduqda ən alt mesaja scroll et
-  // useLayoutEffect — paint-dən ƏVVƏL işləyir → flash yoxdur
-  // useEffect olsaydı: brauzer mesajları yuxarıda çəkib SONRA scroll edərdi (flash)
-  // channelMembers dependency: channel members GECİKMƏLİ yükləndikdə ChatStatusBar
-  // "Viewed by X" render olur → hündürlük artır → scroll yenilənməlidir
-  useLayoutEffect(() => {
-    if (shouldScrollBottom) {
-      // area.scrollTop istifadə et — scrollIntoView nested container-ları da scroll edə bilər
-      const area = messagesAreaRef.current;
-      if (area) {
-        area.scrollTop = area.scrollHeight;
-      }
-      setShouldScrollBottom(false);
-      return;
-    }
-    // Yeni unread mesajlar varsa — viewport-a sığana qədər scroll, sığmayanda dayan
-    if (hasNewUnreadRef.current) {
-      const area = messagesAreaRef.current;
-      if (area && firstUnreadMsgIdRef.current) {
-        const firstEl = area.querySelector(
-          `[data-bubble-id="${firstUnreadMsgIdRef.current}"]`,
-        );
-        if (firstEl) {
-          // İlk unread-dən scroll area-nın sonuna qədər məsafə
-          const distFromUnreadToBottom = area.scrollHeight - firstEl.offsetTop;
-          // Viewport-a sığırsa → scroll et (ilk unread hələ görünəcək)
-          if (distFromUnreadToBottom <= area.clientHeight) {
-            area.scrollTop = area.scrollHeight;
-          } else {
-            // Sığmırsa → scroll etmə, scroll-to-bottom butonunu göstər
-            setShowScrollDown(true);
-          }
-        }
-      }
-      return;
-    }
+  // --- MEMOIZED DATA (effects-dən əvvəl təyin olunmalıdır) ---
 
-    // Auto-scroll: istifadəçi artıq aşağıdadırsa (< 80px) və content dəyişibsə
-    const area = messagesAreaRef.current;
-    if (area) {
-      const distanceFromBottom =
-        area.scrollHeight - area.scrollTop - area.clientHeight;
-      if (distanceFromBottom < 80) {
-        area.scrollTop = area.scrollHeight;
+  // grouped — mesajları tarix separator-ları ilə qruplaşdır
+  // useMemo — messages dəyişmədikdə bu hesablamanı yenidən etmə
+  // [...messages].reverse() — messages DESC-dir, ASC-ə çevir (köhnə → yeni)
+  const grouped = useMemo(
+    () => groupMessagesByDate([...messages].reverse(), readLaterMessageId, newMessagesStartId),
+    [messages, readLaterMessageId, newMessagesStartId],
+  );
+
+  // senderRuns — ardıcıl eyni-sender mesajlarını qruplara ayır
+  // Separator-lar ayrı item olaraq qalır, mesajlar sender-group run-larına bükülür
+  const senderRuns = useMemo(() => {
+    const runs = [];
+    let currentRun = null;
+
+    for (let i = 0; i < grouped.length; i++) {
+      const item = grouped[i];
+      if (item.type !== "message") {
+        if (currentRun) { runs.push(currentRun); currentRun = null; }
+        runs.push(item);
+        continue;
+      }
+      const msg = item.data;
+      const senderId = msg.senderId;
+      if (currentRun && currentRun.senderId === senderId) {
+        currentRun.messages.push(msg);
+      } else {
+        if (currentRun) runs.push(currentRun);
+        currentRun = {
+          type: "senderRun",
+          senderId,
+          isOwn: senderId === user?.id,
+          senderFullName: msg.senderFullName,
+          messages: [msg],
+        };
       }
     }
-  }, [messages, shouldScrollBottom, pinnedMessages, channelMembers, typingUsers]);
+    if (currentRun) runs.push(currentRun);
+    return runs;
+  }, [grouped, user?.id]);
 
-  // Scroll position restore — yuxarı scroll edib köhnə mesaj yüklənəndə
-  // useLayoutEffect — brauzer paint etməzdən əvvəl işlə
-  // Bu sayədə scroll pozisyonu qorunur, mesajlar "tullanmır"
-  useLayoutEffect(() => {
-    const area = messagesAreaRef.current;
-    const saved = scrollRestoreRef.current;
-    if (area && saved) {
-      // Yeni scrollHeight - əvvəlki scrollHeight = yeni mesajların hündürlüyü
-      // Köhnə scrollTop + bu fərq = mesajlar yuxarı tullanmır
-      const heightDiff = area.scrollHeight - saved.scrollHeight;
-      area.scrollTop = saved.scrollTop + heightDiff;
-      scrollRestoreRef.current = null;
+  // flatItems — senderRuns-ı düzləşdir: hər mesaj = 1 Virtuoso item
+  // Bu sayədə firstItemIndex düzgün işləyir (prepend zamanı item sayı HƏMİŞƏ artır)
+  // Əvvəl: senderRun(A, [m1, m2, old1]) — köhnə mesajlar mövcud item-ə birləşirdi
+  // İndi: [msg(m1), msg(m2), msg(old1)] — hər mesaj ayrı item, firstItemIndex azalır
+  const flatItems = useMemo(() => {
+    const items = [];
+    for (const run of senderRuns) {
+      if (run.type !== "senderRun") {
+        items.push(run);
+        continue;
+      }
+      const { messages: runMsgs, isOwn, senderFullName, senderId } = run;
+      for (let i = 0; i < runMsgs.length; i++) {
+        items.push({
+          type: "message",
+          message: runMsgs[i],
+          isOwn,
+          senderFullName,
+          senderId,
+          isFirstInGroup: i === 0,
+          isLastInGroup: i === runMsgs.length - 1,
+        });
+      }
     }
-  }, [messages, scrollRestoreRef]);
+    return items;
+  }, [senderRuns]);
 
-  // getAround endpoint-dən mesajlar yükləndikdən sonra
-  // hədəf mesaja scroll et + highlight et
-  useLayoutEffect(() => {
+  // flatItemsMetadata — messageId → flatItems index mapping + date label lookup
+  // Virtuoso scrollToIndex üçün lazımdır (around mode, highlight, reply jump)
+  const flatItemsMetadata = useMemo(() => {
+    const msgIdToIndex = new Map();
+    const indexToDateLabel = new Map();
+    let currentDateLabel = "";
+    for (let i = 0; i < flatItems.length; i++) {
+      const item = flatItems[i];
+      if (item.type === "date") currentDateLabel = item.label;
+      indexToDateLabel.set(i, currentDateLabel);
+      if (item.type === "message") {
+        msgIdToIndex.set(item.message.id, i);
+      }
+    }
+    return { msgIdToIndex, indexToDateLabel };
+  }, [flatItems]);
+
+  // ─── firstItemIndex — Virtuoso prepend mexanizmi ─────────────────────────────
+  // Köhnə mesajlar yüklənəndə flatItems BAŞLANĞICINDA yeni item-lər əlavə olunur.
+  // firstItemIndex bu fərq qədər azalır → Virtuoso scroll pozisiyasını avtomatik saxlayır.
+  //
+  // QEYD: render vaxtı hesablanır (useEffect DEYİL) — firstItemIndex yeni data ilə
+  // EYNİ RENDER-də dəyişməlidir, əks halda 1-frame jump olur.
+  const prevFlatLenRef = useRef(0);
+  const currFlatLen = flatItems.length;
+  if (prevFlatLenRef.current > 0 && currFlatLen > prevFlatLenRef.current && loadOlderTriggeredRef.current) {
+    firstItemIndexRef.current -= (currFlatLen - prevFlatLenRef.current);
+    loadOlderTriggeredRef.current = false;
+  }
+  prevFlatLenRef.current = currFlatLen;
+  const firstItemIndex = firstItemIndexRef.current;
+
+  // ─── Virtuoso scroll effektləri ───
+  // QEYD: useEffect + setTimeout istifadə olunur çünki Virtuoso data dəyişikliyi sonrası
+  // daxili layout hesablamalarını bitirməyə vaxt lazımdır. useLayoutEffect çox tez fire edir.
+
+  // shouldScrollBottom → Virtuoso scrollTo API istifadə et
+  // Birbaşa DOM (area.scrollTop) istifadə etmək OLMAZ — Virtuoso daxili state-ini yeniləmir
+  // və sonra scroll pozisiyasını "düzəldir" (override edir).
+  // Bir neçə cəhd edir — Virtuoso layout hesablamalarını bitirməyə vaxt lazımdır.
+  useEffect(() => {
+    if (!shouldScrollBottom) return;
+    setShouldScrollBottom(false);
+
+    const doScroll = () => virtuosoRef.current?.scrollTo({ top: 999999 });
+
+    // Faza 1: rAF loop — Virtuoso layout hesablamalarını gözlə (15 frame ≈ 250ms)
+    let attempts = 0;
+    const tryScroll = () => {
+      doScroll();
+      if (++attempts < 15) requestAnimationFrame(tryScroll);
+    };
+    requestAnimationFrame(tryScroll);
+
+    // Faza 2: gecikmə ilə final scroll — şəkillər/lazy content yüklənə bilər
+    // QEYD: cleanup YOXDUR — setShouldScrollBottom(false) re-render yaradır,
+    // cleanup timer-ları ləğv edərdi (timer self-cancel bug)
+    setTimeout(doScroll, 400);
+    setTimeout(doScroll, 800);
+  }, [shouldScrollBottom]);
+
+  // getAround / highlight — mesajlar yüklənəndən sonra hədəfə scroll + highlight
+  // QEYD: cleanup yoxdur — messages/flatItemsMetadata eyni batch-da dəyişə bilər,
+  // cleanup timer-i ləğv edərdi
+  useEffect(() => {
     const messageId = pendingHighlightRef.current;
     if (!messageId) return;
-    pendingHighlightRef.current = null; // Bir dəfə işlə, sıfırla
+    pendingHighlightRef.current = null;
 
-    const area = messagesAreaRef.current;
-    if (!area) return;
+    setTimeout(() => {
+      const targetIndex = flatItemsMetadata.msgIdToIndex.get(messageId);
+      if (targetIndex === undefined) return;
 
-    // DOM-da data-bubble-id={messageId} olan elementi tap
-    const target = area.querySelector(`[data-bubble-id="${messageId}"]`);
-    if (target) {
-      target.scrollIntoView({ behavior: "instant", block: "center" });
-      // Əvvəlki highlight varsa təmizlə (dublikat qarşısı)
-      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-      target.classList.add("highlight-message");
-      highlightTimerRef.current = setTimeout(() => {
-        target.classList.remove("highlight-message");
-        highlightTimerRef.current = null;
-      }, HIGHLIGHT_DURATION_MS);
-    }
-  }, [messages]);
+      // Virtuoso scrollToIndex DATA ARRAY INDEX istəyir (firstItemIndex ilə əlaqəsi yoxdur)
+      virtuosoRef.current?.scrollToIndex({ index: targetIndex, align: "center", behavior: "auto" });
+
+      // Render-dən sonra highlight et (2 frame gözlə — Virtuoso render-i bitsin)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
+          if (target) {
+            if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+            target.classList.add("highlight-message");
+            highlightTimerRef.current = setTimeout(() => {
+              target.classList.remove("highlight-message");
+              highlightTimerRef.current = null;
+            }, HIGHLIGHT_DURATION_MS);
+          }
+        });
+      });
+    }, 100);
+  }, [messages, flatItemsMetadata]);
 
   // Read later separator-a scroll — conversation açılanda separator mərkəzə gəlsin
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!pendingScrollToReadLaterRef.current) return;
     pendingScrollToReadLaterRef.current = false;
 
-    const area = messagesAreaRef.current;
-    if (!area) return;
-
-    const separator = area.querySelector(".read-later-separator");
-    if (separator) {
-      separator.scrollIntoView({ behavior: "instant", block: "center" });
-    }
-  }, [messages]);
+    setTimeout(() => {
+      const idx = flatItems.findIndex((r) => r.type === "readLater");
+      if (idx !== -1) {
+        virtuosoRef.current?.scrollToIndex({ index: idx, align: "center", behavior: "auto" });
+      }
+    }, 100);
+  }, [messages, flatItems]);
 
   // New messages separator-a scroll — unread mesaj olduqda separator görünsün
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!pendingScrollToUnreadRef.current) return;
     pendingScrollToUnreadRef.current = false;
 
-    const area = messagesAreaRef.current;
-    if (!area) return;
-
-    const separator = area.querySelector(".new-messages-separator");
-    if (separator) {
-      separator.scrollIntoView({ behavior: "instant", block: "center" });
-    } else {
-      // Separator yoxdursa (bütün mesajlar unread, separator yuxarıda) → ən aşağıya scroll et
-      area.scrollTop = area.scrollHeight;
-    }
-  }, [messages]);
-
-  // Scroll-to-bottom butonu + scrollbar görünürlüyü — useChatScroll-a birləşdirilib
+    setTimeout(() => {
+      const idx = flatItems.findIndex((r) => r.type === "newMessages");
+      if (idx !== -1) {
+        virtuosoRef.current?.scrollToIndex({ index: idx, align: "center", behavior: "auto" });
+      } else {
+        virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "auto" });
+      }
+    }, 100);
+  }, [messages, flatItems]);
 
   // ─── Mark-as-read mexanizmi ───
   // initialMsgIdsRef — conversation açılanda yüklənən mesaj ID-ləri
@@ -493,9 +572,8 @@ function Chat() {
   //   Yazmağa başlayanda/göndərəndə mark-all-read çağırılır
   const initialMsgIdsRef = useRef(new Set());
   const hasNewUnreadRef = useRef(false);
-  const firstUnreadMsgIdRef = useRef(null); // İlk oxunmamış mesajın ID-si (scroll məhdudiyyəti üçün)
+  const firstUnreadMsgIdRef = useRef(null);
   const visibleUnreadRef = useRef(new Set());
-  const observerRef = useRef(null);
   const readBatchChatRef = useRef(null);
   const readBatchTimerRef = useRef(null);
   const processedMsgIdsRef = useRef(new Set());
@@ -594,6 +672,8 @@ function Chat() {
   // handleScrollToBottom — scroll-to-bottom butonu basıldığında
   // Həmişə API-dən ən son mesajları yüklə — around mode-da da, normal mode-da da
   // Bu, SignalR ilə miss olmuş mesajların da görsənməsini təmin edir
+  // QEYD: Virtuoso remount EDİLMİR — scrollToIndex ilə aşağıya scroll olunur.
+  // Remount (virtuosoResetKey) bütün mesajları silir və yenidən render edir → "flash" effekti.
   async function handleScrollToBottom() {
     if (!selectedChat) return;
     try {
@@ -610,68 +690,25 @@ function Chat() {
     }
     hasMoreRef.current = true;
     hasMoreDownRef.current = false;
+    firstItemIndexRef.current = 100_000; prevFlatLenRef.current = 0; // Fresh data — reset
+    // startReached guard — data dəyişəndə Virtuoso dərhal fire etməsin
+    loadingMoreRef.current = true;
+    setTimeout(() => { loadingMoreRef.current = false; }, 300);
     // Unread tracking sıfırla — istifadəçi açıq şəkildə aşağıya scroll etdi
     hasNewUnreadRef.current = false;
     firstUnreadMsgIdRef.current = null;
-    setShouldScrollBottom(true);
+    // Data yeniləndikdən sonra Virtuoso-ya ən sona scroll et
+    // rAF loop — Virtuoso daxili layout hesablamalarını bitirməyə vaxt lazımdır
+    const doScroll = () => virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end" });
+    let attempts = 0;
+    const tryScroll = () => {
+      doScroll();
+      if (++attempts < 10) requestAnimationFrame(tryScroll);
+    };
+    requestAnimationFrame(tryScroll);
   }
 
-  // Effect 1: Observer yaratma/silmə — YALNIZ selectedChat dəyişdikdə
-  useEffect(() => {
-    const area = messagesAreaRef.current;
-    if (!area || !selectedChat) return;
-
-    visibleUnreadRef.current = new Set();
-    processedMsgIdsRef.current = new Set();
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const msgId = entry.target.dataset.msgId;
-          const convId = entry.target.dataset.convId;
-          const convType = entry.target.dataset.convType;
-          if (!msgId) continue;
-
-          if (entry.isIntersecting && !processedMsgIdsRef.current.has(msgId)) {
-            // Mesaj viewport-da görünür → oxundu olaraq işarələ
-            // Həm ilkin mesajlar, həm SignalR mesajları üçün eyni davranış
-            processedMsgIdsRef.current.add(msgId);
-            visibleUnreadRef.current.add(msgId);
-            readBatchChatRef.current = { chatId: convId, chatType: convType };
-            // Debounce — 300ms sonra batch göndər
-            if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
-            readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { root: area, threshold: 0.5 },
-    );
-
-    observerRef.current = observer;
-    return () => {
-      observer.disconnect();
-      observerRef.current = null;
-      if (readBatchTimerRef.current) {
-        clearTimeout(readBatchTimerRef.current);
-        readBatchTimerRef.current = null;
-      }
-    };
-  }, [selectedChat]);
-
-  // Effect 2: Yeni unread elementləri observe et — messages dəyişdikdə
-  useEffect(() => {
-    const observer = observerRef.current;
-    const area = messagesAreaRef.current;
-    if (!observer || !area) return;
-
-    const unreadElements = area.querySelectorAll("[data-unread='true']");
-    unreadElements.forEach((el) => {
-      if (!processedMsgIdsRef.current.has(el.dataset.msgId)) {
-        observer.observe(el);
-      }
-    });
-  }, [messages]);
+  // IntersectionObserver SİLİNDİ — Virtuoso rangeChanged callback ilə əvəz olundu (aşağıda)
 
   // --- API FUNKSIYALARI ---
 
@@ -1164,6 +1201,7 @@ function Chat() {
         favoriteMessages: sidebar.favoriteMessages,
         hasMore: hasMoreRef.current,
         hasMoreDown: hasMoreDownRef.current,
+        firstItemIndex,
         timestamp: Date.now(),
       });
       // Cache limit — ən köhnə entry-ləri sil
@@ -1182,7 +1220,10 @@ function Chat() {
     setSelectedChat(chat);
     setMessages(cacheValid ? cached.messages : []);
     setPinnedMessages(cacheValid ? cached.pinnedMessages : []);
-    if (cacheValid) setShouldScrollBottom(true); // Cache-dən yüklənəndə aşağıya scroll et
+    firstItemIndexRef.current = cacheValid ? (cached.firstItemIndex || 100_000) : 100_000;
+    prevFlatLenRef.current = 0; // flatItems length tracking sıfırla
+    // Cache-dən yüklənəndə aşağıya scroll — Virtuoso key={selectedChat.id} remount +
+    // initialTopMostItemIndex={senderRuns.length - 1} bunu avtomatik edir
     // unreadCount dərhal sıfırlanmır — IntersectionObserver mesajlar göründükcə 1-1 azaldır
     setPinBarExpanded(false);
     setCurrentPinIndex(0);
@@ -1203,6 +1244,10 @@ function Chat() {
     hasNewUnreadRef.current = false; // Əvvəlki chatın SignalR unread flag-ını sıfırla
     firstUnreadMsgIdRef.current = null; // Əvvəlki chatın ilk unread mesaj ID-sini sıfırla
     pendingScrollToUnreadRef.current = false; // Əvvəlki chatın pending scroll-unu sıfırla
+    processedMsgIdsRef.current = new Set(); // Mark-as-read processed set-ini sıfırla
+    // startReached guard — Virtuoso mount zamanı dərhal fire etməsin
+    loadingMoreRef.current = true;
+    setTimeout(() => { loadingMoreRef.current = false; }, 300);
     hasMoreRef.current = cacheValid ? cached.hasMore : true;
     hasMoreDownRef.current = cacheValid ? cached.hasMoreDown : false;
     // lastReadLaterMessageId varsa — around endpoint ilə yüklə, əks halda normal
@@ -1259,6 +1304,9 @@ function Chat() {
       }
       setTimeout(() => inputRef.current?.focus(), 0);
       setChatLoading(false);
+      // Cache-dən yüklənəndə də aşağıya scroll et — initialTopMostItemIndex
+      // mount zamanı item ölçüləri bilinmədiyi üçün etibarlı deyil
+      setShouldScrollBottom(true);
       return;
     }
 
@@ -1366,6 +1414,8 @@ function Chat() {
         setReadLaterMessageId(chat.lastReadLaterMessageId);
         hasMoreRef.current = true;
         hasMoreDownRef.current = true;
+        firstItemIndexRef.current = 100_000; prevFlatLenRef.current = 0; // Around mode — reset
+        setVirtuosoResetKey((k) => k + 1); // Virtuoso remount — height cache sıfırla
         pendingScrollToReadLaterRef.current = true; // Separator-a scroll et
         // lastReadLaterMessageId sil ki, növbəti dəfə açanda separator + ikon görünməsin
         setConversations((prev) =>
@@ -1417,7 +1467,9 @@ function Chat() {
           ? finalMsgData.map((m) => m.isRead ? m : { ...m, isRead: true })
           : finalMsgData,
       );
-      // setChatLoading(false) finally blokunda — hər halda çağırılır
+      // CRITICAL: setChatLoading(false) burada olmalıdır (setMessages ilə eyni React batch-da)
+      // Əks halda Virtuoso wrapper display:none olur → scrollToIndex/initialTopMostItemIndex işləmir
+      setChatLoading(false);
 
       // ── Cache UPDATE — API-dən gələn fresh data ilə cache-i yenilə ──
       messageCacheRef.current.set(chat.id, {
@@ -1428,6 +1480,7 @@ function Chat() {
         favoriteMessages: sortedFavs,
         hasMore: hasMoreRef.current,
         hasMoreDown: hasMoreDownRef.current,
+        firstItemIndex: 100_000, // Fresh API data — həmişə default
         timestamp: Date.now(),
       });
 
@@ -1493,9 +1546,9 @@ function Chat() {
       console.error("Failed to load messages:", err);
       setMessages([]);
     } finally {
-      // Yalnız cari request-in finally-si loading-i söndürsün
+      // Yalnız cari request-in finally-si — loading catch block üçün sıfırla
       if (requestId === chatRequestIdRef.current) {
-        setChatLoading(false);
+        setChatLoading(false); // Catch block üçün lazımdır — try-da artıq çağırılır
         setShowScrollDown(false);
       }
     }
@@ -2140,23 +2193,28 @@ function Chat() {
   }, [selectedChat, stopTypingSignal]);
 
   // handleScrollToMessage — mesaja scroll et (reply reference / pin bar klik)
-  // Mesaj DOM-da varsa birbaşa scroll et, yoxdursa around endpoint-dən yüklə
+  // Mesaj senderRuns-da varsa scrollToIndex, yoxdursa around endpoint-dən yüklə
   const handleScrollToMessage = useCallback(
     async (messageId) => {
-      const area = messagesAreaRef.current;
-      if (!area || !selectedChat) return;
+      if (!selectedChat) return;
 
-      // DOM-da bu mesaj artıq render olunubsa?
-      let el = area.querySelector(`[data-bubble-id="${messageId}"]`);
-      if (el) {
-        // Var — birbaşa smooth scroll et + highlight
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-        el.classList.add("highlight-message");
-        highlightTimerRef.current = setTimeout(() => {
-          el.classList.remove("highlight-message");
-          highlightTimerRef.current = null;
-        }, HIGHLIGHT_DURATION_MS);
+      // senderRuns-da bu mesaj varmı? (virtual list-də render olunmaya bilər amma data-da var)
+      const targetIndex = flatItemsMetadata.msgIdToIndex.get(messageId);
+      if (targetIndex !== undefined) {
+        // Var — scrollToIndex ilə scroll et + highlight (DATA ARRAY INDEX istifadə olunur)
+        virtuosoRef.current?.scrollToIndex({ index: targetIndex, align: "center", behavior: "auto" });
+        // Render-dən sonra highlight et
+        setTimeout(() => {
+          const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
+          if (target) {
+            if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+            target.classList.add("highlight-message");
+            highlightTimerRef.current = setTimeout(() => {
+              target.classList.remove("highlight-message");
+              highlightTimerRef.current = null;
+            }, HIGHLIGHT_DURATION_MS);
+          }
+        }, 300);
         return;
       }
 
@@ -2170,19 +2228,21 @@ function Chat() {
         if (!endpoint) return;
 
         const data = await apiGet(endpoint);
-        hasMoreRef.current = true; // Yuxarıda daha mesaj var
-        hasMoreDownRef.current = true; // Aşağıda da daha mesaj var (around mode)
+        hasMoreRef.current = true;
+        hasMoreDownRef.current = true;
+        // startReached guard — around data yüklənəndə Virtuoso dərhal fire etməsin
+        loadingMoreRef.current = true;
+        setTimeout(() => { loadingMoreRef.current = false; }, 300);
 
-        // pendingHighlightRef — setMessages-dən SONRA useLayoutEffect işlətmək üçün
-        // Mesajlar render olunandan sonra highlight edəcəyik
         pendingHighlightRef.current = messageId;
-        // Backend around endpoint DESC qaytarır — birbaşa set et
         setMessages(data);
+        firstItemIndexRef.current = 100_000; prevFlatLenRef.current = 0; // Fresh data — reset
+        setVirtuosoResetKey((k) => k + 1); // Virtuoso remount — height cache sıfırla
       } catch (err) {
         console.error("Failed to load messages around target:", err);
       }
     },
-    [selectedChat, hasMoreRef, hasMoreDownRef],
+    [selectedChat, flatItemsMetadata, hasMoreRef, hasMoreDownRef],
   );
 
   // handlePinBarClick — PinnedBar-a klik edildikdə
@@ -2314,50 +2374,7 @@ function Chat() {
     [messages, user?.id],
   );
 
-  // grouped — mesajları tarix separator-ları ilə qruplaşdır
-  // useMemo — messages dəyişmədikdə bu hesablamanı yenidən etmə
-  // [...messages].reverse() — messages DESC-dir, ASC-ə çevir (köhnə → yeni)
-  // .NET: IEnumerable.Where(...).GroupBy(...)
-  const grouped = useMemo(
-    () => groupMessagesByDate([...messages].reverse(), readLaterMessageId, newMessagesStartId),
-    [messages, readLaterMessageId, newMessagesStartId],
-  );
-
-  // senderRuns — ardıcıl eyni-sender mesajlarını qruplara ayır
-  // Separator-lar ayrı item olaraq qalır, mesajlar sender-group run-larına bükülür
-  // Bu, CSS sticky avatar üçün lazımdır
-  const senderRuns = useMemo(() => {
-    const runs = [];
-    let currentRun = null;
-
-    for (let i = 0; i < grouped.length; i++) {
-      const item = grouped[i];
-      // Separator-lar (date, readLater, newMessages) — run-u bitir, separator əlavə et
-      if (item.type !== "message") {
-        if (currentRun) { runs.push(currentRun); currentRun = null; }
-        runs.push(item);
-        continue;
-      }
-      const msg = item.data;
-      const senderId = msg.senderId;
-      // Eyni sender davam edir → mövcud run-a əlavə et
-      if (currentRun && currentRun.senderId === senderId) {
-        currentRun.messages.push(msg);
-      } else {
-        // Fərqli sender və ya ilk mesaj → yeni run başla
-        if (currentRun) runs.push(currentRun);
-        currentRun = {
-          type: "senderRun",
-          senderId,
-          isOwn: senderId === user?.id,
-          senderFullName: msg.senderFullName,
-          messages: [msg],
-        };
-      }
-    }
-    if (currentRun) runs.push(currentRun);
-    return runs;
-  }, [grouped, user?.id]);
+  // (prevSenderRunsLenRef silinib — scroll restore useLayoutEffect ilə əvəz edildi)
 
   // hasOthersSelected → useMessageSelection hook-unda (destructured)
   // favoriteIds, linkMessages, fileMessages → useSidebarPanels hook-unda (sidebar.*)
@@ -2468,6 +2485,222 @@ function Chat() {
     [selectedChat],
   );
 
+  // ─── Virtuoso callback-ları ───────────────────────────────────────────────
+
+  // handleRangeChanged — Virtuoso görünən aralıq dəyişdikdə çağırılır
+  // 1. Floating date label-ini yenilə (DOM query əvəzinə data lookup)
+  // 2. Mark-as-read (IntersectionObserver əvəzinə)
+  const handleRangeChanged = useCallback(({ startIndex, endIndex }) => {
+    // Floating date
+    const el = floatingDateRef.current;
+    if (el) {
+      // startIndex Virtuoso virtual index-dir (firstItemIndex ofsetli)
+      // flatItems array index-ə çevir
+      const dataIndex = startIndex - firstItemIndex;
+      const label = flatItemsMetadata.indexToDateLabel.get(dataIndex) || "";
+      // Collision check — əgər ilk görünən item date separator-dursa, floating date gizlət
+      const firstVisibleItem = flatItems[dataIndex];
+      const finalLabel = (firstVisibleItem?.type === "date") ? "" : label;
+      if (el.textContent !== finalLabel) el.textContent = finalLabel;
+    }
+
+    // Mark-as-read — görünən item-lərdəki unread mesajları topla
+    const startDataIndex = startIndex - firstItemIndex;
+    const endDataIndex = endIndex - firstItemIndex;
+    for (let i = Math.max(0, startDataIndex); i <= Math.min(flatItems.length - 1, endDataIndex); i++) {
+      const item = flatItems[i];
+      if (item?.type !== "message") continue;
+      const msg = item.message;
+      if (!msg.isRead && msg.senderId !== user?.id && !processedMsgIdsRef.current.has(msg.id)) {
+        processedMsgIdsRef.current.add(msg.id);
+        visibleUnreadRef.current.add(msg.id);
+        readBatchChatRef.current = {
+          chatId: msg.conversationId || msg.channelId,
+          chatType: String(selectedChat?.type),
+        };
+      }
+    }
+    if (visibleUnreadRef.current.size > 0) {
+      if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
+      readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
+    }
+  }, [flatItems, flatItemsMetadata, firstItemIndex, user?.id, selectedChat]);
+
+  // ─── Scroll event listener — startReached/endReached əvəzinə ──────────────
+  // Virtuoso-nun startReached/endReached callback-ları az item olduqda etibarsızdır.
+  // Birbaşa scroll position yoxlayırıq: yuxarıya yaxın → köhnə mesajlar, aşağıya yaxın → yeni mesajlar
+  //
+  // QEYD: handleStartReached/handleEndReached useCallback deyil (hər render-də yeni ref).
+  // Ref istifadə edirik ki, listener hər render-də re-attach olunmasın.
+  const startReachedRef = useRef(handleStartReached);
+  const endReachedRef = useRef(handleEndReached);
+  useEffect(() => {
+    startReachedRef.current = handleStartReached;
+    endReachedRef.current = handleEndReached;
+  });
+
+  // Scroll listener — scrollerRef callback-ında bağlanır (aşağıda handleScrollerRef)
+  // Bu şəkildə Virtuoso scroller-i set etdiyi AN listener bağlanır, timing problemi yoxdur.
+  // Throttle: 80ms — sürətli scroll zamanı da tez cavab vermək üçün
+  const scrollListenerRef = useRef(null);
+  const scrollThrottleRef = useRef(false);
+  if (!scrollListenerRef.current) {
+    const THRESHOLD = 800;
+    scrollListenerRef.current = () => {
+      if (scrollThrottleRef.current) return;
+      scrollThrottleRef.current = true;
+      setTimeout(() => { scrollThrottleRef.current = false; }, 80);
+
+      const area = messagesAreaRef.current;
+      if (!area) return;
+      if (area.scrollTop < THRESHOLD && !loadOlderTriggeredRef.current) {
+        startReachedRef.current();
+      }
+      if (hasMoreDownRef.current && area.scrollHeight - area.scrollTop - area.clientHeight < THRESHOLD) {
+        endReachedRef.current();
+      }
+    };
+  }
+
+  // scrollerRef callback — Virtuoso scroller DOM elementini tutur
+  // Həm messagesAreaRef-i set edir, həm də scroll listener-i bağlayır
+  const handleScrollerRef = useCallback((ref) => {
+    // Köhnə scroller-dən listener-i sil
+    if (messagesAreaRef.current && messagesAreaRef.current !== ref) {
+      messagesAreaRef.current.removeEventListener("scroll", scrollListenerRef.current);
+    }
+    messagesAreaRef.current = ref;
+    // Yeni scroller-ə listener bağla
+    if (ref) {
+      ref.addEventListener("scroll", scrollListenerRef.current, { passive: true });
+    }
+  }, []);
+
+  // handleIsScrolling — scrollbar CSS class-ını idarə et
+  const handleIsScrolling = useCallback((scrolling) => {
+    const area = messagesAreaRef.current;
+    if (!area) return;
+    if (scrolling) {
+      area.classList.add("scrolling");
+      if (scrollbarTimerRef.current) clearTimeout(scrollbarTimerRef.current);
+    } else {
+      scrollbarTimerRef.current = setTimeout(() => area.classList.remove("scrolling"), 800);
+    }
+  }, []);
+
+  // handleAtBottomStateChange — scroll-to-bottom butonunun görünürlüyünü idarə et
+  const handleAtBottomStateChange = useCallback((atBottom) => {
+    setShowScrollDown(!atBottom);
+  }, []);
+
+  // renderFlatItem — Virtuoso itemContent callback-ı
+  // Hər bir mesaj/separator üçün JSX qaytarır (flat items — hər mesaj ayrı Virtuoso item)
+  const renderFlatItem = useCallback((index, item) => {
+    // Separator-lar
+    if (item.type === "date") {
+      return (
+        <div className="date-separator">
+          <span>{item.label}</span>
+        </div>
+      );
+    }
+    if (item.type === "readLater") {
+      return (
+        <div className="read-later-separator">
+          <span>Read later</span>
+        </div>
+      );
+    }
+    if (item.type === "newMessages") {
+      return (
+        <div className="new-messages-separator">
+          <span>New messages</span>
+        </div>
+      );
+    }
+
+    // Mesaj item — flat structure (hər mesaj ayrı Virtuoso item)
+    const { message: msg, isOwn, senderFullName, isFirstInGroup, isLastInGroup } = item;
+
+    // Own mesajlar — wrapper lazım deyil
+    if (isOwn) {
+      return (
+        <MessageBubble
+          msg={msg}
+          isOwn
+          showAvatar={isLastInGroup}
+          chatType={selectedChat.type}
+          selectMode={selectMode}
+          isSelected={selectedMessages.has(msg.id)}
+          onReply={handleReply}
+          onForward={handleForwardMsg}
+          onPin={handlePinMessage}
+          onFavorite={sidebar.handleFavoriteMessage}
+          onRemoveFavorite={sidebar.handleRemoveFavorite}
+          isFavorite={sidebar.favoriteIds.has(msg.id)}
+          onMarkLater={handleMarkLater}
+          readLaterMessageId={readLaterMessageId}
+          onSelect={handleEnterSelectMode}
+          onToggleSelect={handleToggleSelect}
+          onScrollToMessage={handleScrollToMessage}
+          onDelete={handleDeleteMsgAction}
+          onEdit={handleEditMsg}
+          onReaction={handleReaction}
+          onLoadReactionDetails={handleLoadReactionDetails}
+          onMentionClick={handleMentionClick}
+          onOpenImageViewer={handleOpenImageViewer}
+        />
+      );
+    }
+
+    // Non-own mesajlar — flat layout: avatar yalnız sonuncu mesajda, qalanlarında boşluq
+    return (
+      <div className={`sender-group-flat${isFirstInGroup ? " first-in-group" : ""}${isLastInGroup ? " has-avatar" : ""}`}>
+        {isLastInGroup ? (
+          <div className="sender-group-avatar" style={{ background: getAvatarColor(senderFullName) }}>
+            {getInitials(senderFullName)}
+          </div>
+        ) : (
+          <div className="sender-group-avatar-space" />
+        )}
+        <div className="sender-group-msg-wrap">
+          <MessageBubble
+            msg={msg}
+            isOwn={false}
+            showAvatar={isLastInGroup}
+            chatType={selectedChat.type}
+            selectMode={selectMode}
+            isSelected={selectedMessages.has(msg.id)}
+            onReply={handleReply}
+            onForward={handleForwardMsg}
+            onPin={handlePinMessage}
+            onFavorite={sidebar.handleFavoriteMessage}
+            onRemoveFavorite={sidebar.handleRemoveFavorite}
+            isFavorite={sidebar.favoriteIds.has(msg.id)}
+            onMarkLater={handleMarkLater}
+            readLaterMessageId={readLaterMessageId}
+            onSelect={handleEnterSelectMode}
+            onToggleSelect={handleToggleSelect}
+            onScrollToMessage={handleScrollToMessage}
+            onDelete={handleDeleteMsgAction}
+            onEdit={handleEditMsg}
+            onReaction={handleReaction}
+            onLoadReactionDetails={handleLoadReactionDetails}
+            onMentionClick={handleMentionClick}
+            onOpenImageViewer={handleOpenImageViewer}
+          />
+        </div>
+      </div>
+    );
+  }, [
+    selectedChat, selectMode, selectedMessages, readLaterMessageId,
+    handleReply, handleForwardMsg, handlePinMessage, handleMarkLater,
+    handleEnterSelectMode, handleToggleSelect, handleScrollToMessage,
+    handleDeleteMsgAction, handleEditMsg, handleReaction, handleLoadReactionDetails,
+    handleMentionClick, handleOpenImageViewer,
+    sidebar.handleFavoriteMessage, sidebar.handleRemoveFavorite, sidebar.favoriteIds,
+  ]);
+
   // --- JSX RENDER ---
   return (
     <div className="main-layout">
@@ -2543,9 +2776,6 @@ function Chat() {
                 searchOpen={search.showSearchPanel}
               />
 
-              {/* loadingOlder — yuxarı scroll edəndə köhnə mesajlar yüklənirkən spinner */}
-              {loadingOlder && <div className="loading-older" />}
-
               {/* PinnedBar — pinlənmiş mesajlar varsa compact bar göstər */}
               {pinnedMessages.length > 0 && (
                 <PinnedBar
@@ -2574,13 +2804,11 @@ function Chat() {
                 </div>
               )}
 
-              {/* messages-area — scroll container */}
-              <div
-                className={`messages-area${chatLoading ? " hidden-loading" : ""}`}
-                ref={messagesAreaRef}
-                onScroll={handleScroll} // useChatScroll-dan gəlir
-              >
-                {/* Floating date — scroll zamanı cari tarixi yuxarıda göstər */}
+              {/* messages-area — Virtuoso virtual scroll container */}
+              <div style={{ position: "relative", flex: 1, display: chatLoading ? "none" : "flex", flexDirection: "column" }}>
+                {/* Loading older — chat header-in altında sabit loading bar */}
+                {loadingOlder && <div className="loading-older" />}
+                {/* Floating date — Virtuoso-dan kənarda, absolute overlay */}
                 <div className="floating-date" ref={floatingDateRef} />
 
                 {/* Empty state — mesaj yoxdur və loading deyil */}
@@ -2596,125 +2824,48 @@ function Chat() {
                   </div>
                 )}
 
-                {/* senderRuns — separator-lar + sender qrupları */}
-                {senderRuns.map((run, runIdx) => {
-                  // Separator-lar (date, readLater, newMessages) — olduğu kimi render et
-                  if (run.type === "date") {
-                    return (
-                      <div key={`date-${runIdx}`} className="date-separator">
-                        <span>{run.label}</span>
-                      </div>
-                    );
-                  }
-                  if (run.type === "readLater") {
-                    return (
-                      <div key="read-later" className="read-later-separator">
-                        <span>Read later</span>
-                      </div>
-                    );
-                  }
-                  if (run.type === "newMessages") {
-                    return (
-                      <div key="new-messages" className="new-messages-separator">
-                        <span>New messages</span>
-                      </div>
-                    );
-                  }
-
-                  // Sender run — ardıcıl eyni-sender mesajları
-                  const { messages: runMsgs, isOwn, senderFullName } = run;
-                  const runKey = `${run.senderId}-${runMsgs[0].id}`;
-
-                  // Own mesajlar — wrapper lazım deyil, birbaşa render et
-                  if (isOwn) {
-                    return runMsgs.map((msg, msgIdx) => {
-                      const showAvatar = msgIdx === runMsgs.length - 1;
-                      return (
-                        <MessageBubble
-                          key={msg.id}
-                          msg={msg}
-                          isOwn
-                          showAvatar={showAvatar}
-                          chatType={selectedChat.type}
-                          selectMode={selectMode}
-                          isSelected={selectedMessages.has(msg.id)}
-                          onReply={handleReply}
-                          onForward={handleForwardMsg}
-                          onPin={handlePinMessage}
-                          onFavorite={sidebar.handleFavoriteMessage}
-                          onRemoveFavorite={sidebar.handleRemoveFavorite}
-                          isFavorite={sidebar.favoriteIds.has(msg.id)}
-                          onMarkLater={handleMarkLater}
-                          readLaterMessageId={readLaterMessageId}
-                          onSelect={handleEnterSelectMode}
-                          onToggleSelect={handleToggleSelect}
-                          onScrollToMessage={handleScrollToMessage}
-                          onDelete={handleDeleteMsgAction}
-                          onEdit={handleEditMsg}
-                          onReaction={handleReaction}
-                          onLoadReactionDetails={handleLoadReactionDetails}
-                          onMentionClick={handleMentionClick}
-                          onOpenImageViewer={handleOpenImageViewer}
-                        />
-                      );
-                    });
-                  }
-
-                  // Non-own mesajlar — sender-group wrapper + sticky avatar
-                  return (
-                    <div key={runKey} className="sender-group">
-                      {/* Sticky avatar — scroll zamanı qrupun daxilində aşağıda yapışıq qalır */}
-                      <div className="sender-group-avatar" style={{ background: getAvatarColor(senderFullName) }}>
-                        {getInitials(senderFullName)}
-                      </div>
-                      <div className="sender-group-messages">
-                        {runMsgs.map((msg, msgIdx) => {
-                          const showAvatar = msgIdx === runMsgs.length - 1;
-                          return (
-                            <MessageBubble
-                              key={msg.id}
-                              msg={msg}
-                              isOwn={false}
-                              showAvatar={showAvatar}
-                              chatType={selectedChat.type}
-                              selectMode={selectMode}
-                              isSelected={selectedMessages.has(msg.id)}
-                              onReply={handleReply}
-                              onForward={handleForwardMsg}
-                              onPin={handlePinMessage}
-                              onFavorite={sidebar.handleFavoriteMessage}
-                              onRemoveFavorite={sidebar.handleRemoveFavorite}
-                              isFavorite={sidebar.favoriteIds.has(msg.id)}
-                              onMarkLater={handleMarkLater}
-                              readLaterMessageId={readLaterMessageId}
-                              onSelect={handleEnterSelectMode}
-                              onToggleSelect={handleToggleSelect}
-                              onScrollToMessage={handleScrollToMessage}
-                              onDelete={handleDeleteMsgAction}
-                              onEdit={handleEditMsg}
-                              onReaction={handleReaction}
-                              onLoadReactionDetails={handleLoadReactionDetails}
-                              onMentionClick={handleMentionClick}
-                              onOpenImageViewer={handleOpenImageViewer}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* ChatStatusBar — mesajlarla birlikdə scroll edir */}
-                <ChatStatusBar
-                  selectedChat={selectedChat}
-                  messages={messages}
-                  userId={user.id}
-                  typingUsers={typingUsers}
-                  lastReadTimestamp={lastReadTimestamp}
-                  channelMembers={channelMembers}
-                  onOpenReadersPanel={setReadersPanel}
-                />
-                {/* messagesEndRef — ən alt boş div, scrollIntoView üçün hədəf */}
-                <div ref={messagesEndRef} style={{ minHeight: 1, flexShrink: 0 }} />
+                {flatItems.length > 0 && (
+                  <Virtuoso
+                    key={`${selectedChat?.id}-${virtuosoResetKey}`}
+                    ref={virtuosoRef}
+                    className="messages-area"
+                    data={flatItems}
+                    firstItemIndex={firstItemIndex}
+                    initialTopMostItemIndex={{ index: "LAST", align: "end" }}
+                    itemContent={renderFlatItem}
+                    computeItemKey={(_, item) =>
+                      item.type === "message" ? `msg-${item.message.id}`
+                      : item.type === "date" ? `date-${item.label}`
+                      : `${item.type}-${item.label || item.messageId || ""}`
+                    }
+                    followOutput={(isAtBottom) => isAtBottom ? "auto" : false}
+                    alignToBottom
+                    atBottomThreshold={50}
+                    /* startReached/endReached SİLİNDİ — scroll event listener əvəz edir
+                       (az senderRun item olduqda Virtuoso callback-ları etibarsızdır) */
+                    isScrolling={handleIsScrolling}
+                    rangeChanged={handleRangeChanged}
+                    atBottomStateChange={handleAtBottomStateChange}
+                    scrollerRef={handleScrollerRef}
+                    overscan={{ main: 800, reverse: 800 }}
+                    components={{
+                      Footer: () => (
+                        <>
+                          <ChatStatusBar
+                            selectedChat={selectedChat}
+                            messages={messages}
+                            userId={user.id}
+                            typingUsers={typingUsers}
+                            lastReadTimestamp={lastReadTimestamp}
+                            channelMembers={channelMembers}
+                            onOpenReadersPanel={setReadersPanel}
+                          />
+                          <div ref={messagesEndRef} style={{ minHeight: 1, flexShrink: 0 }} />
+                        </>
+                      ),
+                    }}
+                  />
+                )}
               </div>
 
               {/* Scroll-to-bottom butonu — 1 viewport yuxarı scroll olunduqda görünür */}

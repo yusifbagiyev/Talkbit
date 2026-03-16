@@ -1264,7 +1264,12 @@
    =================================== */
 
 .loading-older {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 3px;
+  z-index: 6;
   flex-shrink: 0;
   background: linear-gradient(
     90deg,
@@ -1337,10 +1342,16 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 16px;
+  /* Virtuoso viewport absolute-dır — horizontal padding item-lərə köçürülüb */
+  padding: 12px 0;
+}
+
+/* Virtuoso hər item-ı öz wrapper div-inə qoyur —
+   flex container + horizontal padding (əvvəl messages-area-da idi) */
+.messages-area [data-item-index] {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  padding: 0 16px;
 }
 
 .messages-area::-webkit-scrollbar {
@@ -1378,12 +1389,13 @@
 }
 
 /* Scroll zamanı cari tarixi göstərən sabit indicator */
-/* textContent JS-dən doldurulur (useChatScroll) — re-render yoxdur */
+/* textContent JS-dən doldurulur (Virtuoso rangeChanged) — re-render yoxdur */
 .floating-date {
-  position: sticky;
+  position: absolute;
   top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 5;
-  align-self: center;
   background: rgba(126, 161, 182, 0.55);
   color: var(--white);
   font-size: 12px;
@@ -1550,21 +1562,21 @@
   padding-left: 66px;
 }
 
-/* İlk mesajdan əvvəl boşluq — sender-group başlanğıcı */
-.sender-group {
-  margin-top: 8px;
-}
-
-/* ─── Sender Group — ardıcıl eyni-sender mesajlarını sarır ─── */
-/* Flexbox: avatar solda (sticky), mesajlar sağda */
-.sender-group {
+/* ─── Sender Group Flat — hər mesaj ayrı Virtuoso item (flat layout) ─── */
+/* Avatar yalnız qrupun sonuncu mesajında görünür, qalanlarında boş yer saxlanır */
+.sender-group-flat {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 6px;
   max-width: 75%;
 }
 
-/* Sticky avatar — sender-group daxilində scroll zamanı aşağıda yapışıq qalır */
+/* Qrupun ilk mesajı — yeni sender qrupu başlayır */
+.sender-group-flat.first-in-group {
+  margin-top: 8px;
+}
+
+/* Avatar — qrupun sonuncu mesajında göstərilir */
 .sender-group-avatar {
   width: 42px;
   height: 42px;
@@ -1576,22 +1588,24 @@
   color: var(--white);
   font-size: 14px;
   font-weight: 600;
-  position: sticky;
-  bottom: 8px;
-  align-self: flex-end;
   flex-shrink: 0;
 }
 
-/* Sender group mesaj sütunu */
-.sender-group-messages {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+/* Avatar boşluğu — avatar olmayan mesajlarda eyni indenti saxlamaq üçün */
+.sender-group-avatar-space {
+  width: 42px;
+  min-width: 42px;
+  flex-shrink: 0;
 }
 
-/* Sender-group daxilindəki message-row — parent artıq genişliyi idarə edir */
-.sender-group .message-row {
+/* Mesaj sarğısı — flex-1 ilə qalan yeri tutur */
+.sender-group-msg-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Flat sender-group daxilindəki message-row — parent genişliyi idarə edir */
+.sender-group-flat .message-row {
   max-width: 100%;
 }
 
