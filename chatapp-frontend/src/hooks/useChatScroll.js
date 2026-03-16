@@ -54,6 +54,7 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
 
     loadingMoreRef.current = true;
     setLoadingOlder(true);
+    const loadStart = Date.now();
 
     try {
       const olderMessages = await apiGet(endpoint);
@@ -85,6 +86,12 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         hasMoreRef.current = false;
       }
     } finally {
+      // Minimum 400ms göstər — loading bar-ın CSS transition ilə görünməsini təmin et
+      const elapsed = Date.now() - loadStart;
+      const minDuration = 400;
+      if (elapsed < minDuration) {
+        await new Promise((r) => setTimeout(r, minDuration - elapsed));
+      }
       loadingMoreRef.current = false;
       setLoadingOlder(false);
     }

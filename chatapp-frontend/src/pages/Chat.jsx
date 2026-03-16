@@ -988,6 +988,9 @@ function Chat() {
   }, []);
 
   // handleMentionClick — mesajdakı mention-a klik (conversation-a keçid)
+  // Ref pattern — conversations dəyişəndə renderFlatItem yenidən yaranmasın
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
   const handleMentionClick = useCallback((m) => {
     if (m.isAll) {
       if (selectedChat?.type === 1) {
@@ -998,16 +1001,17 @@ function Chat() {
       }
       return;
     }
-    const channelConv = conversations.find((c) => c.type === 1 && c.id === m.userId);
+    const convs = conversationsRef.current;
+    const channelConv = convs.find((c) => c.type === 1 && c.id === m.userId);
     if (channelConv) { handleSelectChat(channelConv); return; }
-    const existing = conversations.find((c) => c.type === 0 && c.otherUserId === m.userId);
+    const existing = convs.find((c) => c.type === 0 && c.otherUserId === m.userId);
     if (existing) { handleSelectChat(existing); }
     else {
-      const deptUser = conversations.find((c) => c.type === 2 && (c.otherUserId === m.userId || c.userId === m.userId));
+      const deptUser = convs.find((c) => c.type === 2 && (c.otherUserId === m.userId || c.userId === m.userId));
       if (deptUser) handleSelectChat(deptUser);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, selectedChat]);
+  }, [selectedChat]);
 
   // ─── Search panel handler-ləri (state useSearchPanel hook-unda) ──────────────
 
@@ -2399,11 +2403,14 @@ function Chat() {
   }, [sidebar.fileMessages]);
 
   // handleOpenImageViewer — MessageBubble-dan çağırılır, şəkil klikləndikdə
+  // Ref pattern — imageMessages dəyişəndə renderFlatItem yenidən yaranmasın
+  const imageMessagesRef = useRef(imageMessages);
+  imageMessagesRef.current = imageMessages;
   const handleOpenImageViewer = useCallback((msgId) => {
-    const idx = imageMessages.findIndex(img => img.id === msgId);
+    const idx = imageMessagesRef.current.findIndex(img => img.id === msgId);
     if (idx === -1) return;
     setImageViewer({ currentIndex: idx });
-  }, [imageMessages]);
+  }, []);
 
   const handleImageViewerNavigate = useCallback((newIndex) => {
     setImageViewer(prev => prev ? { ...prev, currentIndex: newIndex } : null);
