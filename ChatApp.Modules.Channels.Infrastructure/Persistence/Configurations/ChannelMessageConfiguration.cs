@@ -72,6 +72,14 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Configurations
                 .HasColumnType("timestamp with time zone")
                 .IsRequired();
 
+            builder.Property(m => m.ReplyToMessageId)
+                .HasColumnName("reply_to_message_id");
+
+            builder.Property(m => m.IsForwarded)
+                .HasColumnName("is_forwarded")
+                .IsRequired()
+                .HasDefaultValue(false);
+
             // Indexes for performance
             builder.HasIndex(m => m.ChannelId)
                 .HasDatabaseName("ix_channel_messages_channel_id");

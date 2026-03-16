@@ -287,10 +287,16 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Migrations
                         .HasColumnName("is_edited");
 
                     b.Property<bool>("IsForwarded")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_forwarded");
 
                     b.Property<bool>("IsPinned")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_pinned");
 
                     b.Property<bool>("IsRead")
                         .ValueGeneratedOnAdd()
@@ -299,10 +305,12 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Migrations
                         .HasColumnName("is_read");
 
                     b.Property<DateTime?>("PinnedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pinned_at_utc");
 
                     b.Property<Guid?>("PinnedBy")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("pinned_by");
 
                     b.Property<DateTime?>("ReadAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -313,7 +321,8 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Migrations
                         .HasColumnName("receiver_id");
 
                     b.Property<Guid?>("ReplyToMessageId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("reply_to_message_id");
 
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid")

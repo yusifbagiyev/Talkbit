@@ -73,6 +73,26 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Configuratio
                 .HasColumnType("timestamp with time zone")
                 .IsRequired();
 
+            builder.Property(m => m.ReplyToMessageId)
+                .HasColumnName("reply_to_message_id");
+
+            builder.Property(m => m.IsForwarded)
+                .HasColumnName("is_forwarded")
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            builder.Property(m => m.IsPinned)
+                .HasColumnName("is_pinned")
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            builder.Property(m => m.PinnedAtUtc)
+                .HasColumnName("pinned_at_utc")
+                .HasColumnType("timestamp with time zone");
+
+            builder.Property(m => m.PinnedBy)
+                .HasColumnName("pinned_by");
+
             // Indexes for performance
             builder.HasIndex(m => m.ConversationId)
                 .HasDatabaseName("ix_direct_messages_conversation_id");
