@@ -24,6 +24,9 @@ export default function useChatSignalR(
   setPinnedMessages,  // Pinlənmiş mesajlar array-ı
   setCurrentPinIndex, // Pin bar-dakı aktiv index
   setLastReadTimestamp, // DM mesajın oxunma vaxtı — { [chatId]: Date }
+  onCheckUploadCompletion, // Upload manager — real mesaj gəldikdə upload task-ı silmək üçün
+  scrollerRef,            // Scroll container ref — reaction height compensation üçün
+  showScrollDownRef,      // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
 ) {
   // useEffect — komponentin mount olduğunda 1 dəfə işləyir
   // [userId] — dependency array: yalnız userId dəyişəndə yenidən işləyir
@@ -37,6 +40,11 @@ export default function useChatSignalR(
     //   1. Əgər bu conversation açıqdırsa — messages state-ə əlavə et
     //   2. Conversation list-dəki son mesajı yenilə
     function handleNewDirectMessage(message) {
+      // Upload task-ı sil — real mesaj gəldi, optimistic upload mesajını əvəz edir
+      if (message.fileId && onCheckUploadCompletion) {
+        onCheckUploadCompletion(message.fileId);
+      }
+
       setSelectedChat((current) => {
         if (
           current &&
@@ -124,6 +132,11 @@ export default function useChatSignalR(
     // ─── handleNewChannelMessage ───────────────────────────────────────────────
     // handleNewDirectMessage-ın Channel versiyası (type === 1)
     function handleNewChannelMessage(message) {
+      // Upload task-ı sil — real mesaj gəldi, optimistic upload mesajını əvəz edir
+      if (message.fileId && onCheckUploadCompletion) {
+        onCheckUploadCompletion(message.fileId);
+      }
+
       setSelectedChat((current) => {
         if (current && current.type === 1 && current.id === message.channelId) {
           setMessages((prev) => {
@@ -371,12 +384,29 @@ export default function useChatSignalR(
     // ─── handleReactionsUpdated ───────────────────────────────────────────────
     // Reaction əlavə/siliندə — o mesajın reactions array-ını yenilə
     // data: { messageId, reactions: [{ emoji, count, userFullNames }] }
+    // Scroll compensation: reaction height dəyişdikdə scroll pozulmasın
+    // Yalnız aşağıya yaxın olduqda (scroll-to-bottom butonu yoxdursa) compensation tətbiq olunur
     function handleReactionsUpdated(data) {
+      const needsCompensation = !showScrollDownRef?.current;
+      const scroller = needsCompensation ? scrollerRef?.current : null;
+      const scrollHeightBefore = scroller?.scrollHeight;
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === data.messageId ? { ...m, reactions: data.reactions } : m,
         ),
       );
+
+      if (needsCompensation) {
+        requestAnimationFrame(() => {
+          if (scroller && scrollHeightBefore != null) {
+            const delta = scroller.scrollHeight - scrollHeightBefore;
+            if (delta > 0) {
+              scroller.scrollTop += delta;
+            }
+          }
+        });
+      }
     }
 
     // ─── handleMessagePinned ──────────────────────────────────────────────────

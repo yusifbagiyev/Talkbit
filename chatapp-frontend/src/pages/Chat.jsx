@@ -129,6 +129,9 @@ function Chat() {
   const highlightTimerRef = useRef(null);
   const handleSendMessageRef = useRef(null);
 
+  // showScrollDownRef — scroll-to-bottom buton görünürmü (ref — stale closure yoxdur)
+  const showScrollDownRef = useRef(false);
+
   // ─── Conversation Cache — chat dəyişəndə blank screen əvəzinə cache-dən göstər ───
   // Map<chatId, { messages, pinnedMessages, hasMore, hasMoreDown, timestamp }>
   const messageCacheRef = useRef(new Map());
@@ -336,6 +339,9 @@ function Chat() {
     setPinnedMessages,
     setCurrentPinIndex,
     setLastReadTimestamp,
+    uploadManager.checkForCompletion, // Upload task-ı sil — real mesaj gəldikdə
+    messagesAreaRef, // Scroll container — reaction scroll compensation üçün
+    showScrollDownRef, // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
   );
 
   // ─── Network / Connection State Effect ──────────────────────────────────────
@@ -388,37 +394,51 @@ function Chat() {
     const currentUploads = uploadManager.getUploadsForChat(selectedChat?.id);
     if (currentUploads.length === 0) return messages;
 
+    // "sent" statuslu task-lar üçün: real mesaj artıq messages-dədirsə göstərmə
+    // (SignalR echo gəlib, amma checkForCompletion hələ çağırılmayıb — dublikat qoruması)
+    const messageFileIds = new Set(messages.map((m) => m.fileId).filter(Boolean));
+
     // Upload task → optimistic mesaj formatına çevir
-    const uploadMsgs = currentUploads.map((task) => ({
-      id: task.tempId,
-      content: task.text || "",
-      senderId: user?.id,
-      senderFullName: user?.fullName || "",
-      senderAvatarUrl: user?.avatarUrl || null,
-      createdAtUtc: task.createdAtUtc,
-      isRead: true,
-      isEdited: false,
-      isDeleted: false,
-      isPinned: false,
-      status: 0, // Pending (clock icon)
-      reactions: [],
-      fileUrl: task.previewUrl, // local Object URL (şəkillər üçün)
-      fileContentType: task.fileContentType,
-      fileName: task.fileName,
-      fileSizeInBytes: task.fileSizeInBytes,
-      fileId: task.fileId || null,
-      replyToMessageId: task.replyToMessageId,
-      replyToContent: task.replyToContent,
-      replyToSenderFullName: task.replyToSenderFullName,
-      // Upload-specific flag-lar (MessageBubble overlay üçün)
-      _optimistic: true,
-      _uploading: true,
-      _uploadStatus: task.status, // "uploading" | "sending" | "failed"
-      _uploadProgress: task.totalBytes > 0 ? task.uploadedBytes / task.totalBytes : 0,
-      _uploadedBytes: task.uploadedBytes,
-      _totalBytes: task.totalBytes,
-      _uploadTempId: task.tempId,
-    }));
+    const uploadMsgs = currentUploads
+      .filter((task) => {
+        // Sent statuslu task-ın fileId-si artıq messages-dədirsə → dublikatdır, göstərmə
+        if (task.status === "sent" && task.fileId && messageFileIds.has(task.fileId)) return false;
+        return true;
+      })
+      .map((task) => ({
+        id: task.tempId,
+        content: task.text || "",
+        senderId: user?.id,
+        senderFullName: user?.fullName || "",
+        senderAvatarUrl: user?.avatarUrl || null,
+        createdAtUtc: task.createdAtUtc,
+        isRead: true,
+        isEdited: false,
+        isDeleted: false,
+        isPinned: false,
+        status: task.status === "sent" ? 1 : 0, // sent → checkmark, qalanları → clock
+        reactions: [],
+        fileUrl: task.previewUrl, // local Object URL (şəkillər üçün)
+        fileContentType: task.fileContentType,
+        fileName: task.fileName,
+        fileSizeInBytes: task.fileSizeInBytes,
+        fileId: task.fileId || null,
+        fileWidth: task.fileWidth || null,   // Lokal ölçülər → layout shift yox
+        fileHeight: task.fileHeight || null,
+        replyToMessageId: task.replyToMessageId,
+        replyToContent: task.replyToContent,
+        replyToSenderFullName: task.replyToSenderFullName,
+        // Upload-specific flag-lar (MessageBubble overlay üçün)
+        _optimistic: true,
+        _uploading: task.status !== "sent", // "sent" → normal görünüş (overlay yox)
+        _uploadStatus: task.status,
+        _uploadProgress: task.totalBytes > 0 ? task.uploadedBytes / task.totalBytes : 0,
+        _uploadedBytes: task.uploadedBytes,
+        _totalBytes: task.totalBytes,
+        _uploadTempId: task.tempId,
+      }));
+
+    if (uploadMsgs.length === 0) return messages;
 
     // Upload mesajları ən yeni — DESC sırada əvvələ əlavə et
     return [...uploadMsgs, ...messages];
@@ -2537,9 +2557,28 @@ function Chat() {
       const prevReactions = msg.reactions;
       // Optimistic — dərhal göstər
       const optimistic = computeOptimisticReactions(prevReactions, emoji, user.id, user.fullName);
+
+      // Scroll compensation — yalnız aşağıya yaxın olduqda (scroll-to-bottom butonu yoxdursa)
+      // reaction yuxarıya genişlənsin. Yuxarıya scroll olunubsa (buton varsa) → normal aşağıya genişlənsin.
+      const needsCompensation = !showScrollDownRef.current;
+      const scroller = needsCompensation ? messagesAreaRef.current : null;
+      const scrollHeightBefore = scroller?.scrollHeight;
+
       setMessages((prev) =>
         prev.map((m) => (m.id === msg.id ? { ...m, reactions: optimistic } : m)),
       );
+
+      // DOM yeniləndikdən sonra scroll pozisiyasını kompensasiya et
+      if (needsCompensation) {
+        requestAnimationFrame(() => {
+          if (scroller && scrollHeightBefore != null) {
+            const delta = scroller.scrollHeight - scrollHeightBefore;
+            if (delta > 0) {
+              scroller.scrollTop += delta;
+            }
+          }
+        });
+      }
 
       try {
         // DM → PUT, Channel → POST (backend API fərqi)
@@ -2655,9 +2694,6 @@ function Chat() {
   // Throttle: 80ms — sürətli scroll zamanı da tez cavab vermək üçün
   const scrollListenerRef = useRef(null);
   const scrollThrottleRef = useRef(false);
-  // showScrollDownRef — scroll listener-dən setShowScrollDown çağırmaq üçün
-  // (listener ref-based-dir, yalnız 1 dəfə yaradılır — state setter closure-da qalmalıdır)
-  const showScrollDownRef = useRef(false);
   if (!scrollListenerRef.current) {
     const THRESHOLD = 800;
     scrollListenerRef.current = () => {

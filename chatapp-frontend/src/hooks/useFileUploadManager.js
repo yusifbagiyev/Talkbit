@@ -14,6 +14,28 @@ import { getChatEndpoint } from "../utils/chatUtils";
 // ─── Constants ──────────────────────────────────────────────────────────────
 const PROGRESS_THROTTLE_MS = 100; // Re-render throttle (max 10/s)
 
+// ─── readImageDimensions — lokal şəkil ölçülərini oxu ──────────────────────
+// Layout shift-in qarşısını almaq üçün: upload zamanı container eyni ölçüdə olur
+function readImageDimensions(file) {
+  return new Promise((resolve) => {
+    if (!file.type?.startsWith("image/")) {
+      resolve({ width: null, height: null });
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      resolve({ width: null, height: null });
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+}
+
 // ─── useFileUploadManager ───────────────────────────────────────────────────
 export default function useFileUploadManager(user) {
   // useRef — async callback-larda stale closure problemi olmadan Map-ə çatmaq üçün
@@ -97,16 +119,28 @@ export default function useFileUploadManager(user) {
         ...(task.mentions?.length > 0 ? { mentions: task.mentions } : {}),
       });
 
-      // 3. Tamamlandı — SignalR echo gəldikdə real mesaj əvəz edəcək
+      // 3. Mesaj göndərildi — "sent" statusuna keç
+      // Upload mesajını SİLMƏ — SignalR echo gələnə qədər görünməyə davam etsin
+      // SignalR echo gəldikdə useChatSignalR prev.filter(m => !m._optimistic) ilə
+      // messages state-dən silir, amma upload mesajları messagesWithUploads-dadır.
+      // Ona görə burada "sent" status-u qoyuruq — upload overlay silinir,
+      // mesaj normal görünür. SignalR echo real mesajı gətirəndə checkForCompletion
+      // (Chat.jsx-dən çağırılan) upload task-ı silir.
       const t2 = map.get(task.tempId);
       if (t2) {
-        t2.status = "completed";
+        t2.status = "sent";
+        t2.uploadedBytes = t2.totalBytes; // progress 100%
         syncImmediate();
-        // 2 saniyə sonra təmizlə (SignalR echo-ya vaxt ver)
+        // Fallback: 5 saniyə sonra hələ silinməyibsə, sil
+        // (SignalR echo gəlməsə belə istifadəçi stuck qalmasın)
         setTimeout(() => {
-          map.delete(task.tempId);
-          syncImmediate();
-        }, 2000);
+          const remaining = map.get(task.tempId);
+          if (remaining) {
+            if (remaining.previewUrl) URL.revokeObjectURL(remaining.previewUrl);
+            map.delete(task.tempId);
+            syncImmediate();
+          }
+        }, 5000);
       }
     } catch (err) {
       if (err?.name === "AbortError") {
@@ -129,14 +163,20 @@ export default function useFileUploadManager(user) {
 
   // ─── startUpload — faylları upload etməyə başla ──────────────────────────
   // FilePreviewPanel-dən send basıldıqda çağırılır
-  const startUpload = useCallback((files, chatId, chatType, text, replyTo, mentions) => {
+  const startUpload = useCallback(async (files, chatId, chatType, text, replyTo, mentions) => {
     const map = uploadsRef.current;
     const tempIds = [];
+
+    // Şəkil ölçülərini paralel oxu (layout shift-in qarşısını almaq üçün)
+    const dimensionResults = await Promise.all(
+      files.map((file) => readImageDimensions(file)),
+    );
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const tempId = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${i}`;
       const isImage = file.type?.startsWith("image/");
+      const dims = dimensionResults[i];
 
       const task = {
         tempId,
@@ -147,6 +187,8 @@ export default function useFileUploadManager(user) {
         fileName: file.name,
         fileSizeInBytes: file.size,
         fileContentType: file.type || "",
+        fileWidth: dims.width,    // Lokal şəkil ölçüsü → layout shift yox
+        fileHeight: dims.height,
         // Yalnız ilk fayl text və reply daşıyır
         text: i === 0 ? (text || "") : "",
         replyToMessageId: i === 0 ? (replyTo?.id || null) : null,
@@ -208,11 +250,27 @@ export default function useFileUploadManager(user) {
   const getUploadsForChat = useCallback((chatId) => {
     if (!chatId) return [];
     return uploadTasks.filter(
-      (t) => t.chatId === chatId && t.status !== "completed" && t.status !== "cancelled",
+      (t) => t.chatId === chatId && t.status !== "cancelled",
     );
   }, [uploadTasks]);
 
-  // ─── removeUpload — task-ı sil (SignalR echo gəldikdə) ───────────────────
+  // ─── checkForCompletion — real mesaj gəldikdə upload task-ı sil ──────────
+  // SignalR echo gəlir → real mesaj messages-ə əlavə olunur → bu funksiya çağırılır
+  // fileId ilə uyğun upload task-ı tapıb silir (flash-sız keçid)
+  const checkForCompletion = useCallback((incomingFileId) => {
+    if (!incomingFileId) return;
+    const map = uploadsRef.current;
+    for (const [tempId, task] of map) {
+      if (task.fileId === incomingFileId && (task.status === "sent" || task.status === "sending")) {
+        if (task.previewUrl) URL.revokeObjectURL(task.previewUrl);
+        map.delete(tempId);
+        syncImmediate();
+        return;
+      }
+    }
+  }, [syncImmediate]);
+
+  // ─── removeUpload — task-ı sil ───────────────────────────────────────────
   const removeUpload = useCallback((tempId) => {
     const map = uploadsRef.current;
     const task = map.get(tempId);
@@ -228,5 +286,6 @@ export default function useFileUploadManager(user) {
     retryUpload,
     getUploadsForChat,
     removeUpload,
+    checkForCompletion,
   };
 }
