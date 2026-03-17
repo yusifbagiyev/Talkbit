@@ -99,7 +99,9 @@
       "Bash(npx vite:*)",
       "Bash(find C:UsersybaghiyevDesktopChatAppchatapp-frontend/src -type f \\\\\\(-name *.jsx -o -name *.js -o -name *.tsx -o -name *.ts -o -name *.css -o -name *.scss \\\\\\))",
       "Bash(find C:UsersybaghiyevDesktopChatAppchatapp-frontend/src -type f \\\\\\(-name *.jsx -o -name *.js -o -name *.tsx -o -name *.ts -o -name *.css -o -name *.scss \\\\\\) -exec wc -l {} +)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Read(//mnt/c/Users/ybaghiyev/Desktop/ChatApp/chatapp-frontend/**)",
+      "Read(//mnt/c/Users/ybaghiyev/Desktop/**)"
     ],
     "deny": [],
     "ask": []

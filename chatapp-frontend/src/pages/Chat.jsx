@@ -310,8 +310,19 @@ function Chat() {
     } catch { /* ignore */ }
   }, []);
 
+  // Upload-dan sonra ConversationList statusunu "Sent" et — DM ilə eyni davranış
+  const handleUploadMessageSent = useCallback((chatId) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === chatId && c.lastMessageStatus === "Pending"
+          ? { ...c, lastMessageStatus: "Sent" }
+          : c,
+      ),
+    );
+  }, []);
+
   // useFileUploadManager — global upload manager (progress, cancel, retry)
-  const uploadManager = useFileUploadManager(user, handleUploadFallbackReload);
+  const uploadManager = useFileUploadManager(user, handleUploadFallbackReload, handleUploadMessageSent);
 
   // useSidebarPanels — sidebar panel state + məntiq
   const sidebar = useSidebarPanels(selectedChat, messages, channelMembers, setChannelMembers);
@@ -2001,10 +2012,33 @@ function Chat() {
     const mirror = document.querySelector(".message-input-mirror");
     if (mirror) mirror.style.height = "auto";
 
-    // 3. Upload manager-ə ver — async olaraq upload + mesaj göndərmə
-    uploadManager.startUpload(files, chatId, chatType, text, currentReply, mentionsToSend);
+    // 3. ConversationList-də dərhal göstər + başa gətir
+    const now = new Date().toISOString();
+    const firstFileName = files[0]?.name || "Fayl";
+    setConversations((prev) => {
+      const updated = prev.map((c) =>
+        c.id === chatId
+          ? {
+              ...c,
+              lastMessage: text || `📎 ${firstFileName}`,
+              lastMessageAtUtc: now,
+              lastMessageSenderId: user.id,
+              lastMessageStatus: "Pending",
+            }
+          : c,
+      );
+      const idx = updated.findIndex((c) => c.id === chatId);
+      if (idx > 0) {
+        const [item] = updated.splice(idx, 1);
+        updated.unshift(item);
+      }
+      return updated;
+    });
 
-    // 4. Aşağı scroll et
+    // 4. Upload manager-ə ver — await et ki, upload task yaransın, sonra scroll et
+    await uploadManager.startUpload(files, chatId, chatType, text, currentReply, mentionsToSend);
+
+    // 5. Aşağı scroll et — upload task artıq messagesWithUploads-dadır
     setShouldScrollBottom(true);
   }
 

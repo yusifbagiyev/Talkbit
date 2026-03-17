@@ -37,11 +37,13 @@ function readImageDimensions(file) {
 }
 
 // ─── useFileUploadManager ───────────────────────────────────────────────────
-export default function useFileUploadManager(user, onFallbackReload) {
+export default function useFileUploadManager(user, onFallbackReload, onMessageSent) {
   // useRef — async callback-larda stale closure problemi olmadan Map-ə çatmaq üçün
   const uploadsRef = useRef(new Map());
   const onFallbackReloadRef = useRef(onFallbackReload);
   onFallbackReloadRef.current = onFallbackReload; // stale closure qorunması
+  const onMessageSentRef = useRef(onMessageSent);
+  onMessageSentRef.current = onMessageSent; // stale closure qorunması
   // useState — re-render trigger üçün (uploadTasks dəyişdikdə UI yenilənir)
   const [uploadTasks, setUploadTasks] = useState([]);
   // Throttle üçün son update vaxtı
@@ -133,17 +135,28 @@ export default function useFileUploadManager(user, onFallbackReload) {
         t2.status = "sent";
         t2.uploadedBytes = t2.totalBytes; // progress 100%
         syncImmediate();
-        // Fallback 1: 8 saniyə sonra — SignalR echo gəlməyibsə mesajları reload et
-        // Upload task-ı SİLMƏ — reload-dan sonra checkForCompletion düzgün işləyəcək
+
+        // ConversationList-də statusu "Sent" et — DM ilə eyni davranış
+        onMessageSentRef.current?.(task.chatId, task.chatType);
+
+        // Dərhal mesajları reload et — SignalR echo-ya bel bağlama
+        // 1 saniyə gözlə ki, server mesajı DB-ə yazıb bitirsin
         setTimeout(() => {
           const remaining = map.get(task.tempId);
           if (remaining && remaining.status === "sent") {
-            // Mesajları reload et — SignalR echo miss olub
+            onFallbackReloadRef.current?.(task.chatId, task.chatType);
+          }
+        }, 1000);
+
+        // Fallback: 8 saniyə sonra — hələ "sent" statusundadırsa yenidən reload et
+        setTimeout(() => {
+          const remaining = map.get(task.tempId);
+          if (remaining && remaining.status === "sent") {
             onFallbackReloadRef.current?.(task.chatId, task.chatType);
           }
         }, 8000);
 
-        // Fallback 2: 15 saniyə sonra — hələ silinməyibsə təmizlə (safety net)
+        // Safety net: 15 saniyə sonra — hələ silinməyibsə təmizlə
         setTimeout(() => {
           const remaining = map.get(task.tempId);
           if (remaining) {

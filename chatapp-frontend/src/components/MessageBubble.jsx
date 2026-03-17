@@ -473,7 +473,8 @@ const MessageBubble = memo(function MessageBubble({
           ) : (
             <>
               {/* Fayl/şəkil — mətn-dən ƏVVƏL render olunur */}
-              {(msg.fileUrl || msg._uploading) &&
+              {/* fileUrl: server URL, _uploading: upload davam edir, fileName: upload bitib amma echo gəlməyib */}
+              {(msg.fileUrl || msg._uploading || msg.fileName) &&
                 (msg.fileContentType?.startsWith("image/") ? (
                   // Şəkil — Bitrix24 style: shimmer placeholder → fade-in
                   <div
@@ -552,7 +553,7 @@ const MessageBubble = memo(function MessageBubble({
                     className={`bubble-file-card${msg._uploading ? " uploading" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!msg._uploading) downloadFile(msg.fileId, msg.fileName, msg.fileUrl);
+                      if (!msg._uploading && msg.fileUrl) downloadFile(msg.fileId, msg.fileName, msg.fileUrl);
                     }}
                     role="button"
                     tabIndex={0}
@@ -602,7 +603,7 @@ const MessageBubble = memo(function MessageBubble({
                             : formatFileSize(msg.fileSizeInBytes)}
                       </span>
                     </div>
-                    {!msg._uploading && (
+                    {!msg._uploading && msg.fileUrl && (
                       <div className="bubble-file-download">
                         <svg
                           width="20"
