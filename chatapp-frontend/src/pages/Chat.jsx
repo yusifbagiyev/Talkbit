@@ -567,13 +567,15 @@ function Chat() {
           const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
           if (target) {
             if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+            // Class sil → 1 frame gözlə → class əlavə et → animation restart
             target.classList.remove("highlight-message");
-            void target.offsetWidth;
-            target.classList.add("highlight-message");
-            highlightTimerRef.current = setTimeout(() => {
-              target.classList.remove("highlight-message");
-              highlightTimerRef.current = null;
-            }, HIGHLIGHT_DURATION_MS);
+            requestAnimationFrame(() => {
+              target.classList.add("highlight-message");
+              highlightTimerRef.current = setTimeout(() => {
+                target.classList.remove("highlight-message");
+                highlightTimerRef.current = null;
+              }, HIGHLIGHT_DURATION_MS);
+            });
           }
         });
       });
@@ -2254,20 +2256,23 @@ function Chat() {
       if (targetIndex !== undefined) {
         // Var — scrollToIndex ilə scroll et + highlight (DATA ARRAY INDEX istifadə olunur)
         virtuosoRef.current?.scrollToIndex({ index: targetIndex, align: "center", behavior: "auto" });
-        // Render-dən sonra highlight et
+        // Render-dən sonra highlight et (Virtuoso scroll bitsin)
         setTimeout(() => {
           const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
           if (target) {
             if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
-            // Eyni mesaja təkrar klik — class artıq varsa animasiya yenidən başlamır.
-            // Əvvəl sil, reflow məcbur et, sonra əlavə et → animasiya hər dəfə restart olur.
+            // Eyni mesaja təkrar klik — animasiya yenidən başlamalıdır.
+            // Class sil → 1 frame gözlə → class əlavə et → animation restart garantiya olunur.
             target.classList.remove("highlight-message");
-            void target.offsetWidth;
-            target.classList.add("highlight-message");
-            highlightTimerRef.current = setTimeout(() => {
-              target.classList.remove("highlight-message");
-              highlightTimerRef.current = null;
-            }, HIGHLIGHT_DURATION_MS);
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                target.classList.add("highlight-message");
+                highlightTimerRef.current = setTimeout(() => {
+                  target.classList.remove("highlight-message");
+                  highlightTimerRef.current = null;
+                }, HIGHLIGHT_DURATION_MS);
+              });
+            });
           }
         }, 300);
         return;

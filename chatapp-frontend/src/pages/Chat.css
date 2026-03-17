@@ -1351,6 +1351,8 @@
   overflow-x: hidden;
   /* Virtuoso viewport absolute-dır — horizontal padding item-lərə köçürülüb */
   padding: 12px 0;
+  /* Smooth native scroll — iOS/macOS momentum scroll + deceleration hissi */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Virtuoso hər item-ı öz wrapper div-inə qoyur —
@@ -1361,18 +1363,28 @@
   padding: 0 16px;
 }
 
+/* ─── Scrollbar — modern, incə, hover-da görünür ─── */
 .messages-area::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+}
+
+.messages-area::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .messages-area::-webkit-scrollbar-thumb {
   background: transparent;
-  border-radius: 3px;
-  transition: background 0.3s;
+  border-radius: 4px;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
 }
 
 .messages-area.scrolling::-webkit-scrollbar-thumb {
-  background: #FFFFFF;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.messages-area:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* ===================================
@@ -1819,10 +1831,13 @@
 
 @keyframes messageHighlight {
   0% {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(0, 172, 227, 0.18);
   }
-  70% {
-    background: rgba(0, 0, 0, 0.1);
+  15% {
+    background: rgba(0, 172, 227, 0.22);
+  }
+  50% {
+    background: rgba(0, 172, 227, 0.12);
   }
   100% {
     background: transparent;
