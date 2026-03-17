@@ -29,8 +29,6 @@ let stopRequested = false;
 let retryTimerId = null;
 
 // ─── Tab bağlananda bağlantını təmiz bağla ──────────────────────────────────
-// beforeunload: tab/window bağlananda fire olur
-// Bu olmasa onclose handler retry loop davam edər — memory leak
 window.addEventListener("beforeunload", () => {
   stopRequested = true;
   if (retryTimerId) {
@@ -40,6 +38,20 @@ window.addEventListener("beforeunload", () => {
   if (connection) {
     connection.stop();
   }
+});
+
+// ─── Internet geri gələndə dərhal reconnect et ──────────────────────────────
+// Browser "online" event-i: WiFi/ethernet bərpa olunduqda fire olur
+// scheduleRetry 5s gözləyir — bu event dərhal yenidən cəhd edir
+window.addEventListener("online", () => {
+  if (stopRequested) return;
+  if (connection) return; // artıq bağlıdır
+  // Mövcud retry timer-i ləğv et — dərhal cəhd edəcəyik
+  if (retryTimerId) {
+    clearTimeout(retryTimerId);
+    retryTimerId = null;
+  }
+  startConnection().catch(() => {});
 });
 
 // ─── getSignalRToken ──────────────────────────────────────────────────────────
