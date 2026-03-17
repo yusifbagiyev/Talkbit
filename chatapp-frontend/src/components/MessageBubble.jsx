@@ -87,6 +87,8 @@ const MessageBubble = memo(function MessageBubble({
   onLoadReactionDetails,
   onMentionClick,
   onOpenImageViewer,
+  onCancelUpload,
+  onRetryUpload,
 }) {
   // --- LOKAL STATE ---
 
@@ -451,19 +453,19 @@ const MessageBubble = memo(function MessageBubble({
           ) : (
             <>
               {/* Fayl/şəkil — mətn-dən ƏVVƏL render olunur */}
-              {msg.fileUrl &&
+              {(msg.fileUrl || msg._uploading) &&
                 (msg.fileContentType?.startsWith("image/") ? (
                   // Şəkil — Bitrix24 style: shimmer placeholder → fade-in
                   <div
-                    className={`bubble-file-image${!msg.content ? " image-only" : ""}${imgContainerStyle ? " has-dimensions" : ""}`}
+                    className={`bubble-file-image${!msg.content ? " image-only" : ""}${imgContainerStyle ? " has-dimensions" : ""}${msg._uploading ? " uploading" : ""}`}
                     style={imgContainerStyle}
                   >
                     {/* Shimmer placeholder — şəkil yüklənənə qədər animasiyalı fon */}
-                    {!imgLoaded && !imgError && (
+                    {!imgLoaded && !imgError && !msg._uploading && (
                       <div className="img-shimmer" />
                     )}
                     {/* Error state — klikləyərək yenidən yüklə */}
-                    {imgError && (
+                    {imgError && !msg._uploading && (
                       <div className="img-error" onClick={() => { setImgError(false); setImgLoaded(false); }}>
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="23 4 23 10 17 10" />
@@ -472,29 +474,65 @@ const MessageBubble = memo(function MessageBubble({
                         <span>Click to retry</span>
                       </div>
                     )}
-                    {/* Əsl şəkil — fade-in ilə görünür, error-da gizlənir */}
+                    {/* Əsl şəkil — upload zamanı lokal preview, tamamlandıqda server URL */}
                     {!imgError && (
                       <img
-                        src={getFileUrl(msg.fileUrl)}
+                        src={msg._uploading ? msg.fileUrl : getFileUrl(msg.fileUrl)}
                         alt={msg.fileName || "Image"}
                         loading="lazy"
-                        className={imgLoaded ? "loaded" : ""}
+                        className={imgLoaded || msg._uploading ? "loaded" : ""}
                         onLoad={() => setImgLoaded(true)}
-                        onError={() => setImgError(true)}
+                        onError={() => !msg._uploading && setImgError(true)}
                         onClick={() =>
-                          onOpenImageViewer && onOpenImageViewer(msg.id)
+                          !msg._uploading && onOpenImageViewer && onOpenImageViewer(msg.id)
                         }
                       />
+                    )}
+                    {/* Upload overlay — Bitrix24 style: cancel/retry + progress */}
+                    {msg._uploading && (
+                      <div className="upload-overlay">
+                        {msg._uploadStatus === "uploading" || msg._uploadStatus === "sending" ? (
+                          <>
+                            <button
+                              className="upload-cancel-btn"
+                              onClick={(e) => { e.stopPropagation(); onCancelUpload?.(msg._uploadTempId); }}
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                            {msg._uploadStatus === "uploading" && (
+                              <span className="upload-progress-text">
+                                {formatFileSize(msg._uploadedBytes)} / {formatFileSize(msg._totalBytes)}
+                              </span>
+                            )}
+                            {msg._uploadStatus === "sending" && (
+                              <span className="upload-progress-text">Göndərilir...</span>
+                            )}
+                          </>
+                        ) : msg._uploadStatus === "failed" ? (
+                          <button
+                            className="upload-retry-btn"
+                            onClick={(e) => { e.stopPropagation(); onRetryUpload?.(msg._uploadTempId); }}
+                          >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="23 4 23 10 17 10" />
+                              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                            </svg>
+                            <span>Yenidən cəhd et</span>
+                          </button>
+                        ) : null}
+                      </div>
                     )}
                   </div>
                 ) : (
                   // Non-image fayl — Bitrix24 style kart
-                  // Download endpoint istifadə edir (əsl ad ilə yükləmə üçün)
                   <div
-                    className="bubble-file-card"
+                    className={`bubble-file-card${msg._uploading ? " uploading" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      downloadFile(msg.fileId, msg.fileName, msg.fileUrl);
+                      if (!msg._uploading) downloadFile(msg.fileId, msg.fileName, msg.fileUrl);
                     }}
                     role="button"
                     tabIndex={0}
@@ -507,29 +545,61 @@ const MessageBubble = memo(function MessageBubble({
                       >
                         {(msg.fileName?.split(".").pop() || "").toUpperCase()}
                       </span>
+                      {/* Upload overlay — fayl icon üzərində */}
+                      {msg._uploading && (
+                        <div className="upload-file-icon-overlay">
+                          {(msg._uploadStatus === "uploading" || msg._uploadStatus === "sending") ? (
+                            <button
+                              className="upload-cancel-btn-small"
+                              onClick={(e) => { e.stopPropagation(); onCancelUpload?.(msg._uploadTempId); }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          ) : msg._uploadStatus === "failed" ? (
+                            <button
+                              className="upload-retry-btn-small"
+                              onClick={(e) => { e.stopPropagation(); onRetryUpload?.(msg._uploadTempId); }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                     <div className="bubble-file-info">
                       <span className="bubble-file-name">{msg.fileName}</span>
                       <span className="bubble-file-size">
-                        {formatFileSize(msg.fileSizeInBytes)}
+                        {msg._uploading && msg._uploadStatus === "uploading"
+                          ? `${formatFileSize(msg._uploadedBytes)} / ${formatFileSize(msg._totalBytes)}`
+                          : msg._uploading && msg._uploadStatus === "failed"
+                            ? "Yüklənmə uğursuz"
+                            : formatFileSize(msg.fileSizeInBytes)}
                       </span>
                     </div>
-                    <div className="bubble-file-download">
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="10" strokeWidth="1.5" />
-                        <polyline points="8 12 12 16 16 12" />
-                        <line x1="12" y1="8" x2="12" y2="16" />
-                      </svg>
-                    </div>
+                    {!msg._uploading && (
+                      <div className="bubble-file-download">
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" strokeWidth="1.5" />
+                          <polyline points="8 12 12 16 16 12" />
+                          <line x1="12" y1="8" x2="12" y2="16" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 ))}
 

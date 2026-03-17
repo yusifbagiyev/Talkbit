@@ -39,7 +39,6 @@ function ChatInputArea({
   onInputResize,
   // File upload props
   selectedFiles, onFilesSelected, onRemoveFile, onReorderFiles, onClearFiles, onSendFiles,
-  uploadProgress, isUploading,
 }) {
   const { showToast } = useToast();
   const mirrorRef = useRef(null);
@@ -418,8 +417,6 @@ function ChatInputArea({
           onReorderFiles={onReorderFiles}
           onClearFiles={onClearFiles}
           onSendFiles={onSendFiles}
-          uploadProgress={uploadProgress}
-          isUploading={isUploading}
         />
       )}
     </>

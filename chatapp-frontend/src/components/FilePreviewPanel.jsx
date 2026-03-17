@@ -13,8 +13,6 @@ function FilePreviewPanel({
   onReorderFiles,
   onClearFiles,
   onSendFiles,
-  uploadProgress,
-  isUploading,
 }) {
   const [textValue, setTextValue] = useState("");
   const textRef = useRef(null);
@@ -50,7 +48,6 @@ function FilePreviewPanel({
 
   // Göndər
   function handleSend() {
-    if (isUploading) return;
     onSendFiles(textValue.trim());
   }
 
@@ -170,8 +167,7 @@ function FilePreviewPanel({
                   }
                 >
                   {/* Drag handle — 6 nöqtə (2x3 grid) */}
-                  {!isUploading && (
-                    <div
+                  <div
                       className="file-preview-drag-handle"
                       onMouseDown={(e) => handleDragStart(e, idx)}
                       title="Drag to reorder"
@@ -185,7 +181,6 @@ function FilePreviewPanel({
                         <circle cx="7.5" cy="14" r="1.5" />
                       </svg>
                     </div>
-                  )}
 
                   {/* Thumbnail və ya icon */}
                   {previews[idx]?.type === "image" && previews[idx].url ? (
@@ -209,18 +204,16 @@ function FilePreviewPanel({
                   </div>
 
                   {/* Silmə butonu — yalnız hover-da görünür */}
-                  {!isUploading && (
-                    <button
-                      className="file-preview-item-remove"
-                      onClick={() => onRemoveFile(idx)}
-                      title="Remove"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    className="file-preview-item-remove"
+                    onClick={() => onRemoveFile(idx)}
+                    title="Remove"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
@@ -237,14 +230,12 @@ function FilePreviewPanel({
               value={textValue}
               onChange={(e) => setTextValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isUploading}
               rows={1}
             />
             {/* Göndər butonu — textarea-nın sağ alt küncündə (absolute) */}
             <button
               className="file-preview-send"
               onClick={handleSend}
-              disabled={isUploading}
               title="Send"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -261,15 +252,6 @@ function FilePreviewPanel({
           </div>
         </div>
 
-        {/* Upload progress bar */}
-        {isUploading && (
-          <div className="file-upload-progress">
-            <div
-              className="file-upload-progress-bar"
-              style={{ width: `${uploadProgress || 0}%` }}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

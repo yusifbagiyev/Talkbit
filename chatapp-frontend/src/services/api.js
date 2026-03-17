@@ -201,25 +201,35 @@ function apiDelete(endpoint) {
   return apiFetch(endpoint, { method: "DELETE" });
 }
 
-// ─── apiUpload — Multipart File Upload with Progress ─────────────────────────
+// ─── apiUpload — Multipart File Upload with Progress + Cancel ────────────────
 // XHR istifadə olunur çünki fetch upload progress dəstəkləmir.
 // FormData göndərir (Content-Type brauzer tərəfindən auto set olunur — boundary ilə).
-// onProgress(percent) — 0-100 arası upload progress callback.
+// onProgress({ loaded, total }) — raw bytes callback (caller format edir).
+// abortController (optional) — cancel üçün: abortController.abort() → upload dayandırılır.
 // 401 gəldikdə: refreshToken() + retry (apiFetch ilə eyni pattern).
-function apiUpload(endpoint, formData, onProgress) {
+function apiUpload(endpoint, formData, onProgress, abortController) {
   if (sessionExpired) return Promise.reject(new Error("Session expired"));
 
   function send() {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+
+      // AbortController dəstəyi — cancel butonu üçün
+      if (abortController) {
+        if (abortController.signal.aborted) {
+          return reject(new DOMException("Upload aborted", "AbortError"));
+        }
+        abortController.signal.addEventListener("abort", () => xhr.abort(), { once: true });
+      }
+
       xhr.open("POST", BASE_URL + endpoint);
       xhr.withCredentials = true; // Cookie auth (BFF pattern)
 
-      // Upload progress — yalnız göndərmə fazası (server cavab verməsi daxil deyil)
+      // Upload progress — raw loaded/total göndər (caller format edir)
       if (onProgress) {
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
-            onProgress(Math.round((e.loaded / e.total) * 100));
+            onProgress({ loaded: e.loaded, total: e.total });
           }
         };
       }
@@ -244,6 +254,7 @@ function apiUpload(endpoint, formData, onProgress) {
       };
 
       xhr.onerror = () => reject(new Error("Network error"));
+      xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
       xhr.send(formData);
     });
   }

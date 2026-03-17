@@ -31,13 +31,13 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
 
     public class UploadFileCommandValidator : AbstractValidator<UploadFileCommand>
     {
-        private const long MaxFileSizeInBytes = 10 * 1024 * 1024; // 10 MB
+        private const long MaxFileSizeInBytes = 100 * 1024 * 1024; // 100 MB
         public UploadFileCommandValidator()
         {
             RuleFor(x => x.File)
                 .NotNull().WithMessage("File is required")
                 .Must(file => file.Length > 0).WithMessage("File cannot be empty")
-                .Must(file => file.Length <= MaxFileSizeInBytes).WithMessage("File size cannot exceed 10 MB")
+                .Must(file => file.Length <= MaxFileSizeInBytes).WithMessage("File size cannot exceed 100 MB")
                 .Must(file => FileTypeHelper.IsAllowedFileType(file.ContentType))
                 .WithMessage("File type is not allowed");
 

@@ -50,7 +50,7 @@ namespace ChatApp.Modules.Files.Api.Controllers
         /// </summary>
         [HttpPost("upload")]
         [RequirePermission("Files.Upload")]
-        [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
+        [RequestSizeLimit(100 * 1024 * 1024)] // 100 MB
         [ProducesResponseType(typeof(FileUploadResult), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -88,7 +88,7 @@ namespace ChatApp.Modules.Files.Api.Controllers
         /// </summary>
         [HttpPost("upload/profile-picture")]
         [RequirePermission("Files.Upload")]
-        [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB for profile pictures
+        [RequestSizeLimit(100 * 1024 * 1024)] // 100 MB for profile pictures
         [ProducesResponseType(typeof(FileUploadResult), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -150,7 +150,7 @@ namespace ChatApp.Modules.Files.Api.Controllers
         /// </summary>
         [HttpPost("upload/channel-avatar/{channelId:guid}")]
         [RequirePermission("Files.Upload")]
-        [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB for avatars
+        [RequestSizeLimit(100 * 1024 * 1024)] // 100 MB for avatars
         [ProducesResponseType(typeof(FileUploadResult), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]

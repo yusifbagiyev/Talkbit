@@ -78,47 +78,57 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     }
   }, []);
 
-  // ─── handleFavoriteMessage — mesajı favorilərə əlavə et ────────────────────
+  // ─── handleFavoriteMessage — mesajı favorilərə əlavə et (Optimistic UI) ────
   const handleFavoriteMessage = useCallback(
     async (msg) => {
       if (!selectedChat) return;
+      const endpoint = getChatEndpoint(
+        selectedChat.id,
+        selectedChat.type,
+        `/messages/${msg.id}/favorite`,
+      );
+      if (!endpoint) return;
+
+      // Optimistic — dərhal əlavə et
+      const optimisticFav = { ...msg, favoritedAtUtc: new Date().toISOString() };
+      setFavoriteMessages((prev) => [optimisticFav, ...prev]);
+
       try {
-        const endpoint = getChatEndpoint(
-          selectedChat.id,
-          selectedChat.type,
-          `/messages/${msg.id}/favorite`,
-        );
-        if (!endpoint) return;
         await apiPost(endpoint);
-        setFavoriteMessages((prev) => [
-          { ...msg, favoritedAtUtc: new Date().toISOString() },
-          ...prev,
-        ]);
       } catch (err) {
         console.error("Failed to add favorite:", err);
+        // Revert — sil
+        setFavoriteMessages((prev) => prev.filter((m) => m.id !== msg.id));
       }
     },
     [selectedChat],
   );
 
-  // ─── handleRemoveFavorite — mesajı favorilərdən çıxar ──────────────────────
+  // ─── handleRemoveFavorite — mesajı favorilərdən çıxar (Optimistic UI) ─────
   const handleRemoveFavorite = useCallback(
     async (msg) => {
       if (!selectedChat) return;
+      const endpoint = getChatEndpoint(
+        selectedChat.id,
+        selectedChat.type,
+        `/messages/${msg.id}/favorite`,
+      );
+      if (!endpoint) return;
+
+      // Əvvəlki state-i saxla (revert üçün)
+      const prevFavorites = [...(favoriteMessages || [])];
+      // Optimistic — dərhal sil
+      setFavoriteMessages((prev) => prev.filter((m) => m.id !== msg.id));
+
       try {
-        const endpoint = getChatEndpoint(
-          selectedChat.id,
-          selectedChat.type,
-          `/messages/${msg.id}/favorite`,
-        );
-        if (!endpoint) return;
         await apiDelete(endpoint);
-        setFavoriteMessages((prev) => prev.filter((m) => m.id !== msg.id));
       } catch (err) {
         console.error("Failed to remove favorite:", err);
+        // Revert — geri əlavə et
+        setFavoriteMessages(prevFavorites);
       }
     },
-    [selectedChat],
+    [selectedChat, favoriteMessages],
   );
 
   // ─── handleOpenChatsWithUser ───────────────────────────────────────────────

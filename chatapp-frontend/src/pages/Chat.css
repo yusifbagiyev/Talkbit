@@ -1365,7 +1365,7 @@
 
 /* ─── Scrollbar — modern, incə, hover-da görünür ─── */
 .messages-area::-webkit-scrollbar {
-  width: 5px;
+  width: 8px;
 }
 
 .messages-area::-webkit-scrollbar-track {
@@ -1375,16 +1375,14 @@
 .messages-area::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 4px;
-  transition: background 0.4s ease, box-shadow 0.4s ease;
 }
 
 .messages-area.scrolling::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .messages-area:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 /* ===================================
@@ -1474,34 +1472,46 @@
   position: absolute;
   bottom: 160px;
   right: 24px;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: 1.5px solid var(--gray-300);
-  background: var(--white);
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
   z-index: 10;
-  transition: opacity 0.2s, background 0.2s, border-color 0.2s;
-  color: var(--gray-500);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  color: #7b8794;
   padding: 0;
 }
 
 .scroll-to-bottom-btn:hover {
-  background: var(--gray-50);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+  color: #55606b;
 }
 
-/* Unread mesaj olduqda — border göy, fon ağ qalır */
+.scroll-to-bottom-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Unread mesaj olduqda — yüngül göy tonu */
 .scroll-to-bottom-btn.has-unread {
-  border-color: #24B0DC;
-  color: var(--gray-500);
+  background: rgba(240, 250, 255, 0.9);
+  box-shadow: 0 2px 12px rgba(0, 172, 227, 0.15), 0 0 0 1px rgba(0, 172, 227, 0.12);
+  color: #7b8794;
 }
 
 .scroll-to-bottom-btn.has-unread:hover {
-  background: var(--gray-50);
+  background: rgba(235, 248, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 172, 227, 0.2), 0 0 0 1px rgba(0, 172, 227, 0.18);
 }
 
 /* Unread count badge — butonun yuxarı sağ küncündə */
@@ -6221,6 +6231,124 @@
 .img-error:hover {
   color: #666;
   background: #e8e8e8;
+}
+
+/* ═══════════════════════════════════════════════════════
+   UPLOAD OVERLAY — Bitrix24 style upload progress
+   ═══════════════════════════════════════════════════════ */
+
+/* Şəkil upload zamanı dim effect */
+.bubble-file-image.uploading img {
+  filter: brightness(0.5);
+  opacity: 1;
+}
+
+/* Upload overlay — şəkil üzərində mərkəzləşdirilmiş */
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: inherit;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+/* Cancel button — tünd yarımşəffaf dairə, X icon */
+.upload-cancel-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.upload-cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.08);
+}
+
+/* Progress text — "59.46 MB / 64.63 MB" */
+.upload-progress-text {
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* Retry button — uğursuz upload üçün */
+.upload-retry-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  cursor: pointer;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 11px;
+  transition: background 0.15s ease;
+}
+
+.upload-retry-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Fayl kartı upload — icon üzərindəki kiçik overlay */
+.bubble-file-card.uploading {
+  opacity: 0.85;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.upload-file-icon-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  z-index: 1;
+}
+
+.upload-cancel-btn-small,
+.upload-retry-btn-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.upload-cancel-btn-small:hover,
+.upload-retry-btn-small:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Fayl kartı upload status text stili */
+.bubble-file-card.uploading .bubble-file-size {
+  color: var(--primary);
 }
 
 /* Backend ölçüsü olan image-only şəkillər — container artıq düzgün ölçüdədir, img doldurar */

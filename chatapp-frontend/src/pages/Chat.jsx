@@ -25,7 +25,8 @@ import useChatScroll from "../hooks/useChatScroll"; // infinite scroll + paginat
 import useMessageSelection from "../hooks/useMessageSelection"; // mesaj seçmə rejimi
 import useMention from "../hooks/useMention"; // @ mention sistemi
 import useSearchPanel from "../hooks/useSearchPanel"; // chat daxili axtarış
-import useFileUpload from "../hooks/useFileUpload"; // fayl yükləmə state
+import useFileUpload from "../hooks/useFileUpload"; // fayl yükləmə state (seçmə)
+import useFileUploadManager from "../hooks/useFileUploadManager"; // global upload manager
 import useSidebarPanels from "../hooks/useSidebarPanels"; // sidebar panel state + məntiq
 import useChannelManagement from "../hooks/useChannelManagement"; // channel + üzv idarəsi
 
@@ -35,7 +36,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
 // API servis — HTTP metodları (GET, POST, PUT, DELETE)
-import { apiGet, apiPost, apiPut, apiDelete, apiUpload } from "../services/api";
+import { apiGet, apiPost, apiPut, apiDelete } from "../services/api";
 
 // UI komponentlər — hər biri ayrı bir visual blok
 import Sidebar from "../components/Sidebar"; // sol nav bar
@@ -66,6 +67,7 @@ import {
   BATCH_DELETE_THRESHOLD, // batch delete üçün minimum mesaj sayı
   MAX_BATCH_FILES, // backend batch limit (max 20 mesaj bir request-də)
   mergeMessageWithPrev, // API + SignalR state merge
+  computeOptimisticReactions, // reaction toggle-u lokal hesabla
 } from "../utils/chatUtils";
 
 import { Virtuoso } from "react-virtuoso";
@@ -282,8 +284,10 @@ function Chat() {
   // useSearchPanel — chat daxili mesaj axtarışı
   const search = useSearchPanel(selectedChat);
 
-  // useFileUpload — fayl yükləmə state
+  // useFileUpload — fayl seçmə state (FilePreviewPanel üçün)
   const fileUpload = useFileUpload();
+  // useFileUploadManager — global upload manager (progress, cancel, retry)
+  const uploadManager = useFileUploadManager(user);
 
   // useSidebarPanels — sidebar panel state + məntiq
   const sidebar = useSidebarPanels(selectedChat, messages, channelMembers, setChannelMembers);
@@ -378,12 +382,54 @@ function Chat() {
 
   // --- MEMOIZED DATA (effects-dən əvvəl təyin olunmalıdır) ---
 
+  // Upload task-larını optimistic mesajlara çevir və messages ilə birləşdir
+  // messages DESC-dir (ən yeni index 0-da), upload mesajları da index 0-a gedir
+  const messagesWithUploads = useMemo(() => {
+    const currentUploads = uploadManager.getUploadsForChat(selectedChat?.id);
+    if (currentUploads.length === 0) return messages;
+
+    // Upload task → optimistic mesaj formatına çevir
+    const uploadMsgs = currentUploads.map((task) => ({
+      id: task.tempId,
+      content: task.text || "",
+      senderId: user?.id,
+      senderFullName: user?.fullName || "",
+      senderAvatarUrl: user?.avatarUrl || null,
+      createdAtUtc: task.createdAtUtc,
+      isRead: true,
+      isEdited: false,
+      isDeleted: false,
+      isPinned: false,
+      status: 0, // Pending (clock icon)
+      reactions: [],
+      fileUrl: task.previewUrl, // local Object URL (şəkillər üçün)
+      fileContentType: task.fileContentType,
+      fileName: task.fileName,
+      fileSizeInBytes: task.fileSizeInBytes,
+      fileId: task.fileId || null,
+      replyToMessageId: task.replyToMessageId,
+      replyToContent: task.replyToContent,
+      replyToSenderFullName: task.replyToSenderFullName,
+      // Upload-specific flag-lar (MessageBubble overlay üçün)
+      _optimistic: true,
+      _uploading: true,
+      _uploadStatus: task.status, // "uploading" | "sending" | "failed"
+      _uploadProgress: task.totalBytes > 0 ? task.uploadedBytes / task.totalBytes : 0,
+      _uploadedBytes: task.uploadedBytes,
+      _totalBytes: task.totalBytes,
+      _uploadTempId: task.tempId,
+    }));
+
+    // Upload mesajları ən yeni — DESC sırada əvvələ əlavə et
+    return [...uploadMsgs, ...messages];
+  }, [messages, uploadManager.uploadTasks, selectedChat?.id, user]);
+
   // grouped — mesajları tarix separator-ları ilə qruplaşdır
   // useMemo — messages dəyişmədikdə bu hesablamanı yenidən etmə
   // [...messages].reverse() — messages DESC-dir, ASC-ə çevir (köhnə → yeni)
   const grouped = useMemo(
-    () => groupMessagesByDate([...messages].reverse(), readLaterMessageId, newMessagesStartId),
-    [messages, readLaterMessageId, newMessagesStartId],
+    () => groupMessagesByDate([...messagesWithUploads].reverse(), readLaterMessageId, newMessagesStartId),
+    [messagesWithUploads, readLaterMessageId, newMessagesStartId],
   );
 
   // senderRuns — ardıcıl eyni-sender mesajlarını qruplara ayır
@@ -525,11 +571,27 @@ function Chat() {
   // Birbaşa DOM (area.scrollTop) istifadə etmək OLMAZ — Virtuoso daxili state-ini yeniləmir
   // və sonra scroll pozisiyasını "düzəldir" (override edir).
   // Bir neçə cəhd edir — Virtuoso layout hesablamalarını bitirməyə vaxt lazımdır.
+  // scrollBottomCancelRef — istifadəçi yuxarı scroll etdikdə gözləyən doScroll-ları ləğv edir
+  // QEYD: cleanup YOXDUR — setShouldScrollBottom(false) re-render yaradır,
+  // cleanup timer-ları ləğv edərdi (timer self-cancel bug). Əvəzinə ref-based cancel.
+  const scrollBottomCancelRef = useRef(false);
   useEffect(() => {
     if (!shouldScrollBottom) return;
     setShouldScrollBottom(false);
+    scrollBottomCancelRef.current = false;
 
-    const doScroll = () => virtuosoRef.current?.scrollTo({ top: 999999 });
+    const doScroll = () => {
+      if (scrollBottomCancelRef.current) return;
+      virtuosoRef.current?.scrollTo({ top: 999999 });
+    };
+
+    // 300ms sonra user-scroll listener bağla — öz scroll-larımız bitsin,
+    // bundan sonra istifadəçi scroll edərsə cancel flag set olur
+    const area = messagesAreaRef.current;
+    const onUserScroll = () => { scrollBottomCancelRef.current = true; };
+    setTimeout(() => {
+      area?.addEventListener("scroll", onUserScroll, { once: true, passive: true });
+    }, 300);
 
     // Faza 1: rAF loop — Virtuoso layout hesablamalarını gözlə (15 frame ≈ 250ms)
     let attempts = 0;
@@ -540,8 +602,6 @@ function Chat() {
     requestAnimationFrame(tryScroll);
 
     // Faza 2: gecikmə ilə final scroll — şəkillər/lazy content yüklənə bilər
-    // QEYD: cleanup YOXDUR — setShouldScrollBottom(false) re-render yaradır,
-    // cleanup timer-ları ləğv edərdi (timer self-cancel bug)
     setTimeout(doScroll, 400);
     setTimeout(doScroll, 800);
   }, [shouldScrollBottom]);
@@ -722,6 +782,9 @@ function Chat() {
   // Remount (virtuosoResetKey) bütün mesajları silir və yenidən render edir → "flash" effekti.
   async function handleScrollToBottom() {
     if (!selectedChat) return;
+    // Butonu dərhal gizlət — aşağı scroll zamanı yenidən görünməsin
+    setShowScrollDown(false);
+    showScrollDownRef.current = false;
     try {
       const endpoint = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
       if (!endpoint) return;
@@ -744,14 +807,17 @@ function Chat() {
     hasNewUnreadRef.current = false;
     firstUnreadMsgIdRef.current = null;
     // Data yeniləndikdən sonra Virtuoso-ya ən sona scroll et
-    // rAF loop — Virtuoso daxili layout hesablamalarını bitirməyə vaxt lazımdır
-    const doScroll = () => virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end" });
+    // rAF loop + timeout fallback — Virtuoso daxili layout hesablamalarını bitirməyə vaxt lazımdır
+    const doScroll = () => virtuosoRef.current?.scrollTo({ top: 999999 });
     let attempts = 0;
     const tryScroll = () => {
       doScroll();
-      if (++attempts < 10) requestAnimationFrame(tryScroll);
+      if (++attempts < 15) requestAnimationFrame(tryScroll);
     };
     requestAnimationFrame(tryScroll);
+    // Timeout fallback — şəkillər/lazy content yüklənə bilər
+    setTimeout(doScroll, 400);
+    setTimeout(doScroll, 800);
   }
 
   // IntersectionObserver SİLİNDİ — Virtuoso rangeChanged callback ilə əvəz olundu (aşağıda)
@@ -1264,13 +1330,17 @@ function Chat() {
     // ── Cache RESTORE — yeni chatın cache-i varsa dərhal göstər ──
     const cached = messageCacheRef.current.get(chat.id);
     const cacheValid = cached && (Date.now() - cached.timestamp < CACHE_TTL);
+    // Around-mode cache keçərsizdir — getAround sonrası cache-də yalnız hədəf ətrafı
+    // 30 mesaj var, son mesajlar yoxdur. Geri qayıtdıqda həmişə API-dən yüklə.
+    const aroundModeCache = cacheValid && cached.hasMoreDown;
+    const usableCache = cacheValid && !aroundModeCache;
 
     // State sıfırla — yeni chat seçildi
-    setChatLoading(!cacheValid); // Cache varsa loading göstərmə
+    setChatLoading(!usableCache); // Usable cache varsa loading göstərmə
     setSelectedChat(chat);
-    setMessages(cacheValid ? cached.messages : []);
-    setPinnedMessages(cacheValid ? cached.pinnedMessages : []);
-    firstItemIndexRef.current = cacheValid ? (cached.firstItemIndex || 100_000) : 100_000;
+    setMessages(usableCache ? cached.messages : []);
+    setPinnedMessages(usableCache ? cached.pinnedMessages : []);
+    firstItemIndexRef.current = usableCache ? (cached.firstItemIndex || 100_000) : 100_000;
     prevFlatLenRef.current = 0; // flatItems length tracking sıfırla
     // Cache-dən yüklənəndə aşağıya scroll — Virtuoso key={selectedChat.id} remount +
     // initialTopMostItemIndex={senderRuns.length - 1} bunu avtomatik edir
@@ -1298,8 +1368,8 @@ function Chat() {
     // startReached guard — Virtuoso mount zamanı dərhal fire etməsin
     loadingMoreRef.current = true;
     setTimeout(() => { loadingMoreRef.current = false; }, 300);
-    hasMoreRef.current = cacheValid ? cached.hasMore : true;
-    hasMoreDownRef.current = cacheValid ? cached.hasMoreDown : false;
+    hasMoreRef.current = usableCache ? cached.hasMore : true;
+    hasMoreDownRef.current = false; // Geri qayıtdıqda həmişə ən son mesajlardan başla
     // lastReadLaterMessageId varsa — around endpoint ilə yüklə, əks halda normal
     const hasReadLater = !!chat.lastReadLaterMessageId;
 
@@ -1316,7 +1386,8 @@ function Chat() {
 
     // ── Cache HIT — API call-ları skip et, yalnız post-processing ──
     // readLater varsa cache-dən istifadə etmə — around endpoint lazımdır
-    if (cacheValid && !hasReadLater) {
+    // Around-mode cache keçərsizdir — son mesajlar yoxdur, API-dən yüklə
+    if (usableCache && !hasReadLater) {
       readBatchChatRef.current = { chatId: chat.id, chatType: String(chat.type) };
       const unread = chat.unreadCount || 0;
       allReadPatchRef.current = (unread === 0);
@@ -1675,34 +1746,42 @@ function Chat() {
   const handlePinMessage = useCallback(
     async (msg) => {
       if (!selectedChat) return;
-      try {
-        const endpoint = getChatEndpoint(
-          selectedChat.id,
-          selectedChat.type,
-          `/messages/${msg.id}/pin`,
-        );
-        if (!endpoint) return;
+      const endpoint = getChatEndpoint(
+        selectedChat.id,
+        selectedChat.type,
+        `/messages/${msg.id}/pin`,
+      );
+      if (!endpoint) return;
 
-        // isPinned true → DELETE (unpin), false → POST (pin)
+      const newIsPinned = !msg.isPinned;
+      // Optimistic — dərhal göstər
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id ? { ...m, isPinned: newIsPinned } : m,
+        ),
+      );
+
+      try {
         if (msg.isPinned) {
           await apiDelete(endpoint);
         } else {
           await apiPost(endpoint);
         }
-
-        // Pin siyahısını yenilə + mesajın isPinned flag-ini dəyiş
+        // Server-dən pinned siyahısını yenilə
         loadPinnedMessages(selectedChat);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === msg.id ? { ...m, isPinned: !msg.isPinned } : m,
-          ),
-        );
       } catch (err) {
         console.error("Failed to pin/unpin message:", err);
+        // Revert
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msg.id ? { ...m, isPinned: msg.isPinned } : m,
+          ),
+        );
+        showToast("Pin əməliyyatı uğursuz oldu", "error");
       }
     },
     [selectedChat],
-  ); // Dependency: selectedChat dəyişdikdə funksiyanı yenilə
+  );
 
   // handleFavoriteMessage, handleRemoveFavorite → useSidebarPanels hook-una çıxarılıb
 
@@ -1826,20 +1905,22 @@ function Chat() {
 
   // handleFilesSelected, handleRemoveFile, handleReorderFiles, handleClearFiles → useFileUpload hook-una çıxarılıb
 
-  // handleSendFiles — faylları yüklə + mesaj göndər
-  // text: FilePreviewPanel textarea-dan gələn əlavə mətn (boş ola bilər)
+  // handleSendFiles — faylları optimistic UI ilə göndər
+  // FilePreviewPanel dərhal bağlanır, upload chat bubble-da progress ilə görünür
   async function handleSendFiles(text) {
-    if (!selectedChat || fileUpload.selectedFiles.length === 0 || fileUpload.isUploading) return;
+    if (!selectedChat || fileUpload.selectedFiles.length === 0) return;
 
-    fileUpload.setIsUploading(true);
-    fileUpload.setUploadProgress(0);
+    // 1. Data-nı capture et (state sıfırlanmadan əvvəl)
+    const files = [...fileUpload.selectedFiles];
+    const currentReply = replyTo;
+    const mentionsToSend = mention.prepareMentionsForSend(text, selectedChat.type);
 
-    try {
-      let chatId = selectedChat.id;
-      let chatType = selectedChat.type;
+    let chatId = selectedChat.id;
+    let chatType = selectedChat.type;
 
-      // DepartmentUser (type=2) → əvvəlcə conversation yarat
-      if (chatType === 2) {
+    // DepartmentUser (type=2) → əvvəlcə conversation yarat
+    if (chatType === 2) {
+      try {
         const result = await apiPost("/api/conversations", {
           otherUserId: selectedChat.id,
         });
@@ -1854,79 +1935,26 @@ function Chat() {
               : c,
           ),
         );
+      } catch (err) {
+        console.error("Failed to create conversation:", err);
+        showToast("Söhbət yaradıla bilmədi", "error");
+        return;
       }
-
-      const endpoint = getChatEndpoint(chatId, chatType, "/messages");
-      if (!endpoint) return;
-
-      const totalFiles = fileUpload.selectedFiles.length;
-      const uploadedFileIds = [];
-
-      // 1. Hər faylı yüklə (progress tracking ilə)
-      for (let i = 0; i < totalFiles; i++) {
-        const formData = new FormData();
-        formData.append("file", fileUpload.selectedFiles[i]);
-
-        const result = await apiUpload("/api/files/upload", formData, (pct) => {
-          // Overall progress: (tamamlanmış fayllar * 100 + cari faylın %-i) / ümumi fayl sayı
-          const overall = Math.round(((i * 100) + pct) / totalFiles);
-          fileUpload.setUploadProgress(overall);
-        });
-
-        uploadedFileIds.push(result.fileId);
-      }
-      fileUpload.setUploadProgress(100);
-
-      // 2. Mesajları göndər
-      // Mention-ları hazırla (hook funksiyası ilə)
-      const mentionsToSend = mention.prepareMentionsForSend(text, chatType);
-
-      // Mesaj body-ləri hazırla — hər fayl = 1 mesaj, ilk mesaj text daşıyır
-      const messageBodies = uploadedFileIds.map((fileId, i) => ({
-        content: i === 0 ? (text || "") : "",
-        fileId,
-        replyToMessageId: i === 0 && replyTo ? replyTo.id : null,
-        ...(i === 0 && mentionsToSend.length > 0 ? { mentions: mentionsToSend } : {}),
-      }));
-
-      // DM + çoxlu fayl → batch endpoint (max 20)
-      if (chatType === 0 && messageBodies.length > 1 && messageBodies.length <= MAX_BATCH_FILES) {
-        await apiPost(`${endpoint}/batch`, { messages: messageBodies });
-      } else {
-        // Channel və ya tək fayl → ardıcıl göndər
-        for (const body of messageBodies) {
-          await apiPost(endpoint, body);
-        }
-      }
-
-      // 3. Cleanup
-      fileUpload.handleClearFiles();
-      setReplyTo(null);
-      setMessageText("");
-
-      // Textarea + mirror sıfırla
-      if (inputRef.current) inputRef.current.style.height = "auto";
-      const mirror = document.querySelector(".message-input-mirror");
-      if (mirror) mirror.style.height = "auto";
-
-      // Mesajları yenidən yüklə
-      const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
-      hasMoreDownRef.current = false;
-      setShouldScrollBottom(true);
-      setMessages((prev) => {
-        const prevMap = new Map(prev.map(m => [m.id, m]));
-        return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
-      });
-    } catch (err) {
-      console.error("Failed to send files:", err);
-      // Backend-dən gələn xəta mesajını göstər
-      const errMsg = err?.response?.data?.errors
-        ? Object.values(err.response.data.errors).flat().join(", ")
-        : err?.response?.data?.error || err?.message || "Fayl göndərmə xətası";
-      showToast(errMsg, "error");
-      fileUpload.setIsUploading(false);
-      fileUpload.setUploadProgress(null);
     }
+
+    // 2. FilePreviewPanel DƏRHAL bağla — istifadəçi gözləməsin
+    fileUpload.handleClearFiles();
+    setReplyTo(null);
+    setMessageText("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
+    const mirror = document.querySelector(".message-input-mirror");
+    if (mirror) mirror.style.height = "auto";
+
+    // 3. Upload manager-ə ver — async olaraq upload + mesaj göndərmə
+    uploadManager.startUpload(files, chatId, chatType, text, currentReply, mentionsToSend);
+
+    // 4. Aşağı scroll et
+    setShouldScrollBottom(true);
   }
 
   // handleSendMessage — mesaj göndər (Enter / Send button)
@@ -2494,32 +2522,45 @@ function Chat() {
     }, 0);
   }, []);
 
-  // handleReaction — mesaja emoji reaksiyası əlavə et / ləğv et
+  // handleReaction — mesaja emoji reaksiyası əlavə et / ləğv et (Optimistic UI)
   const handleReaction = useCallback(
     async (msg, emoji) => {
       if (!selectedChat) return;
+      const endpoint = getChatEndpoint(
+        selectedChat.id,
+        selectedChat.type,
+        `/messages/${msg.id}/reactions/toggle`,
+      );
+      if (!endpoint) return;
+
+      // Əvvəlki state-i yadda saxla (revert üçün)
+      const prevReactions = msg.reactions;
+      // Optimistic — dərhal göstər
+      const optimistic = computeOptimisticReactions(prevReactions, emoji, user.id, user.fullName);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msg.id ? { ...m, reactions: optimistic } : m)),
+      );
+
       try {
-        const endpoint = getChatEndpoint(
-          selectedChat.id,
-          selectedChat.type,
-          `/messages/${msg.id}/reactions/toggle`,
-        );
-        if (!endpoint) return;
         // DM → PUT, Channel → POST (backend API fərqi)
         const result =
           selectedChat.type === 0
             ? await apiPut(endpoint, { reaction: emoji })
             : await apiPost(endpoint, { reaction: emoji });
-        // Optimistic UI — API-dən gələn reactions-ı dərhal state-ə tət
+        // Server cavabı ilə əvəz et (authoritative)
         const reactions = result.reactions || result;
         setMessages((prev) =>
           prev.map((m) => (m.id === msg.id ? { ...m, reactions } : m)),
         );
       } catch (err) {
         console.error("Failed to toggle reaction:", err);
+        // Revert — əvvəlki halına qaytar
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msg.id ? { ...m, reactions: prevReactions } : m)),
+        );
       }
     },
-    [selectedChat],
+    [selectedChat, user],
   );
 
   // handleLoadReactionDetails — reaction badge-ə kliklədikdə kim react edib yüklə
@@ -2614,6 +2655,9 @@ function Chat() {
   // Throttle: 80ms — sürətli scroll zamanı da tez cavab vermək üçün
   const scrollListenerRef = useRef(null);
   const scrollThrottleRef = useRef(false);
+  // showScrollDownRef — scroll listener-dən setShowScrollDown çağırmaq üçün
+  // (listener ref-based-dir, yalnız 1 dəfə yaradılır — state setter closure-da qalmalıdır)
+  const showScrollDownRef = useRef(false);
   if (!scrollListenerRef.current) {
     const THRESHOLD = 800;
     scrollListenerRef.current = () => {
@@ -2628,6 +2672,19 @@ function Chat() {
       }
       if (hasMoreDownRef.current && area.scrollHeight - area.scrollTop - area.clientHeight < THRESHOLD) {
         endReachedRef.current();
+      }
+
+      // ─── Scroll-to-bottom buton — 1 viewport yuxarı qalxanda göstər ───
+      // Virtuoso atBottomStateChange əvəzinə: daha dəqiq kontrol, threshold = viewport height
+      // loadingMoreRef guard — handleScrollToBottom/handleSelectChat zamanı suppress
+      // (data yüklənir → scroll hələ tamamlanmayıb → yalançı pozitiv qarşısını al)
+      if (!loadingMoreRef.current) {
+        const distanceFromBottom = area.scrollHeight - area.scrollTop - area.clientHeight;
+        const shouldShow = distanceFromBottom > area.clientHeight; // 1 viewport
+        if (shouldShow !== showScrollDownRef.current) {
+          showScrollDownRef.current = shouldShow;
+          setShowScrollDown(shouldShow);
+        }
       }
     };
   }
@@ -2658,10 +2715,9 @@ function Chat() {
     }
   }, []);
 
-  // handleAtBottomStateChange — scroll-to-bottom butonunun görünürlüyünü idarə et
-  const handleAtBottomStateChange = useCallback((atBottom) => {
-    setShowScrollDown(!atBottom);
-  }, []);
+  // handleAtBottomStateChange — Virtuoso daxili callback (followOutput üçün lazımdır)
+  // Scroll-to-bottom buton artıq scroll listener-dən idarə olunur (1 viewport threshold)
+  const handleAtBottomStateChange = useCallback(() => {}, []);
 
   // renderFlatItem — Virtuoso itemContent callback-ı
   // Hər bir mesaj/separator üçün JSX qaytarır (flat items — hər mesaj ayrı Virtuoso item)
@@ -2719,6 +2775,8 @@ function Chat() {
           onLoadReactionDetails={handleLoadReactionDetails}
           onMentionClick={handleMentionClick}
           onOpenImageViewer={handleOpenImageViewer}
+          onCancelUpload={uploadManager.cancelUpload}
+          onRetryUpload={uploadManager.retryUpload}
         />
       );
     }
@@ -2758,6 +2816,8 @@ function Chat() {
             onLoadReactionDetails={handleLoadReactionDetails}
             onMentionClick={handleMentionClick}
             onOpenImageViewer={handleOpenImageViewer}
+            onCancelUpload={uploadManager.cancelUpload}
+            onRetryUpload={uploadManager.retryUpload}
           />
         </div>
       </div>
@@ -2769,6 +2829,7 @@ function Chat() {
     handleDeleteMsgAction, handleEditMsg, handleReaction, handleLoadReactionDetails,
     handleMentionClick, handleOpenImageViewer,
     sidebar.handleFavoriteMessage, sidebar.handleRemoveFavorite, sidebar.favoriteIds,
+    uploadManager.cancelUpload, uploadManager.retryUpload,
   ]);
 
   // --- JSX RENDER ---
@@ -2994,8 +3055,6 @@ function Chat() {
                   onReorderFiles={fileUpload.handleReorderFiles}
                   onClearFiles={fileUpload.handleClearFiles}
                   onSendFiles={handleSendFiles}
-                  uploadProgress={fileUpload.uploadProgress}
-                  isUploading={fileUpload.isUploading}
                 />
               )}
 
