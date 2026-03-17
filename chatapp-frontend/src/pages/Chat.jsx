@@ -374,6 +374,7 @@ function Chat() {
     uploadManager.checkForCompletion, // Upload task-ı sil — real mesaj gəldikdə
     messagesAreaRef, // Scroll container — reaction scroll compensation üçün
     showScrollDownRef, // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
+    messageCacheRef, // Cache invalidasiya — yeni mesaj gəldikdə köhnə cache-i sil
   );
 
   // ─── Network / Connection State Effect ──────────────────────────────────────
@@ -2154,6 +2155,9 @@ function Chat() {
     // Mesajı dərhal UI-da göstər (newest-first: əvvələ əlavə et)
     setMessages((prev) => [optimisticMsg, ...prev]);
     setShouldScrollBottom(true);
+
+    // Cache invalidasiya — mesaj göndərildikdə cache köhnəlir
+    messageCacheRef.current.delete(selectedChat.id);
 
     // ConversationList-də dərhal Pending statusla göstər + başa gətir
     setConversations((prev) => {

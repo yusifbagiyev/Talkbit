@@ -27,6 +27,7 @@ export default function useChatSignalR(
   onCheckUploadCompletion, // Upload manager — real mesaj gəldikdə upload task-ı silmək üçün
   scrollerRef,            // Scroll container ref — reaction height compensation üçün
   showScrollDownRef,      // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
+  messageCacheRef,        // Message cache ref — yeni mesaj gəldikdə cache-i invalidasiya etmək üçün
 ) {
   // useEffect — komponentin mount olduğunda 1 dəfə işləyir
   // [userId] — dependency array: yalnız userId dəyişəndə yenidən işləyir
@@ -43,6 +44,11 @@ export default function useChatSignalR(
       // Upload task-ı sil — real mesaj gəldi, optimistic upload mesajını əvəz edir
       if (message.fileId && onCheckUploadCompletion) {
         onCheckUploadCompletion(message.fileId);
+      }
+
+      // Cache invalidasiya — yeni mesaj gəldi, cache köhnəldi
+      if (messageCacheRef?.current) {
+        messageCacheRef.current.delete(message.conversationId);
       }
 
       setSelectedChat((current) => {
@@ -148,6 +154,11 @@ export default function useChatSignalR(
       // Upload task-ı sil — real mesaj gəldi, optimistic upload mesajını əvəz edir
       if (message.fileId && onCheckUploadCompletion) {
         onCheckUploadCompletion(message.fileId);
+      }
+
+      // Cache invalidasiya — yeni mesaj gəldi, cache köhnəldi
+      if (messageCacheRef?.current) {
+        messageCacheRef.current.delete(message.channelId);
       }
 
       setSelectedChat((current) => {
