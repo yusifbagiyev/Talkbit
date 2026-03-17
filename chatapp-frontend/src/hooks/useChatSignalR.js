@@ -68,7 +68,7 @@ export default function useChatSignalR(
                 enrichedMsg = {
                   ...message,
                   replyToContent: message.replyToContent || optimistic.replyToContent || null,
-                  replyToSenderFullName: message.replyToSenderFullName || optimistic.replyToSenderFullName || null,
+                  replyToSenderName: message.replyToSenderName || optimistic.replyToSenderName || null,
                   mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
                 };
               }
@@ -174,7 +174,7 @@ export default function useChatSignalR(
                 enrichedMsg = {
                   ...message,
                   replyToContent: message.replyToContent || optimistic.replyToContent || null,
-                  replyToSenderFullName: message.replyToSenderFullName || optimistic.replyToSenderFullName || null,
+                  replyToSenderName: message.replyToSenderName || optimistic.replyToSenderName || null,
                   mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
                 };
               }

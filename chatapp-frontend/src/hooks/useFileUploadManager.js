@@ -217,7 +217,7 @@ export default function useFileUploadManager(user, onFallbackReload, onMessageSe
         text: i === 0 ? (text || "") : "",
         replyToMessageId: i === 0 ? (replyTo?.id || null) : null,
         replyToContent: i === 0 ? (replyTo?.content || null) : null,
-        replyToSenderFullName: i === 0 ? (replyTo?.senderFullName || null) : null,
+        replyToSenderName: i === 0 ? (replyTo?.senderFullName || null) : null,
         mentions: i === 0 ? (mentions || []) : [],
         uploadedBytes: 0,
         totalBytes: file.size,

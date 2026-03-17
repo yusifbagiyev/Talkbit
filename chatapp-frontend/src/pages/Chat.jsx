@@ -460,7 +460,7 @@ function Chat() {
         fileHeight: task.fileHeight || null,
         replyToMessageId: task.replyToMessageId,
         replyToContent: task.replyToContent,
-        replyToSenderFullName: task.replyToSenderFullName,
+        replyToSenderName: task.replyToSenderName,
         // Upload-specific flag-lar (MessageBubble overlay üçün)
         _optimistic: true,
         _uploading: task.status !== "sent", // "sent" → normal görünüş (overlay yox)
@@ -2150,7 +2150,7 @@ function Chat() {
       fileUrl: null,
       replyToMessageId: currentReply ? currentReply.id : null,
       replyToContent: currentReply ? currentReply.content : null,
-      replyToSenderFullName: currentReply ? currentReply.senderFullName : null,
+      replyToSenderName: currentReply ? currentReply.senderFullName : null,
       _optimistic: true, // Flag — SignalR echo gəldikdə silmək üçün
     };
 
