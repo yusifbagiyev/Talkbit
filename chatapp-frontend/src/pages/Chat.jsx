@@ -2009,9 +2009,10 @@ function Chat() {
     fileUpload.handleClearFiles();
     setReplyTo(null);
     setMessageText("");
-    if (inputRef.current) inputRef.current.style.height = "auto";
-    const mirror = document.querySelector(".message-input-mirror");
-    if (mirror) mirror.style.height = "auto";
+    const savedH2 = localStorage.getItem("chatInputHeight");
+    if (inputRef.current) inputRef.current.style.height = savedH2 ? savedH2 + "px" : "auto";
+    const mirror2 = document.querySelector(".message-input-mirror");
+    if (mirror2) mirror2.style.height = savedH2 ? savedH2 + "px" : "auto";
 
     // 3. ConversationList-də dərhal göstər + başa gətir
     const now = new Date().toISOString();
@@ -2073,12 +2074,13 @@ function Chat() {
       );
     }
 
-    // Textarea + mirror hündürlüyünü sıfırla
+    // Textarea + mirror hündürlüyünü saxlanılmış ölçüyə qaytar (və ya default)
+    const savedH = localStorage.getItem("chatInputHeight");
     if (inputRef.current) {
-      inputRef.current.style.height = "auto";
+      inputRef.current.style.height = savedH ? savedH + "px" : "auto";
     }
     const mirror = document.querySelector(".message-input-mirror");
-    if (mirror) mirror.style.height = "auto";
+    if (mirror) mirror.style.height = savedH ? savedH + "px" : "auto";
 
     // --- EDIT MODE ---
     if (editMessage) {

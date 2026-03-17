@@ -50,6 +50,16 @@ function ChatInputArea({
   // Manual resize — drag handle istifadə olunanda auto-resize suppress olsun
   const manualResizeRef = useRef(false);
 
+  // Səhifə yeniləndikdə saxlanılmış textarea hündürlüyünü bərpa et
+  useEffect(() => {
+    const savedH = localStorage.getItem("chatInputHeight");
+    if (savedH && inputRef.current) {
+      inputRef.current.style.height = savedH + "px";
+      if (mirrorRef.current) mirrorRef.current.style.height = savedH + "px";
+      manualResizeRef.current = true;
+    }
+  }, [inputRef]);
+
   // handleResizeDrag — Bitrix-style drag handle: textarea hündürlüyünü manual dəyişmək
   // mousedown → mousemove ilə hündürlük artır/azalır → mouseup ilə bitir
   const handleResizeDrag = useCallback((e) => {
@@ -71,6 +81,10 @@ function ChatInputArea({
 
     const onUp = () => {
       setDragging(false);
+      // Resize bitdikdə hündürlüyü localStorage-a saxla
+      if (inputRef.current) {
+        localStorage.setItem("chatInputHeight", inputRef.current.offsetHeight);
+      }
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
