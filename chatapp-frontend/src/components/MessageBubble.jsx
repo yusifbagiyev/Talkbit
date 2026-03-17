@@ -23,15 +23,35 @@ import {
 } from "../utils/emojiConstants";
 import MessageActionMenu from "./MessageActionMenu"; // "⋮" menyu komponenti
 
+// ─── URL regex — linkləri tapıb klikləyilən etmək üçün ────────────────────────
+const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/g;
+
+// renderTextWithLinks — mətn içindəki URL-ları <a> elementlərinə çevirir
+function renderTextWithLinks(text) {
+  if (!text || typeof text !== "string") return text;
+  const parts = text.split(URL_REGEX);
+  if (parts.length === 1) return text; // Link yoxdur
+  return parts.map((part, i) =>
+    URL_REGEX.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="message-link">
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
 // renderEmojiContent — mətn içindəki Unicode emojiləri Apple CDN şəkillərinə çevirir
+// + URL-ları klikləyilən link-lərə çevirir
 // renderTextWithEmojis string/array qaytarır → biz JSX-ə çeviririk
 // CDN şəkil yüklənmədikdə (onerror) fallback olaraq Unicode emoji göstərilir
 function renderEmojiContent(text) {
   const parts = renderTextWithEmojis(text);
-  if (typeof parts === "string") return parts;
+  if (typeof parts === "string") return renderTextWithLinks(parts);
   return parts.map((part, i) =>
     typeof part === "string" ? (
-      <span key={i}>{part}</span>
+      <span key={i}>{renderTextWithLinks(part)}</span>
     ) : (
       <img
         key={i}
@@ -477,12 +497,12 @@ const MessageBubble = memo(function MessageBubble({
                     {/* Əsl şəkil — upload zamanı lokal preview, tamamlandıqda server URL */}
                     {!imgError && (
                       <img
-                        src={msg._uploading ? msg.fileUrl : getFileUrl(msg.fileUrl)}
+                        src={msg._uploading || msg._localPreview ? msg.fileUrl : getFileUrl(msg.fileUrl)}
                         alt={msg.fileName || "Image"}
                         loading="lazy"
-                        className={imgLoaded || msg._uploading ? "loaded" : ""}
+                        className={imgLoaded || msg._uploading || msg._localPreview ? "loaded" : ""}
                         onLoad={() => setImgLoaded(true)}
-                        onError={() => !msg._uploading && setImgError(true)}
+                        onError={() => !msg._uploading && !msg._localPreview && setImgError(true)}
                         onClick={() =>
                           !msg._uploading && onOpenImageViewer && onOpenImageViewer(msg.id)
                         }

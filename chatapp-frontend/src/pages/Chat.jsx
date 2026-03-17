@@ -269,6 +269,8 @@ function Chat() {
 
   // scrollbarTimerRef — scrollbar gizlənmə timer-i (800ms inactivity sonra)
   const scrollbarTimerRef = useRef(null);
+  // programmaticScrollRef — programmatic scroll zamanı scrollbar-ı suppress et
+  const programmaticScrollRef = useRef(false);
 
   // useMessageSelection — mesaj seçmə rejimi (SelectToolbar)
   const {
@@ -289,8 +291,27 @@ function Chat() {
 
   // useFileUpload — fayl seçmə state (FilePreviewPanel üçün)
   const fileUpload = useFileUpload();
+  // Upload fallback reload — SignalR echo miss olduqda mesajları yenidən yüklə
+  const handleUploadFallbackReload = useCallback(async (chatId, chatType) => {
+    try {
+      const endpoint = getChatEndpoint(chatId, chatType, "/messages");
+      if (!endpoint) return;
+      const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
+      // Yalnız hələ eyni chat açıqdırsa yenilə
+      setSelectedChat((current) => {
+        if (current && current.id === chatId) {
+          setMessages((prev) => {
+            const prevMap = new Map(prev.map(m => [m.id, m]));
+            return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
+          });
+        }
+        return current;
+      });
+    } catch { /* ignore */ }
+  }, []);
+
   // useFileUploadManager — global upload manager (progress, cancel, retry)
-  const uploadManager = useFileUploadManager(user);
+  const uploadManager = useFileUploadManager(user, handleUploadFallbackReload);
 
   // useSidebarPanels — sidebar panel state + məntiq
   const sidebar = useSidebarPanels(selectedChat, messages, channelMembers, setChannelMembers);
@@ -431,6 +452,7 @@ function Chat() {
         // Upload-specific flag-lar (MessageBubble overlay üçün)
         _optimistic: true,
         _uploading: task.status !== "sent", // "sent" → normal görünüş (overlay yox)
+        _localPreview: !!task.previewUrl,   // Local Object URL — getFileUrl istifadə etmə
         _uploadStatus: task.status,
         _uploadProgress: task.totalBytes > 0 ? task.uploadedBytes / task.totalBytes : 0,
         _uploadedBytes: task.uploadedBytes,
@@ -599,6 +621,7 @@ function Chat() {
     if (!shouldScrollBottom) return;
     setShouldScrollBottom(false);
     scrollBottomCancelRef.current = false;
+    programmaticScrollRef.current = true; // Scrollbar suppress — programmatic scroll başlayır
 
     const doScroll = () => {
       if (scrollBottomCancelRef.current) return;
@@ -621,9 +644,13 @@ function Chat() {
     };
     requestAnimationFrame(tryScroll);
 
-    // Faza 2: gecikmə ilə final scroll — şəkillər/lazy content yüklənə bilər
+    // Faza 2: gecikmə ilə final scroll — şəkillər/lazy content/upload mesajları yüklənə bilər
     setTimeout(doScroll, 400);
     setTimeout(doScroll, 800);
+    setTimeout(doScroll, 1500); // Upload mesajları useMemo-dan gec gələ bilər
+
+    // Programmatic scroll bitdi — scrollbar suppress-i söndür
+    setTimeout(() => { programmaticScrollRef.current = false; }, 2000);
   }, [shouldScrollBottom]);
 
   // getAround / highlight — mesajlar yüklənəndən sonra hədəfə scroll + highlight
@@ -805,6 +832,7 @@ function Chat() {
     // Butonu dərhal gizlət — aşağı scroll zamanı yenidən görünməsin
     setShowScrollDown(false);
     showScrollDownRef.current = false;
+    programmaticScrollRef.current = true; // Scrollbar suppress
     try {
       const endpoint = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
       if (!endpoint) return;
@@ -838,6 +866,7 @@ function Chat() {
     // Timeout fallback — şəkillər/lazy content yüklənə bilər
     setTimeout(doScroll, 400);
     setTimeout(doScroll, 800);
+    setTimeout(() => { programmaticScrollRef.current = false; }, 1500); // Scrollbar suppress bitdi
   }
 
   // IntersectionObserver SİLİNDİ — Virtuoso rangeChanged callback ilə əvəz olundu (aşağıda)
@@ -1727,15 +1756,17 @@ function Chat() {
             content: m.content || "",
             fileId: m.fileId || null,
             isForwarded: true,
+            ...(m.mentions?.length > 0 ? { mentions: m.mentions } : {}),
           });
         }
         handleExitSelectMode(); // Select mode-dan çıx
       } else {
-        // Tək mesaj forward — fileId varsa onu da göndər
+        // Tək mesaj forward — fileId varsa onu da göndər, mention varsa qoru
         await apiPost(endpoint, {
           content: fwd.content || "",
           fileId: fwd.fileId || null,
           isForwarded: true,
+          ...(fwd.mentions?.length > 0 ? { mentions: fwd.mentions } : {}),
         });
       }
 
@@ -2090,9 +2121,9 @@ function Chat() {
     setMessages((prev) => [optimisticMsg, ...prev]);
     setShouldScrollBottom(true);
 
-    // ConversationList-də dərhal Pending statusla göstər
-    setConversations((prev) =>
-      prev.map((c) =>
+    // ConversationList-də dərhal Pending statusla göstər + başa gətir
+    setConversations((prev) => {
+      const updated = prev.map((c) =>
         c.id === selectedChat.id
           ? {
               ...c,
@@ -2102,8 +2133,15 @@ function Chat() {
               lastMessageStatus: "Pending",
             }
           : c,
-      ),
-    );
+      );
+      // Mesaj göndərilən conversation-ı siyahının başına gətir
+      const idx = updated.findIndex((c) => c.id === selectedChat.id);
+      if (idx > 0) {
+        const [item] = updated.splice(idx, 1);
+        updated.unshift(item);
+      }
+      return updated;
+    });
 
     try {
       let chatId = selectedChat.id;
@@ -2740,9 +2778,11 @@ function Chat() {
   }, []);
 
   // handleIsScrolling — scrollbar CSS class-ını idarə et
+  // Programmatic scroll (mesaj göndərmə, scroll-to-bottom) zamanı scrollbar görünməsin
   const handleIsScrolling = useCallback((scrolling) => {
     const area = messagesAreaRef.current;
     if (!area) return;
+    if (programmaticScrollRef.current) return; // Programmatic scroll — scrollbar suppress
     if (scrolling) {
       area.classList.add("scrolling");
       if (scrollbarTimerRef.current) clearTimeout(scrollbarTimerRef.current);

@@ -5847,6 +5847,22 @@
   background-size: 100% 0.5px;
 }
 
+/* ─── Message Links — klikləyilən URL-lar ─── */
+.message-link {
+  color: #2B6CB0;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.message-link:hover {
+  text-decoration: underline;
+}
+
+/* Öz mesajlarında daha açıq rəng (mavi fonda) */
+.message-bubble.own .message-link {
+  color: #1a4a7a;
+}
+
 /* ===================================
    FILE UPLOAD — Attach Menu, Preview Panel, Bubble File/Image
    =================================== */

@@ -37,9 +37,11 @@ function readImageDimensions(file) {
 }
 
 // ─── useFileUploadManager ───────────────────────────────────────────────────
-export default function useFileUploadManager(user) {
+export default function useFileUploadManager(user, onFallbackReload) {
   // useRef — async callback-larda stale closure problemi olmadan Map-ə çatmaq üçün
   const uploadsRef = useRef(new Map());
+  const onFallbackReloadRef = useRef(onFallbackReload);
+  onFallbackReloadRef.current = onFallbackReload; // stale closure qorunması
   // useState — re-render trigger üçün (uploadTasks dəyişdikdə UI yenilənir)
   const [uploadTasks, setUploadTasks] = useState([]);
   // Throttle üçün son update vaxtı
@@ -131,8 +133,17 @@ export default function useFileUploadManager(user) {
         t2.status = "sent";
         t2.uploadedBytes = t2.totalBytes; // progress 100%
         syncImmediate();
-        // Fallback: 5 saniyə sonra hələ silinməyibsə, sil
-        // (SignalR echo gəlməsə belə istifadəçi stuck qalmasın)
+        // Fallback 1: 8 saniyə sonra — SignalR echo gəlməyibsə mesajları reload et
+        // Upload task-ı SİLMƏ — reload-dan sonra checkForCompletion düzgün işləyəcək
+        setTimeout(() => {
+          const remaining = map.get(task.tempId);
+          if (remaining && remaining.status === "sent") {
+            // Mesajları reload et — SignalR echo miss olub
+            onFallbackReloadRef.current?.(task.chatId, task.chatType);
+          }
+        }, 8000);
+
+        // Fallback 2: 15 saniyə sonra — hələ silinməyibsə təmizlə (safety net)
         setTimeout(() => {
           const remaining = map.get(task.tempId);
           if (remaining) {
@@ -140,7 +151,7 @@ export default function useFileUploadManager(user) {
             map.delete(task.tempId);
             syncImmediate();
           }
-        }, 5000);
+        }, 15000);
       }
     } catch (err) {
       if (err?.name === "AbortError") {

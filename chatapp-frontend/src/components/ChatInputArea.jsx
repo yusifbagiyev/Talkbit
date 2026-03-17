@@ -47,6 +47,8 @@ function ChatInputArea({
   const attachBtnRef = useRef(null);       // Attach button referansı (click-outside ignore üçün)
   const [dragging, setDragging] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  // Manual resize — drag handle istifadə olunanda auto-resize suppress olsun
+  const manualResizeRef = useRef(false);
 
   // handleResizeDrag — Bitrix-style drag handle: textarea hündürlüyünü manual dəyişmək
   // mousedown → mousemove ilə hündürlük artır/azalır → mouseup ilə bitir
@@ -63,6 +65,7 @@ function ChatInputArea({
       const newH = Math.max(34, Math.min(300, startH + (startY - ev.clientY)));
       textarea.style.height = newH + "px";
       if (mirrorRef.current) mirrorRef.current.style.height = newH + "px";
+      manualResizeRef.current = true; // Auto-resize suppress — manual ölçü qorunur
       onInputResize?.();
     };
 
@@ -319,13 +322,30 @@ function ChatInputArea({
                 if (onTextChange) onTextChange(val, caret);
                 else setMessageText(val);
                 // Auto-resize — yalnız hündürlük dəyişdikdə scroll et
-                const prevH = e.target.offsetHeight;
-                e.target.style.height = "auto";
-                const h = Math.min(e.target.scrollHeight, 300);
-                e.target.style.height = h + "px";
-                if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
-                // Yalnız textarea hündürlüyü dəyişdikdə mesajları aşağı scroll et
-                if (h !== prevH) onInputResize?.();
+                // Textarea boşaldıqda manual resize sıfırlansın (mesaj göndərildikdən sonra)
+                if (manualResizeRef.current && val.length === 0) {
+                  manualResizeRef.current = false;
+                }
+                // Manual resize flag varsa: yalnız content manual ölçünü aşdıqda resize et
+                if (manualResizeRef.current) {
+                  const manualH = e.target.offsetHeight;
+                  // scrollHeight > offsetHeight → content manual ölçüdən böyükdür → expand et
+                  if (e.target.scrollHeight > manualH) {
+                    const h = Math.min(e.target.scrollHeight, 300);
+                    e.target.style.height = h + "px";
+                    if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
+                    manualResizeRef.current = false; // Artıq auto-resize idarə edir
+                    onInputResize?.();
+                  }
+                } else {
+                  const prevH = e.target.offsetHeight;
+                  e.target.style.height = "auto";
+                  const h = Math.min(e.target.scrollHeight, 300);
+                  e.target.style.height = h + "px";
+                  if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
+                  // Yalnız textarea hündürlüyü dəyişdikdə mesajları aşağı scroll et
+                  if (h !== prevH) onInputResize?.();
+                }
               }}
               onScroll={(e) => {
                 if (mirrorRef.current) mirrorRef.current.scrollTop = e.target.scrollTop;

@@ -54,6 +54,19 @@ export default function useChatSignalR(
           setMessages((prev) => {
             if (prev.some((m) => m.id === message.id)) return prev;
             // Öz mesajımızın echo-su — optimistic mesajları sil (real data ilə əvəz olunur)
+            // Echo-da reply/mention data olmaya bilər — optimistic-dən merge et
+            let enrichedMsg = message;
+            if (message.senderId === userId) {
+              const optimistic = prev.find((m) => m._optimistic);
+              if (optimistic) {
+                enrichedMsg = {
+                  ...message,
+                  replyToContent: message.replyToContent || optimistic.replyToContent || null,
+                  replyToSenderFullName: message.replyToSenderFullName || optimistic.replyToSenderFullName || null,
+                  mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
+                };
+              }
+            }
             const cleaned = message.senderId === userId
               ? prev.filter((m) => !m._optimistic)
               : prev;
@@ -62,7 +75,7 @@ export default function useChatSignalR(
             }
             // Başqasının mesajı — skipAutoScroll yoxdur
             // Auto-scroll effect "near bottom" yoxlaması ilə scroll edəcək (< 80px)
-            return [message, ...cleaned];
+            return [enrichedMsg, ...cleaned];
           });
         }
         return current;
@@ -142,13 +155,26 @@ export default function useChatSignalR(
           setMessages((prev) => {
             if (prev.some((m) => m.id === message.id)) return prev;
             // Öz mesajımızın echo-su — optimistic mesajları sil
+            // Echo-da reply/mention data olmaya bilər — optimistic-dən merge et
+            let enrichedMsg = message;
+            if (message.senderId === userId) {
+              const optimistic = prev.find((m) => m._optimistic);
+              if (optimistic) {
+                enrichedMsg = {
+                  ...message,
+                  replyToContent: message.replyToContent || optimistic.replyToContent || null,
+                  replyToSenderFullName: message.replyToSenderFullName || optimistic.replyToSenderFullName || null,
+                  mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
+                };
+              }
+            }
             const cleaned = message.senderId === userId
               ? prev.filter((m) => !m._optimistic)
               : prev;
             if (message.senderId === userId) {
               setShouldScrollBottom(true);
             }
-            return [message, ...cleaned];
+            return [enrichedMsg, ...cleaned];
           });
         }
         return current;
