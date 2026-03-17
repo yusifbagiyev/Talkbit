@@ -5,6 +5,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useContext,
   useRef,
   useMemo,
@@ -244,7 +245,8 @@ function Chat() {
     loadingOlder,
     loadOlderTriggeredRef,
     loadingMoreRef,
-  } = useChatScroll(messages, selectedChat, setMessages, allReadPatchRef);
+    prependAnchorRef,
+  } = useChatScroll(messages, selectedChat, setMessages, allReadPatchRef, messagesAreaRef);
 
   // virtuosoRef — Virtuoso komponentinə ref (scrollToIndex üçün)
   const virtuosoRef = useRef(null);
@@ -484,6 +486,36 @@ function Chat() {
   }
   prevFlatLenRef.current = currFlatLen;
   const firstItemIndex = firstItemIndexRef.current;
+
+  // ─── Prepend scroll correction ─────────────────────────────────────────────
+  // Virtuoso firstItemIndex ilə scroll pozisiyasını estimated hündürlüklərlə düzəldir.
+  // Lakin variable-height mesajlarda (şəkil, uzun mətn) estimation xətası olur →
+  // kiçik amma gözəçarpan scroll jump yaranır.
+  //
+  // Həll: useLayoutEffect (paint-dən ƏVVƏL) ilə anchor elementin faktiki pozisiyasını
+  // prepend əvvəli pozisiyası ilə müqayisə edib scrollTop-u düzəldirik.
+  // Virtuoso child komponent olduğu üçün öz useLayoutEffect-i BİZDƏN ƏVVƏL çalışır →
+  // biz yalnız residual error-u düzəldirik, conflict yoxdur.
+  useLayoutEffect(() => {
+    const anchor = prependAnchorRef.current;
+    if (!anchor) return;
+    prependAnchorRef.current = null;
+
+    const area = messagesAreaRef.current;
+    if (!area) return;
+
+    const el = area.querySelector(`[data-bubble-id="${anchor.id}"]`);
+    if (!el) return;
+
+    const containerTop = area.getBoundingClientRect().top;
+    const currentRelativeTop = el.getBoundingClientRect().top - containerTop;
+    const diff = currentRelativeTop - anchor.relativeTop;
+
+    // 1px-dən böyük fərq varsa — düzəlt (sub-pixel fərqləri ignore et)
+    if (Math.abs(diff) > 1) {
+      area.scrollTop += diff;
+    }
+  }); // dependency yoxdur — hər render-də yoxlayır, anchor varsa düzəldir
 
   // ─── Virtuoso scroll effektləri ───
   // QEYD: useEffect + setTimeout istifadə olunur çünki Virtuoso data dəyişikliyi sonrası
@@ -2880,6 +2912,7 @@ function Chat() {
                     rangeChanged={handleRangeChanged}
                     atBottomStateChange={handleAtBottomStateChange}
                     scrollerRef={handleScrollerRef}
+                    defaultItemHeight={52}
                     overscan={{ main: 800, reverse: 800 }}
                     components={{
                       Footer: () => (

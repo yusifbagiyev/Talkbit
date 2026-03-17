@@ -15,7 +15,7 @@ import { getChatEndpoint, MESSAGE_PAGE_SIZE } from "../utils/chatUtils";
 // selectedChat: hansı chat açıqdır
 // setMessages: messages state-ini yeniləmək üçün
 // allReadPatchRef: unreadCount===0 ilə girdikdə true — scroll ilə yüklənən mesajları isRead:true patch et
-export default function useChatScroll(messages, selectedChat, setMessages, allReadPatchRef) {
+export default function useChatScroll(messages, selectedChat, setMessages, allReadPatchRef, messagesAreaRef) {
 
   // loadingMoreRef: hal-hazırda köhnə/yeni mesajlar yüklənirmi? (race condition önləmək üçün)
   const loadingMoreRef = useRef(false);
@@ -30,6 +30,10 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
   // Həmçinin scroll listener guard kimi istifadə olunur — Virtuoso firstItemIndex-i
   // tətbiq edənə qədər yeni handleStartReached çağırılmasını bloklayır
   const loadOlderTriggeredRef = useRef(false);
+
+  // prependAnchorRef: scroll correction üçün — prepend əvvəli anchor elementin pozisiyası
+  // useLayoutEffect (Chat.jsx) paint-dən əvvəl residual scroll offset-i düzəldir
+  const prependAnchorRef = useRef(null);
 
   // loadingOlder: "köhnə mesajlar yüklənir" loading bar göstərmək üçün (UI state)
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -62,6 +66,28 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
       if (!olderMessages || olderMessages.length === 0) {
         hasMoreRef.current = false;
         return;
+      }
+
+      // ─── Anchor capture — scroll correction üçün ─────────────────────────
+      // setMessages-dən əvvəl: viewport-dakı ilk görünən mesajın pozisiyasını saxla.
+      // Render-dən sonra (useLayoutEffect) anchor elementin yeni pozisiyasını müqayisə edib
+      // scrollTop-u düzəldirik → Virtuoso-nun estimated vs actual height fərqindən
+      // yaranan kiçik scroll jump-lar aradan qalxır.
+      const area = messagesAreaRef?.current;
+      if (area) {
+        const bubbles = area.querySelectorAll("[data-bubble-id]");
+        const containerTop = area.getBoundingClientRect().top;
+        // Viewport-da ilk görünən bubble-ı tap
+        for (const bubble of bubbles) {
+          const rect = bubble.getBoundingClientRect();
+          if (rect.bottom > containerTop) {
+            prependAnchorRef.current = {
+              id: bubble.getAttribute("data-bubble-id"),
+              relativeTop: rect.top - containerTop,
+            };
+            break;
+          }
+        }
       }
 
       // loadOlderTriggeredRef yalnız YENİ mesajlar əlavə olunduqda true olur
@@ -154,5 +180,6 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
     loadingOlder,
     loadOlderTriggeredRef,
     loadingMoreRef,
+    prependAnchorRef,
   };
 }
