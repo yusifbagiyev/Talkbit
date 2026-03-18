@@ -1,14 +1,21 @@
-// ─── useChatScroll.js — Custom Hook: Infinite Scroll for Chat (Virtuoso) ─────
+// ─── useChatScroll.js — Custom Hook: Infinite Scroll for Chat ─────────────────
 // Bu hook chat mesajları üçün "infinite scroll" pagination məntiğini idarə edir.
 // Scroll listener (Chat.jsx) bu hook-un funksiyalarını çağırır.
 //
 // Problem: Chat-ı açanda yalnız son 30 mesaj yüklənir.
 //   - Yuxarı scroll etdikdə → köhnə mesajlar yüklənir (handleStartReached)
 //   - "Around" mesaja scroll etdikdə aşağı scroll edəndə → yeni mesajlar yüklənir (handleEndReached)
+//
+// DOM LIMIT: Maksimum 300 mesaj DOM-da saxlanılır.
+//   - Yuxarı scroll (prepend): 300-dən çox olsa ən yeniləri trim et → hasMoreDown = true
+//   - Aşağı scroll (append): 300-dən çox olsa ən köhnələri trim et → hasMore = true
 
 import { useState, useRef } from "react";
 import { apiGet } from "../services/api";
 import { getChatEndpoint, MESSAGE_PAGE_SIZE } from "../utils/chatUtils";
+
+// DOM-da saxlanılan maksimum mesaj sayı — performans qoruması
+const MAX_VISIBLE_MESSAGES = 300;
 
 // ─── useChatScroll ────────────────────────────────────────────────────────────
 // messages: hal-hazırdakı mesajlar array-ı (ən yeni index 0-da, ən köhnə sonda)
@@ -26,13 +33,12 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
   // hasMoreDownRef: aşağıda daha yeni mesaj varmı? (around scroll zamanı)
   const hasMoreDownRef = useRef(false);
 
-  // loadOlderTriggeredRef: köhnə mesaj yükləndi → Chat.jsx firstItemIndex-i azaltmalıdır
-  // Həmçinin scroll listener guard kimi istifadə olunur — Virtuoso firstItemIndex-i
-  // tətbiq edənə qədər yeni handleStartReached çağırılmasını bloklayır
+  // loadOlderTriggeredRef: köhnə mesaj yükləndi — scroll listener guard
+  // useLayoutEffect scroll correction bitənə qədər yeni handleStartReached çağırılmasını bloklayır
   const loadOlderTriggeredRef = useRef(false);
 
   // prependAnchorRef: scroll correction üçün — prepend əvvəli anchor elementin pozisiyası
-  // useLayoutEffect (Chat.jsx) paint-dən əvvəl residual scroll offset-i düzəldir
+  // useLayoutEffect (Chat.jsx) paint-dən əvvəl scroll offset-i düzəldir
   const prependAnchorRef = useRef(null);
 
   // loadingOlder: "köhnə mesajlar yüklənir" loading bar göstərmək üçün (UI state)
@@ -69,15 +75,10 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
       }
 
       // ─── Anchor capture — scroll correction üçün ─────────────────────────
-      // setMessages-dən əvvəl: viewport-dakı ilk görünən mesajın pozisiyasını saxla.
-      // Render-dən sonra (useLayoutEffect) anchor elementin yeni pozisiyasını müqayisə edib
-      // scrollTop-u düzəldirik → Virtuoso-nun estimated vs actual height fərqindən
-      // yaranan kiçik scroll jump-lar aradan qalxır.
       const area = messagesAreaRef?.current;
       if (area) {
         const bubbles = area.querySelectorAll("[data-bubble-id]");
         const containerTop = area.getBoundingClientRect().top;
-        // Viewport-da ilk görünən bubble-ı tap
         for (const bubble of bubbles) {
           const rect = bubble.getBoundingClientRect();
           if (rect.bottom > containerTop) {
@@ -90,34 +91,30 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         }
       }
 
-      // Prepend flash suppress — scroller-i və parent-ını opacity:0 ilə gizlət.
-      // useLayoutEffect (Chat.jsx) scroll correction-dan sonra bərpa edir.
-      // opacity:0 visibility:hidden-dən daha effektivdir çünki compositor layer-ı saxlayır,
-      // sub-frame flicker azalır. Həm scroller həm parent-a tətbiq — Virtuoso structure fərqli ola bilər.
+      // Prepend flash suppress — opacity:0 ilə gizlət, useLayoutEffect bərpa edəcək
       const scroller = messagesAreaRef?.current;
       if (scroller) {
         scroller.style.opacity = "0";
         if (scroller.parentElement) scroller.parentElement.style.opacity = "0";
       }
 
-      // loadOlderTriggeredRef yalnız YENİ mesajlar əlavə olunduqda true olur
-      // Bu, Chat.jsx-in firstItemIndex-i azaltmasını və scroll listener-in
-      // Virtuoso pozisiyanı bərpa edənə qədər yeni fetch başlatmamasını təmin edir
-      //
-      // QEYD: loadOlderTriggeredRef updater-in İÇİNDƏ set olunmalıdır.
-      // React 18 batching ilə updater render fazasında çalışır — əgər kənarda
-      // set etsək, hasNew hələ false olur və firstItemIndex heç vaxt azalmaz.
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const unique = olderMessages.filter((m) => !existingIds.has(m.id));
         if (unique.length === 0) return prev;
         loadOlderTriggeredRef.current = true;
-        // _prepended flag — köhnə mesajlar "new-message" animasiyasını almasın
         const final = unique.map((m) => {
           const patched = (allReadPatchRef?.current && !m.isRead) ? { ...m, isRead: true } : m;
           return patched === m ? { ...m, _prepended: true } : { ...patched, _prepended: true };
         });
-        return [...prev, ...final];
+        const merged = [...prev, ...final];
+
+        // ─── DOM windowing: yuxarı scroll — 300-dən çox olsa ən yeniləri trim et ───
+        if (merged.length > MAX_VISIBLE_MESSAGES) {
+          hasMoreDownRef.current = true; // Trim etdik → aşağıda daha mesajlar var
+          return merged.slice(merged.length - MAX_VISIBLE_MESSAGES);
+        }
+        return merged;
       });
     } catch (err) {
       console.error("Failed to load older messages:", err);
@@ -125,7 +122,6 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         hasMoreRef.current = false;
       }
     } finally {
-      // Minimum 400ms göstər — loading bar-ın CSS transition ilə görünməsini təmin et
       const elapsed = Date.now() - loadStart;
       const minDuration = 400;
       if (elapsed < minDuration) {
@@ -138,7 +134,7 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
 
   // ─── handleEndReached ──────────────────────────────────────────────────────────
   // Scroll listener trigger — istifadəçi aşağıya yaxın olduqda çağırılır
-  // Yalnız around mode-da aktiv (hasMoreDownRef === true)
+  // Yalnız around mode / trim sonrası aktiv (hasMoreDownRef === true)
   async function handleEndReached() {
     if (loadingMoreRef.current) return;
     if (!hasMoreDownRef.current) return;
@@ -169,12 +165,18 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         const unique = newerMessages.filter((m) => !existingIds.has(m.id));
         if (unique.length === 0) return prev;
         const reversed = unique.reverse();
-        // _prepended flag — pagination ilə yüklənən mesajlar "new-message" animasiyasını almasın
         const final = reversed.map((m) => {
           const patched = (allReadPatchRef?.current && !m.isRead) ? { ...m, isRead: true } : m;
           return patched === m ? { ...m, _prepended: true } : { ...patched, _prepended: true };
         });
-        return [...final, ...prev];
+        const merged = [...final, ...prev];
+
+        // ─── DOM windowing: aşağı scroll — 300-dən çox olsa ən köhnələri trim et ───
+        if (merged.length > MAX_VISIBLE_MESSAGES) {
+          hasMoreRef.current = true; // Trim etdik → yuxarıda daha mesajlar var
+          return merged.slice(0, MAX_VISIBLE_MESSAGES);
+        }
+        return merged;
       });
     } catch (err) {
       console.error("Failed to load newer messages:", err);

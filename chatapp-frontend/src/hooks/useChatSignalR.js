@@ -74,13 +74,13 @@ export default function useChatSignalR(
                   replyToContent: message.replyToContent || optimistic.replyToContent || null,
                   replyToSenderName: message.replyToSenderName || optimistic.replyToSenderName || null,
                   mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
-                  // _stableKey kopyala — Virtuoso key dəyişməsin, remount olmasın → flash yox
+                  // _stableKey kopyala — React key dəyişməsin, re-render olmasın
                   _stableKey: optimistic._stableKey || optimistic.id,
                 };
               }
             }
             // Öz echo-muzda: optimistic → real əvəzləmə, mesaj sayı eyni qalır.
-            // followOutput artıq aşağıda saxlayır, programmatic scroll lazım deyil.
+            // Aşağıda deyilsə programmatic scroll et.
             if (message.senderId === userId && showScrollDownRef?.current) {
               setShouldScrollBottom(true);
             }
@@ -193,7 +193,7 @@ export default function useChatSignalR(
               }
             }
             // Öz echo-muzda: optimistic → real əvəzləmə, mesaj sayı eyni qalır.
-            // followOutput artıq aşağıda saxlayır, programmatic scroll lazım deyil.
+            // Aşağıda deyilsə programmatic scroll et.
             if (message.senderId === userId && showScrollDownRef?.current) {
               setShouldScrollBottom(true);
             }
