@@ -592,9 +592,17 @@ function Chat() {
   useLayoutEffect(() => {
     const area = messagesAreaRef.current;
     const anchor = prependAnchorRef.current;
+
+    // Opacity bərpa helper — scroller + parent-ı göstər
+    const restoreOpacity = () => {
+      if (area) {
+        area.style.opacity = "";
+        if (area.parentElement) area.parentElement.style.opacity = "";
+      }
+    };
+
     if (!anchor) {
-      // Anchor yoxdur amma prepending class qalıb → təmizlə
-      area?.classList.remove("prepending");
+      restoreOpacity();
       return;
     }
     prependAnchorRef.current = null;
@@ -612,8 +620,8 @@ function Chat() {
         area.scrollTop += diff;
       }
     }
-    // Prepend flash suppress — scroll correction bitdi, messages area-nı göstər
-    area.classList.remove("prepending");
+    // Prepend flash suppress — scroll correction bitdi, scroller-i göstər
+    restoreOpacity();
   }); // dependency yoxdur — hər render-də yoxlayır, anchor varsa düzəldir
 
   // ─── Virtuoso scroll effektləri ───
@@ -2997,7 +3005,6 @@ function Chat() {
         </div>
       </div>
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- JSX RENDER ---

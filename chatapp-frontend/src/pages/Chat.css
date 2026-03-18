@@ -1528,11 +1528,6 @@
   padding: 0;
 }
 
-/* Prepend flash suppress — köhnə mesajlar yüklənərkən scroll jump-ı gizlət.
-   useLayoutEffect (paint-dən əvvəl) class-ı silir → istifadəçi heç vaxt görmür. */
-.messages-area.prepending {
-  visibility: hidden;
-}
 
 /* ===================================
    MESSAGES AREA
@@ -1546,6 +1541,9 @@
   padding: 12px 0;
   /* Smooth native scroll — iOS/macOS momentum scroll + deceleration hissi */
   -webkit-overflow-scrolling: touch;
+  /* Compositor layer promotion — prepend zamanı sub-frame flicker azaldır */
+  will-change: scroll-position;
+  contain: layout style;
 }
 
 /* Virtuoso hər item-ı öz wrapper div-inə qoyur —

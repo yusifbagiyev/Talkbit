@@ -90,11 +90,15 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         }
       }
 
-      // Prepend flash suppress — mesajlar əlavə olunmadan əvvəl messages area-nı gizlət.
-      // useLayoutEffect (Chat.jsx) scroll correction-dan sonra class-ı silir.
-      // useLayoutEffect paint-dən ƏVVƏL çalışdığı üçün istifadəçi heç vaxt gizlənmiş halı görmür,
-      // amma aradakı scroll jump-lar gizlənir.
-      messagesAreaRef?.current?.classList.add("prepending");
+      // Prepend flash suppress — scroller-i və parent-ını opacity:0 ilə gizlət.
+      // useLayoutEffect (Chat.jsx) scroll correction-dan sonra bərpa edir.
+      // opacity:0 visibility:hidden-dən daha effektivdir çünki compositor layer-ı saxlayır,
+      // sub-frame flicker azalır. Həm scroller həm parent-a tətbiq — Virtuoso structure fərqli ola bilər.
+      const scroller = messagesAreaRef?.current;
+      if (scroller) {
+        scroller.style.opacity = "0";
+        if (scroller.parentElement) scroller.parentElement.style.opacity = "0";
+      }
 
       // loadOlderTriggeredRef yalnız YENİ mesajlar əlavə olunduqda true olur
       // Bu, Chat.jsx-in firstItemIndex-i azaltmasını və scroll listener-in
