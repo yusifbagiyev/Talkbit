@@ -2872,8 +2872,27 @@ function Chat() {
   // Scroll-to-bottom buton artıq scroll listener-dən idarə olunur (1 viewport threshold)
   const handleAtBottomStateChange = useCallback(() => {}, []);
 
+  // ─── renderFlatItem ref-lər — callback-ı stabil saxlamaq üçün ──────────────
+  // renderFlatItem Virtuoso-nun itemContent prop-udur. Hər yenilənmədə Virtuoso
+  // BÜTÜN görünən item-ları yenidən render edir. Dependency-ləri ref-ə köçürürük ki,
+  // callback HEÇ VAXT yenilənməsin → yalnız dəyişən item-lar re-render olsun.
+  const renderPropsRef = useRef({});
+  renderPropsRef.current = {
+    selectedChat, selectMode, selectedMessages, readLaterMessageId,
+    handleReply, handleForwardMsg, handlePinMessage, handleMarkLater,
+    handleEnterSelectMode, handleToggleSelect, handleScrollToMessage,
+    handleDeleteMsgAction, handleEditMsg, handleReaction, handleLoadReactionDetails,
+    handleMentionClick, handleOpenImageViewer,
+    sidebarHandleFavoriteMessage: sidebar.handleFavoriteMessage,
+    sidebarHandleRemoveFavorite: sidebar.handleRemoveFavorite,
+    sidebarFavoriteIds: sidebar.favoriteIds,
+    uploadManagerCancelUpload: uploadManager.cancelUpload,
+    uploadManagerRetryUpload: uploadManager.retryUpload,
+  };
+
   // renderFlatItem — Virtuoso itemContent callback-ı
   // Hər bir mesaj/separator üçün JSX qaytarır (flat items — hər mesaj ayrı Virtuoso item)
+  // STABIL: dependency yoxdur — ref-lər vasitəsilə həmişə ən son data-ya çatır
   const renderFlatItem = useCallback((index, item) => {
     // Separator-lar
     if (item.type === "date") {
@@ -2900,6 +2919,7 @@ function Chat() {
 
     // Mesaj item — flat structure (hər mesaj ayrı Virtuoso item)
     const { message: msg, isOwn, senderFullName, isFirstInGroup, isLastInGroup } = item;
+    const rp = renderPropsRef.current;
 
     // Own mesajlar — wrapper lazım deyil
     if (isOwn) {
@@ -2908,29 +2928,29 @@ function Chat() {
           msg={msg}
           isOwn
           showAvatar={isLastInGroup}
-          chatType={selectedChat.type}
-          selectMode={selectMode}
-          isSelected={selectedMessages.has(msg.id)}
-          onReply={handleReply}
-          onForward={handleForwardMsg}
-          onPin={handlePinMessage}
-          onFavorite={sidebar.handleFavoriteMessage}
-          onRemoveFavorite={sidebar.handleRemoveFavorite}
-          isFavorite={sidebar.favoriteIds.has(msg.id)}
-          onMarkLater={handleMarkLater}
-          readLaterMessageId={readLaterMessageId}
-          onSelect={handleEnterSelectMode}
-          onToggleSelect={handleToggleSelect}
-          onScrollToMessage={handleScrollToMessage}
-          onDelete={handleDeleteMsgAction}
-          onEdit={handleEditMsg}
-          onReaction={handleReaction}
-          onLoadReactionDetails={handleLoadReactionDetails}
-          onMentionClick={handleMentionClick}
-          onOpenImageViewer={handleOpenImageViewer}
-          onCancelUpload={uploadManager.cancelUpload}
-          onRetryUpload={uploadManager.retryUpload}
-          isNewMessage={!initialMsgIdsRef.current.has(msg.id)}
+          chatType={rp.selectedChat?.type}
+          selectMode={rp.selectMode}
+          isSelected={rp.selectedMessages.has(msg.id)}
+          onReply={rp.handleReply}
+          onForward={rp.handleForwardMsg}
+          onPin={rp.handlePinMessage}
+          onFavorite={rp.sidebarHandleFavoriteMessage}
+          onRemoveFavorite={rp.sidebarHandleRemoveFavorite}
+          isFavorite={rp.sidebarFavoriteIds.has(msg.id)}
+          onMarkLater={rp.handleMarkLater}
+          readLaterMessageId={rp.readLaterMessageId}
+          onSelect={rp.handleEnterSelectMode}
+          onToggleSelect={rp.handleToggleSelect}
+          onScrollToMessage={rp.handleScrollToMessage}
+          onDelete={rp.handleDeleteMsgAction}
+          onEdit={rp.handleEditMsg}
+          onReaction={rp.handleReaction}
+          onLoadReactionDetails={rp.handleLoadReactionDetails}
+          onMentionClick={rp.handleMentionClick}
+          onOpenImageViewer={rp.handleOpenImageViewer}
+          onCancelUpload={rp.uploadManagerCancelUpload}
+          onRetryUpload={rp.uploadManagerRetryUpload}
+          isNewMessage={!initialMsgIdsRef.current.has(msg.id) && !msg._prepended}
         />
       );
     }
@@ -2950,42 +2970,35 @@ function Chat() {
             msg={msg}
             isOwn={false}
             showAvatar={isLastInGroup}
-            chatType={selectedChat.type}
-            selectMode={selectMode}
-            isSelected={selectedMessages.has(msg.id)}
-            onReply={handleReply}
-            onForward={handleForwardMsg}
-            onPin={handlePinMessage}
-            onFavorite={sidebar.handleFavoriteMessage}
-            onRemoveFavorite={sidebar.handleRemoveFavorite}
-            isFavorite={sidebar.favoriteIds.has(msg.id)}
-            onMarkLater={handleMarkLater}
-            readLaterMessageId={readLaterMessageId}
-            onSelect={handleEnterSelectMode}
-            onToggleSelect={handleToggleSelect}
-            onScrollToMessage={handleScrollToMessage}
-            onDelete={handleDeleteMsgAction}
-            onEdit={handleEditMsg}
-            onReaction={handleReaction}
-            onLoadReactionDetails={handleLoadReactionDetails}
-            onMentionClick={handleMentionClick}
-            onOpenImageViewer={handleOpenImageViewer}
-            onCancelUpload={uploadManager.cancelUpload}
-            onRetryUpload={uploadManager.retryUpload}
-            isNewMessage={!initialMsgIdsRef.current.has(msg.id)}
+            chatType={rp.selectedChat?.type}
+            selectMode={rp.selectMode}
+            isSelected={rp.selectedMessages.has(msg.id)}
+            onReply={rp.handleReply}
+            onForward={rp.handleForwardMsg}
+            onPin={rp.handlePinMessage}
+            onFavorite={rp.sidebarHandleFavoriteMessage}
+            onRemoveFavorite={rp.sidebarHandleRemoveFavorite}
+            isFavorite={rp.sidebarFavoriteIds.has(msg.id)}
+            onMarkLater={rp.handleMarkLater}
+            readLaterMessageId={rp.readLaterMessageId}
+            onSelect={rp.handleEnterSelectMode}
+            onToggleSelect={rp.handleToggleSelect}
+            onScrollToMessage={rp.handleScrollToMessage}
+            onDelete={rp.handleDeleteMsgAction}
+            onEdit={rp.handleEditMsg}
+            onReaction={rp.handleReaction}
+            onLoadReactionDetails={rp.handleLoadReactionDetails}
+            onMentionClick={rp.handleMentionClick}
+            onOpenImageViewer={rp.handleOpenImageViewer}
+            onCancelUpload={rp.uploadManagerCancelUpload}
+            onRetryUpload={rp.uploadManagerRetryUpload}
+            isNewMessage={!initialMsgIdsRef.current.has(msg.id) && !msg._prepended}
           />
         </div>
       </div>
     );
-  }, [
-    selectedChat, selectMode, selectedMessages, readLaterMessageId,
-    handleReply, handleForwardMsg, handlePinMessage, handleMarkLater,
-    handleEnterSelectMode, handleToggleSelect, handleScrollToMessage,
-    handleDeleteMsgAction, handleEditMsg, handleReaction, handleLoadReactionDetails,
-    handleMentionClick, handleOpenImageViewer,
-    sidebar.handleFavoriteMessage, sidebar.handleRemoveFavorite, sidebar.favoriteIds,
-    uploadManager.cancelUpload, uploadManager.retryUpload,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- JSX RENDER ---
   return (

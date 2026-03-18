@@ -950,4 +950,21 @@ function MessageBubble({
   );
 }
 
-export default memo(MessageBubble);
+// Custom comparator — yalnız data prop-ları müqayisə et, function prop-ları skip et.
+// renderFlatItem ref pattern istifadə etdiyi üçün handler-lar hər render-də yeni referansdır,
+// amma eyni funksiyadır. Function-ları müqayisəyə daxil etsək memo işləməz.
+function areEqual(prev, next) {
+  return (
+    prev.msg === next.msg &&
+    prev.isOwn === next.isOwn &&
+    prev.showAvatar === next.showAvatar &&
+    prev.chatType === next.chatType &&
+    prev.selectMode === next.selectMode &&
+    prev.isSelected === next.isSelected &&
+    prev.isFavorite === next.isFavorite &&
+    prev.readLaterMessageId === next.readLaterMessageId &&
+    prev.isNewMessage === next.isNewMessage
+  );
+}
+
+export default memo(MessageBubble, areEqual);

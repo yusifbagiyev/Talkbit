@@ -108,9 +108,11 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         const unique = olderMessages.filter((m) => !existingIds.has(m.id));
         if (unique.length === 0) return prev;
         loadOlderTriggeredRef.current = true;
-        const final = allReadPatchRef?.current
-          ? unique.map((m) => m.isRead ? m : { ...m, isRead: true })
-          : unique;
+        // _prepended flag — köhnə mesajlar "new-message" animasiyasını almasın
+        const final = unique.map((m) => {
+          const patched = (allReadPatchRef?.current && !m.isRead) ? { ...m, isRead: true } : m;
+          return patched === m ? { ...m, _prepended: true } : { ...patched, _prepended: true };
+        });
         return [...prev, ...final];
       });
     } catch (err) {
@@ -163,9 +165,11 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         const unique = newerMessages.filter((m) => !existingIds.has(m.id));
         if (unique.length === 0) return prev;
         const reversed = unique.reverse();
-        const final = allReadPatchRef?.current
-          ? reversed.map((m) => m.isRead ? m : { ...m, isRead: true })
-          : reversed;
+        // _prepended flag — pagination ilə yüklənən mesajlar "new-message" animasiyasını almasın
+        const final = reversed.map((m) => {
+          const patched = (allReadPatchRef?.current && !m.isRead) ? { ...m, isRead: true } : m;
+          return patched === m ? { ...m, _prepended: true } : { ...patched, _prepended: true };
+        });
         return [...final, ...prev];
       });
     } catch (err) {
