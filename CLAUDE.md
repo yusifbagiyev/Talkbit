@@ -55,6 +55,10 @@ Identity | Channels | DirectMessages | Files | Notifications | Search | Settings
 - Zero context switching required from the user
 - Go fix failing CI tests without being told how
 
+### 6. Kod optimizasiyası
+- Əgər doğru olmayan bir kod yazdıqdan sonra problemin onda deyil də başqa bir yerdən qaynaqlandığını görərsən, etdiyin lazımsız kod dəyişikliklərini ləğv et ki, lazımsız kod kütləsi yaranmasın.
+- Kodları mümkün qədər optimizasiya et, optimizasiya etdikdən sonra doğruluğuna əmin ol və lazımsız kodları sil.
+
 ## Task Management
 
 1. **Track Progress**: Mark items complete as you go

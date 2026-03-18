@@ -72,7 +72,6 @@ import {
 
 import "./Chat.css";
 
-
 // Chat komponenti — əsas chat səhifəsi
 // .NET ekvivalenti: @page "/" ilə ChatPage.razor
 function Chat() {
@@ -135,7 +134,7 @@ function Chat() {
   // Map<chatId, { messages, pinnedMessages, hasMore, hasMoreDown, timestamp }>
   const messageCacheRef = useRef(new Map());
   const CACHE_TTL = 5 * 60 * 1000; // 5 dəqiqə
-  const CACHE_MAX_SIZE = 10;       // Ən çox 10 chat cache-lənir
+  const CACHE_MAX_SIZE = 10; // Ən çox 10 chat cache-lənir
 
   // allReadPatchRef — unreadCount===0 ilə girdikdə true olur
   // useChatScroll-da scroll ilə yüklənən mesajları da isRead:true patch etmək üçün
@@ -250,7 +249,13 @@ function Chat() {
     loadOlderTriggeredRef,
     loadingMoreRef,
     prependAnchorRef,
-  } = useChatScroll(messages, selectedChat, setMessages, allReadPatchRef, messagesAreaRef);
+  } = useChatScroll(
+    messages,
+    selectedChat,
+    setMessages,
+    allReadPatchRef,
+    messagesAreaRef,
+  );
 
   // isAtBottomRef — istifadəçi scroll-un ən aşağısındadırmı (yeni mesajda auto-scroll üçün)
   const isAtBottomRef = useRef(true);
@@ -262,16 +267,27 @@ function Chat() {
 
   // useMessageSelection — mesaj seçmə rejimi (SelectToolbar)
   const {
-    selectMode, selectedMessages, deleteConfirmOpen, setDeleteConfirmOpen,
+    selectMode,
+    selectedMessages,
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
     hasOthersSelected,
-    handleEnterSelectMode, handleToggleSelect, handleExitSelectMode,
-    handleDeleteSelected, resetSelection,
+    handleEnterSelectMode,
+    handleToggleSelect,
+    handleExitSelectMode,
+    handleDeleteSelected,
+    resetSelection,
   } = useMessageSelection(selectedChat, messages, setMessages, user);
 
   // useMention — @ mention sistemi
   const mention = useMention({
-    selectedChat, channelMembers, conversations, user,
-    inputRef, messageText, setMessageText,
+    selectedChat,
+    channelMembers,
+    conversations,
+    user,
+    inputRef,
+    messageText,
+    setMessageText,
   });
 
   // useSearchPanel — chat daxili mesaj axtarışı
@@ -289,13 +305,15 @@ function Chat() {
       setSelectedChat((current) => {
         if (current && current.id === chatId) {
           setMessages((prev) => {
-            const prevMap = new Map(prev.map(m => [m.id, m]));
+            const prevMap = new Map(prev.map((m) => [m.id, m]));
             return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
           });
         }
         return current;
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   // Upload-dan sonra ConversationList statusunu "Sent" et — DM ilə eyni davranış
@@ -310,15 +328,28 @@ function Chat() {
   }, []);
 
   // useFileUploadManager — global upload manager (progress, cancel, retry)
-  const uploadManager = useFileUploadManager(user, handleUploadFallbackReload, handleUploadMessageSent);
+  const uploadManager = useFileUploadManager(
+    user,
+    handleUploadFallbackReload,
+    handleUploadMessageSent,
+  );
 
   // useSidebarPanels — sidebar panel state + məntiq
-  const sidebar = useSidebarPanels(selectedChat, messages, channelMembers, setChannelMembers);
+  const sidebar = useSidebarPanels(
+    selectedChat,
+    messages,
+    channelMembers,
+    setChannelMembers,
+  );
 
   // useChannelManagement — channel + üzv idarəsi
   const channel = useChannelManagement(
-    selectedChat, conversations, channelMembers, setChannelMembers,
-    sidebar.showMembersPanel, sidebar.loadMembersPanelPage,
+    selectedChat,
+    conversations,
+    channelMembers,
+    setChannelMembers,
+    sidebar.showMembersPanel,
+    sidebar.loadMembersPanelPage,
   );
 
   // --- EFFECT-LƏR ---
@@ -383,11 +414,17 @@ function Chat() {
           return;
         }
         wasConnectedRef.current = true;
-      } else if (wasConnectedRef.current && (state === "reconnecting" || state === "disconnected")) {
+      } else if (
+        wasConnectedRef.current &&
+        (state === "reconnecting" || state === "disconnected")
+      ) {
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         setToast({
           type: state,
-          message: state === "reconnecting" ? "Reconnecting..." : "Connection lost. Reconnecting...",
+          message:
+            state === "reconnecting"
+              ? "Reconnecting..."
+              : "Connection lost. Reconnecting...",
         });
       }
     });
@@ -410,13 +447,20 @@ function Chat() {
 
     // "sent" statuslu task-lar üçün: real mesaj artıq messages-dədirsə göstərmə
     // (SignalR echo gəlib, amma checkForCompletion hələ çağırılmayıb — dublikat qoruması)
-    const messageFileIds = new Set(messages.map((m) => m.fileId).filter(Boolean));
+    const messageFileIds = new Set(
+      messages.map((m) => m.fileId).filter(Boolean),
+    );
 
     // Upload task → optimistic mesaj formatına çevir
     const uploadMsgs = currentUploads
       .filter((task) => {
         // Sent statuslu task-ın fileId-si artıq messages-dədirsə → dublikatdır, göstərmə
-        if (task.status === "sent" && task.fileId && messageFileIds.has(task.fileId)) return false;
+        if (
+          task.status === "sent" &&
+          task.fileId &&
+          messageFileIds.has(task.fileId)
+        )
+          return false;
         return true;
       })
       .map((task) => ({
@@ -437,7 +481,7 @@ function Chat() {
         fileName: task.fileName,
         fileSizeInBytes: task.fileSizeInBytes,
         fileId: task.fileId || null,
-        fileWidth: task.fileWidth || null,   // Lokal ölçülər → layout shift yox
+        fileWidth: task.fileWidth || null, // Lokal ölçülər → layout shift yox
         fileHeight: task.fileHeight || null,
         replyToMessageId: task.replyToMessageId,
         replyToContent: task.replyToContent,
@@ -445,9 +489,10 @@ function Chat() {
         // Upload-specific flag-lar (MessageBubble overlay üçün)
         _optimistic: true,
         _uploading: task.status !== "sent", // "sent" → normal görünüş (overlay yox)
-        _localPreview: !!task.previewUrl,   // Local Object URL — getFileUrl istifadə etmə
+        _localPreview: !!task.previewUrl, // Local Object URL — getFileUrl istifadə etmə
         _uploadStatus: task.status,
-        _uploadProgress: task.totalBytes > 0 ? task.uploadedBytes / task.totalBytes : 0,
+        _uploadProgress:
+          task.totalBytes > 0 ? task.uploadedBytes / task.totalBytes : 0,
         _uploadedBytes: task.uploadedBytes,
         _totalBytes: task.totalBytes,
         _uploadTempId: task.tempId,
@@ -463,7 +508,12 @@ function Chat() {
   // useMemo — messages dəyişmədikdə bu hesablamanı yenidən etmə
   // [...messages].reverse() — messages DESC-dir, ASC-ə çevir (köhnə → yeni)
   const grouped = useMemo(
-    () => groupMessagesByDate([...messagesWithUploads].reverse(), readLaterMessageId, newMessagesStartId),
+    () =>
+      groupMessagesByDate(
+        [...messagesWithUploads].reverse(),
+        readLaterMessageId,
+        newMessagesStartId,
+      ),
     [messagesWithUploads, readLaterMessageId, newMessagesStartId],
   );
 
@@ -476,7 +526,10 @@ function Chat() {
     for (let i = 0; i < grouped.length; i++) {
       const item = grouped[i];
       if (item.type !== "message") {
-        if (currentRun) { runs.push(currentRun); currentRun = null; }
+        if (currentRun) {
+          runs.push(currentRun);
+          currentRun = null;
+        }
         runs.push(item);
         continue;
       }
@@ -604,7 +657,9 @@ function Chat() {
       scrollToBottom();
       // Fallback — şəkillər/lazy content yüklənə bilər
       setTimeout(scrollToBottom, 150);
-      setTimeout(() => { programmaticScrollRef.current = false; }, 400);
+      setTimeout(() => {
+        programmaticScrollRef.current = false;
+      }, 400);
     });
   }, [shouldScrollBottom, scrollToBottom]);
 
@@ -615,14 +670,17 @@ function Chat() {
     pendingHighlightRef.current = null;
 
     setTimeout(() => {
-      const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
+      const target = messagesAreaRef.current?.querySelector(
+        `[data-bubble-id="${messageId}"]`,
+      );
       if (!target) return;
 
       target.scrollIntoView({ behavior: "auto", block: "center" });
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+          if (highlightTimerRef.current)
+            clearTimeout(highlightTimerRef.current);
           target.classList.remove("highlight-message");
           requestAnimationFrame(() => {
             target.classList.add("highlight-message");
@@ -642,7 +700,9 @@ function Chat() {
     pendingScrollToReadLaterRef.current = false;
 
     setTimeout(() => {
-      const el = messagesAreaRef.current?.querySelector(".read-later-separator");
+      const el = messagesAreaRef.current?.querySelector(
+        ".read-later-separator",
+      );
       if (el) el.scrollIntoView({ behavior: "auto", block: "center" });
     }, 100);
   }, [messages]);
@@ -653,7 +713,9 @@ function Chat() {
     pendingScrollToUnreadRef.current = false;
 
     setTimeout(() => {
-      const el = messagesAreaRef.current?.querySelector(".new-messages-separator");
+      const el = messagesAreaRef.current?.querySelector(
+        ".new-messages-separator",
+      );
       if (el) {
         el.scrollIntoView({ behavior: "auto", block: "center" });
       } else {
@@ -681,7 +743,10 @@ function Chat() {
   // Bütün yeni mesajlar oxunanda (isRead: true) → hasNewUnreadRef = false
   useEffect(() => {
     const newUnreads = messages.filter(
-      (m) => !m.isRead && m.senderId !== user?.id && !initialMsgIdsRef.current.has(m.id),
+      (m) =>
+        !m.isRead &&
+        m.senderId !== user?.id &&
+        !initialMsgIdsRef.current.has(m.id),
     );
     if (newUnreads.length > 0) {
       hasNewUnreadRef.current = true;
@@ -715,14 +780,17 @@ function Chat() {
     // Frontend — mesajları isRead: true et
     const idSet = new Set(batch);
     setMessages((prev) =>
-      prev.map((m) => idSet.has(m.id) ? { ...m, isRead: true } : m),
+      prev.map((m) => (idSet.has(m.id) ? { ...m, isRead: true } : m)),
     );
 
     // Conversation list unreadCount azalt
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id === chatId && c.unreadCount > 0) {
-          return { ...c, unreadCount: Math.max(0, c.unreadCount - batch.length) };
+          return {
+            ...c,
+            unreadCount: Math.max(0, c.unreadCount - batch.length),
+          };
         }
         return c;
       }),
@@ -750,18 +818,17 @@ function Chat() {
     const { chatId, chatType } = chatInfo;
 
     setMessages((prev) =>
-      prev.map((m) => m.isRead ? m : { ...m, isRead: true }),
+      prev.map((m) => (m.isRead ? m : { ...m, isRead: true })),
     );
 
-    const endpoint = chatType === "0"
-      ? `/api/conversations/${chatId}/messages/mark-all-read`
-      : `/api/channels/${chatId}/messages/mark-as-read`;
+    const endpoint =
+      chatType === "0"
+        ? `/api/conversations/${chatId}/messages/mark-all-read`
+        : `/api/channels/${chatId}/messages/mark-as-read`;
     apiPost(endpoint).catch(() => {});
 
     setConversations((prev) =>
-      prev.map((c) =>
-        c.id === chatId ? { ...c, unreadCount: 0 } : c,
-      ),
+      prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)),
     );
 
     visibleUnreadRef.current = new Set();
@@ -775,7 +842,11 @@ function Chat() {
     showScrollDownRef.current = false;
     programmaticScrollRef.current = true;
     try {
-      const endpoint = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
+      const endpoint = getChatEndpoint(
+        selectedChat.id,
+        selectedChat.type,
+        "/messages",
+      );
       if (!endpoint) return;
       const data = await apiGet(`${endpoint}?pageSize=${MESSAGE_PAGE_SIZE}`);
       initialMsgIdsRef.current = new Set(data.map((m) => m.id));
@@ -786,14 +857,18 @@ function Chat() {
     hasMoreRef.current = true;
     hasMoreDownRef.current = false;
     loadingMoreRef.current = true;
-    setTimeout(() => { loadingMoreRef.current = false; }, 300);
+    setTimeout(() => {
+      loadingMoreRef.current = false;
+    }, 300);
     hasNewUnreadRef.current = false;
     firstUnreadMsgIdRef.current = null;
     // React batched update — 1 frame sonra DOM hazır olacaq
     requestAnimationFrame(() => {
       scrollToBottom();
       setTimeout(scrollToBottom, 100);
-      setTimeout(() => { programmaticScrollRef.current = false; }, 400);
+      setTimeout(() => {
+        programmaticScrollRef.current = false;
+      }, 400);
     });
   }
 
@@ -840,7 +915,9 @@ function Chat() {
   // Hidden conversation: listdə yoxdur amma backend-də mövcuddur — listə əlavə etmədən aç
   async function handleSelectSearchUser(selectedUser) {
     // 1. Mövcud conversations-da bu user ilə conversation varmı?
-    const existing = conversations.find((c) => c.otherUserId === selectedUser.id);
+    const existing = conversations.find(
+      (c) => c.otherUserId === selectedUser.id,
+    );
     if (existing) {
       handleSelectChat(existing);
       setSearchText("");
@@ -907,10 +984,14 @@ function Chat() {
     await Promise.all(
       unreadConvos.map((c) => {
         if (c.type === 1) {
-          return apiPost(`/api/channels/${c.id}/messages/mark-as-read`).catch(() => {});
+          return apiPost(`/api/channels/${c.id}/messages/mark-as-read`).catch(
+            () => {},
+          );
         }
         // DM (type 0) və Notes
-        return apiPost(`/api/conversations/${c.id}/messages/mark-all-read`).catch(() => {});
+        return apiPost(
+          `/api/conversations/${c.id}/messages/mark-all-read`,
+        ).catch(() => {});
       }),
     );
 
@@ -923,15 +1004,18 @@ function Chat() {
   // handleTogglePin — conversation-ı pin/unpin et
   async function handleTogglePin(conv) {
     try {
-      const endpoint = conv.type === 1
-        ? `/api/channels/${conv.id}/toggle-pin`
-        : `/api/conversations/${conv.id}/messages/toggle-pin`;
+      const endpoint =
+        conv.type === 1
+          ? `/api/channels/${conv.id}/toggle-pin`
+          : `/api/conversations/${conv.id}/messages/toggle-pin`;
       const result = await apiPost(endpoint);
       setConversations((prev) => {
         const exists = prev.some((c) => c.id === conv.id);
         if (exists) {
           // Mövcud conversation-ı yenilə
-          return prev.map((c) => c.id === conv.id ? { ...c, isPinned: result.isPinned } : c);
+          return prev.map((c) =>
+            c.id === conv.id ? { ...c, isPinned: result.isPinned } : c,
+          );
         }
         // Hidden idi, pin edildikdə backend unhide etdi — listə geri əlavə et
         if (result.isPinned) {
@@ -951,12 +1035,15 @@ function Chat() {
   // handleToggleMute — conversation-ı mute/unmute et
   async function handleToggleMute(conv) {
     try {
-      const endpoint = conv.type === 1
-        ? `/api/channels/${conv.id}/toggle-mute`
-        : `/api/conversations/${conv.id}/messages/toggle-mute`;
+      const endpoint =
+        conv.type === 1
+          ? `/api/channels/${conv.id}/toggle-mute`
+          : `/api/conversations/${conv.id}/messages/toggle-mute`;
       const result = await apiPost(endpoint);
       setConversations((prev) =>
-        prev.map((c) => c.id === conv.id ? { ...c, isMuted: result.isMuted } : c),
+        prev.map((c) =>
+          c.id === conv.id ? { ...c, isMuted: result.isMuted } : c,
+        ),
       );
       // Seçili chat eyni conversation-dırsa, selectedChat-ı da yenilə
       if (selectedChat && selectedChat.id === conv.id) {
@@ -970,16 +1057,24 @@ function Chat() {
   // handleToggleReadLater — conversation-ı "sonra oxu" işarələ / sil
   async function handleToggleReadLater(conv) {
     try {
-      const endpoint = conv.type === 1
-        ? `/api/channels/${conv.id}/toggle-read-later`
-        : `/api/conversations/${conv.id}/messages/toggle-read-later`;
+      const endpoint =
+        conv.type === 1
+          ? `/api/channels/${conv.id}/toggle-read-later`
+          : `/api/conversations/${conv.id}/messages/toggle-read-later`;
       const result = await apiPost(endpoint);
       setConversations((prev) =>
-        prev.map((c) => c.id === conv.id ? { ...c, isMarkedReadLater: result.isMarkedReadLater } : c),
+        prev.map((c) =>
+          c.id === conv.id
+            ? { ...c, isMarkedReadLater: result.isMarkedReadLater }
+            : c,
+        ),
       );
       // Seçili chat eyni conversation-dırsa, selectedChat-ı da yenilə
       if (selectedChat && selectedChat.id === conv.id) {
-        setSelectedChat((prev) => ({ ...prev, isMarkedReadLater: result.isMarkedReadLater }));
+        setSelectedChat((prev) => ({
+          ...prev,
+          isMarkedReadLater: result.isMarkedReadLater,
+        }));
       }
     } catch (err) {
       console.error("Failed to toggle read later:", err);
@@ -989,9 +1084,10 @@ function Chat() {
   // handleToggleHide — conversation-ı hide/unhide toggle et
   async function handleToggleHide(conv) {
     try {
-      const endpoint = conv.type === 1
-        ? `/api/channels/${conv.id}/hide`
-        : `/api/conversations/${conv.id}/messages/hide`;
+      const endpoint =
+        conv.type === 1
+          ? `/api/channels/${conv.id}/hide`
+          : `/api/conversations/${conv.id}/messages/hide`;
       const result = await apiPost(endpoint);
 
       if (result.isHidden) {
@@ -1007,7 +1103,7 @@ function Chat() {
       } else {
         // Unhide olundu — isHidden bayrağını yenilə
         setConversations((prev) =>
-          prev.map((c) => c.id === conv.id ? { ...c, isHidden: false } : c),
+          prev.map((c) => (c.id === conv.id ? { ...c, isHidden: false } : c)),
         );
         if (selectedChat && selectedChat.id === conv.id) {
           setSelectedChat((prev) => ({ ...prev, isHidden: false }));
@@ -1019,42 +1115,54 @@ function Chat() {
   }
 
   // handleLeaveChannel — channel-dan ayrıl
-  const handleLeaveChannel = useCallback(async (conv) => {
-    try {
-      await apiPost(`/api/channels/${conv.id}/members/leave`);
-      setConversations((prev) => prev.filter((c) => c.id !== conv.id));
-      if (selectedChat && selectedChat.id === conv.id) {
-        setSelectedChat(null);
-        setMessages([]);
+  const handleLeaveChannel = useCallback(
+    async (conv) => {
+      try {
+        await apiPost(`/api/channels/${conv.id}/members/leave`);
+        setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+        if (selectedChat && selectedChat.id === conv.id) {
+          setSelectedChat(null);
+          setMessages([]);
+        }
+      } catch (err) {
+        console.error("Failed to leave channel:", err);
       }
-    } catch (err) {
-      console.error("Failed to leave channel:", err);
-    }
-  }, [selectedChat]);
+    },
+    [selectedChat],
+  );
 
   // handleDeleteConversation — conversation/channel-ı sil
-  const handleDeleteConversation = useCallback(async (conv) => {
-    try {
-      const endpoint = conv.type === 1
-        ? `/api/channels/${conv.id}`
-        : `/api/conversations/${conv.id}`;
-      await apiDelete(endpoint);
-      setConversations((prev) => prev.filter((c) => c.id !== conv.id));
-      if (selectedChat && selectedChat.id === conv.id) {
-        setSelectedChat(null);
-        setMessages([]);
+  const handleDeleteConversation = useCallback(
+    async (conv) => {
+      try {
+        const endpoint =
+          conv.type === 1
+            ? `/api/channels/${conv.id}`
+            : `/api/conversations/${conv.id}`;
+        await apiDelete(endpoint);
+        setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+        if (selectedChat && selectedChat.id === conv.id) {
+          setSelectedChat(null);
+          setMessages([]);
+        }
+      } catch (err) {
+        console.error("Failed to delete conversation:", err);
       }
-    } catch (err) {
-      console.error("Failed to delete conversation:", err);
-    }
-  }, [selectedChat]);
+    },
+    [selectedChat],
+  );
 
   // handleMessageTextChange — textarea onChange (mention detection ilə birlikdə)
-  const handleMessageTextChange = useCallback((newText, caretPos) => {
-    setMessageText(newText);
-    markAllAsReadForCurrentChat();
-    mention.detectMentionInText(newText, caretPos, () => { if (emojiOpen) setEmojiOpen(false); });
-  }, [emojiOpen, mention, markAllAsReadForCurrentChat]);
+  const handleMessageTextChange = useCallback(
+    (newText, caretPos) => {
+      setMessageText(newText);
+      markAllAsReadForCurrentChat();
+      mention.detectMentionInText(newText, caretPos, () => {
+        if (emojiOpen) setEmojiOpen(false);
+      });
+    },
+    [emojiOpen, mention, markAllAsReadForCurrentChat],
+  );
 
   // handleInputResize — textarea böyüdükdə/kiçildikdə mesajları aşağı scroll et
   const handleInputResize = useCallback(() => {
@@ -1068,33 +1176,50 @@ function Chat() {
   // Ref pattern — conversations dəyişəndə renderFlatItem yenidən yaranmasın
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
-  const handleMentionClick = useCallback((m) => {
-    if (m.isAll) {
-      if (selectedChat?.type === 1) {
-        sidebar.setShowSidebar(true);
-        sidebar.setShowMembersPanel(true);
-        sidebar.setMembersPanelDirect(true);
-        sidebar.loadMembersPanelPage(selectedChat.id, 0, true);
+  const handleMentionClick = useCallback(
+    (m) => {
+      if (m.isAll) {
+        if (selectedChat?.type === 1) {
+          sidebar.setShowSidebar(true);
+          sidebar.setShowMembersPanel(true);
+          sidebar.setMembersPanelDirect(true);
+          sidebar.loadMembersPanelPage(selectedChat.id, 0, true);
+        }
+        return;
       }
-      return;
-    }
-    const convs = conversationsRef.current;
-    const channelConv = convs.find((c) => c.type === 1 && c.id === m.userId);
-    if (channelConv) { handleSelectChat(channelConv); return; }
-    const existing = convs.find((c) => c.type === 0 && c.otherUserId === m.userId);
-    if (existing) { handleSelectChat(existing); return; }
-    const deptUser = convs.find((c) => c.type === 2 && (c.otherUserId === m.userId || c.userId === m.userId));
-    if (deptUser) { handleSelectChat(deptUser); return; }
-    // İstifadəçi conversationlist-də yoxdur — virtual DM yarat (type=2 pattern)
-    // İlk mesaj göndəriləndə real conversation yaranacaq
-    handleSelectChat({
-      id: m.userId,
-      type: 2,
-      name: m.userFullName,
-      otherUserId: m.userId,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChat]);
+      const convs = conversationsRef.current;
+      const channelConv = convs.find((c) => c.type === 1 && c.id === m.userId);
+      if (channelConv) {
+        handleSelectChat(channelConv);
+        return;
+      }
+      const existing = convs.find(
+        (c) => c.type === 0 && c.otherUserId === m.userId,
+      );
+      if (existing) {
+        handleSelectChat(existing);
+        return;
+      }
+      const deptUser = convs.find(
+        (c) =>
+          c.type === 2 && (c.otherUserId === m.userId || c.userId === m.userId),
+      );
+      if (deptUser) {
+        handleSelectChat(deptUser);
+        return;
+      }
+      // İstifadəçi conversationlist-də yoxdur — virtual DM yarat (type=2 pattern)
+      // İlk mesaj göndəriləndə real conversation yaranacaq
+      handleSelectChat({
+        id: m.userId,
+        type: 2,
+        name: m.userFullName,
+        otherUserId: m.userId,
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [selectedChat],
+  );
 
   // ─── Search panel handler-ləri (state useSearchPanel hook-unda) ──────────────
 
@@ -1104,7 +1229,10 @@ function Chat() {
   }, [search, sidebar]);
 
   const handleOpenSearch = useCallback(() => {
-    if (search.showSearchPanel) { handleCloseSearch(); return; }
+    if (search.showSearchPanel) {
+      handleCloseSearch();
+      return;
+    }
     search.setSearchFromSidebar(sidebar.showSidebar);
     sidebar.setShowSidebar(true);
     search.setShowSearchPanel(true);
@@ -1222,9 +1350,13 @@ function Chat() {
     setConversations((prev) =>
       prev.map((c) =>
         c.id === updatedData.id
-          ? { ...c, name: updatedData.name, avatarUrl: updatedData.avatarUrl ?? c.avatarUrl }
-          : c
-      )
+          ? {
+              ...c,
+              name: updatedData.name,
+              avatarUrl: updatedData.avatarUrl ?? c.avatarUrl,
+            }
+          : c,
+      ),
     );
     if (selectedChat && selectedChat.id === updatedData.id) {
       setSelectedChat((prev) => ({
@@ -1311,7 +1443,7 @@ function Chat() {
 
     // ── Cache RESTORE — yeni chatın cache-i varsa dərhal göstər ──
     const cached = messageCacheRef.current.get(chat.id);
-    const cacheValid = cached && (Date.now() - cached.timestamp < CACHE_TTL);
+    const cacheValid = cached && Date.now() - cached.timestamp < CACHE_TTL;
     // Around-mode cache keçərsizdir — getAround sonrası cache-də yalnız hədəf ətrafı
     // 30 mesaj var, son mesajlar yoxdur. Geri qayıtdıqda həmişə API-dən yüklə.
     const aroundModeCache = cacheValid && cached.hasMoreDown;
@@ -1345,7 +1477,9 @@ function Chat() {
     processedMsgIdsRef.current = new Set(); // Mark-as-read processed set-ini sıfırla
     // startReached guard — mount zamanı scroll listener dərhal fire etməsin
     loadingMoreRef.current = true;
-    setTimeout(() => { loadingMoreRef.current = false; }, 300);
+    setTimeout(() => {
+      loadingMoreRef.current = false;
+    }, 300);
     hasMoreRef.current = usableCache ? cached.hasMore : true;
     hasMoreDownRef.current = false; // Geri qayıtdıqda həmişə ən son mesajlardan başla
     // lastReadLaterMessageId varsa — around endpoint ilə yüklə, əks halda normal
@@ -1353,12 +1487,15 @@ function Chat() {
 
     // isMarkedReadLater varsa — daxil olduqda avtomatik unmark et
     if (chat.isMarkedReadLater) {
-      const rlEndpoint = chat.type === 1
-        ? `/api/channels/${chat.id}/toggle-read-later`
-        : `/api/conversations/${chat.id}/messages/toggle-read-later`;
+      const rlEndpoint =
+        chat.type === 1
+          ? `/api/channels/${chat.id}/toggle-read-later`
+          : `/api/conversations/${chat.id}/messages/toggle-read-later`;
       apiPost(rlEndpoint).catch(() => {});
       setConversations((prev) =>
-        prev.map((c) => c.id === chat.id ? { ...c, isMarkedReadLater: false } : c),
+        prev.map((c) =>
+          c.id === chat.id ? { ...c, isMarkedReadLater: false } : c,
+        ),
       );
     }
 
@@ -1366,11 +1503,16 @@ function Chat() {
     // readLater varsa cache-dən istifadə etmə — around endpoint lazımdır
     // Around-mode cache keçərsizdir — son mesajlar yoxdur, API-dən yüklə
     if (usableCache && !hasReadLater) {
-      readBatchChatRef.current = { chatId: chat.id, chatType: String(chat.type) };
+      readBatchChatRef.current = {
+        chatId: chat.id,
+        chatType: String(chat.type),
+      };
       const unread = chat.unreadCount || 0;
-      allReadPatchRef.current = (unread === 0);
+      allReadPatchRef.current = unread === 0;
       initialMsgIdsRef.current = new Set(
-        cached.messages.filter((m) => !m.isRead && m.senderId !== user?.id).map((m) => m.id),
+        cached.messages
+          .filter((m) => !m.isRead && m.senderId !== user?.id)
+          .map((m) => m.id),
       );
       // Favorites — cache-dən restore et
       if (cached.favoriteMessages) {
@@ -1380,10 +1522,15 @@ function Chat() {
       if (chat.type === 0 && chat.otherUserId) {
         const conn = getConnection();
         if (conn) {
-          conn.invoke("GetOnlineStatus", [chat.otherUserId])
+          conn
+            .invoke("GetOnlineStatus", [chat.otherUserId])
             .then((statusMap) => {
               if (statusMap?.[chat.otherUserId]) {
-                setOnlineUsers((prev) => { const next = new Set(prev); next.add(chat.otherUserId); return next; });
+                setOnlineUsers((prev) => {
+                  const next = new Set(prev);
+                  next.add(chat.otherUserId);
+                  return next;
+                });
               }
             })
             .catch(() => {});
@@ -1394,7 +1541,11 @@ function Chat() {
             setChannelMembers((prev) => ({
               ...prev,
               [chat.id]: members.reduce((map, m) => {
-                map[m.userId] = { fullName: m.fullName, avatarUrl: m.avatarUrl, role: m.role };
+                map[m.userId] = {
+                  fullName: m.fullName,
+                  avatarUrl: m.avatarUrl,
+                  role: m.role,
+                };
                 return map;
               }, {}),
             }));
@@ -1430,21 +1581,25 @@ function Chat() {
       // Read later varsa: həm də DELETE read-later çağır (icon-u conversation list-dən sil)
       // + unread varsa: separator pozisiyası üçün ən son mesajları paralel yüklə
       if (hasReadLater) {
-        const clearEndpoint = chat.type === 0
-          ? `/api/conversations/${chat.id}/messages/read-later`
-          : `/api/channels/${chat.id}/read-later`;
+        const clearEndpoint =
+          chat.type === 0
+            ? `/api/conversations/${chat.id}/messages/read-later`
+            : `/api/channels/${chat.id}/read-later`;
         promises.push(apiDelete(clearEndpoint).catch(() => {}));
 
         const unread = chat.unreadCount || 0;
         if (unread > 0) {
           // pageSize max 30 — çox olsa aşağıda əlavə səhifə yüklənəcək
           promises.push(
-            apiGet(`${msgBase}?pageSize=${Math.min(unread, MESSAGE_PAGE_SIZE)}`).catch(() => null),
+            apiGet(
+              `${msgBase}?pageSize=${Math.min(unread, MESSAGE_PAGE_SIZE)}`,
+            ).catch(() => null),
           );
         }
       }
 
-      const [msgData, pinData, favData, , latestForSeparator] = await Promise.all(promises);
+      const [msgData, pinData, favData, , latestForSeparator] =
+        await Promise.all(promises);
 
       // Stale response — istifadəçi artıq başqa conversation-a keçib
       if (requestId !== chatRequestIdRef.current) return;
@@ -1470,7 +1625,11 @@ function Chat() {
 
       if (unread > MESSAGE_PAGE_SIZE) {
         // Normal mode — msgData-dan əlavə səhifə
-        if (!hasReadLater && finalMsgData.length > 0 && unread > finalMsgData.length) {
+        if (
+          !hasReadLater &&
+          finalMsgData.length > 0 &&
+          unread > finalMsgData.length
+        ) {
           const oldest = finalMsgData[finalMsgData.length - 1];
           const beforeDate = oldest.createdAtUtc || oldest.sentAt;
           if (beforeDate) {
@@ -1480,7 +1639,10 @@ function Chat() {
               );
               if (extra && extra.length > 0) {
                 const ids = new Set(finalMsgData.map((m) => m.id));
-                finalMsgData = [...finalMsgData, ...extra.filter((m) => !ids.has(m.id))];
+                finalMsgData = [
+                  ...finalMsgData,
+                  ...extra.filter((m) => !ids.has(m.id)),
+                ];
               }
             } catch (err) {
               console.error("Separator extra page failed:", err);
@@ -1488,7 +1650,12 @@ function Chat() {
           }
         }
         // ReadLater mode — latestForSeparator-dan əlavə səhifə
-        if (hasReadLater && finalLatestForSep && finalLatestForSep.length > 0 && unread > finalLatestForSep.length) {
+        if (
+          hasReadLater &&
+          finalLatestForSep &&
+          finalLatestForSep.length > 0 &&
+          unread > finalLatestForSep.length
+        ) {
           const oldest = finalLatestForSep[finalLatestForSep.length - 1];
           const beforeDate = oldest.createdAtUtc || oldest.sentAt;
           if (beforeDate) {
@@ -1498,7 +1665,10 @@ function Chat() {
               );
               if (extra && extra.length > 0) {
                 const ids = new Set(finalLatestForSep.map((m) => m.id));
-                finalLatestForSep = [...finalLatestForSep, ...extra.filter((m) => !ids.has(m.id))];
+                finalLatestForSep = [
+                  ...finalLatestForSep,
+                  ...extra.filter((m) => !ids.has(m.id)),
+                ];
               }
             } catch (err) {
               console.error("ReadLater separator extra page failed:", err);
@@ -1516,9 +1686,7 @@ function Chat() {
         // lastReadLaterMessageId sil ki, növbəti dəfə açanda separator + ikon görünməsin
         setConversations((prev) =>
           prev.map((c) =>
-            c.id === chat.id
-              ? { ...c, lastReadLaterMessageId: null }
-              : c,
+            c.id === chat.id ? { ...c, lastReadLaterMessageId: null } : c,
           ),
         );
       } else {
@@ -1557,10 +1725,10 @@ function Chat() {
       // unreadCount === 0 → backend hələ isRead:false qaytara bilir (xüsusilə channel-larda)
       // Bu halda patch et ki, IntersectionObserver lazımsız request göndərməsin
       // unreadCount > 0 → patch etmə, observer scroll ilə tək-tək mark edəcək (düzgün davranış)
-      allReadPatchRef.current = (!hasReadLater && unread === 0);
+      allReadPatchRef.current = !hasReadLater && unread === 0;
       setMessages(
         allReadPatchRef.current
-          ? finalMsgData.map((m) => m.isRead ? m : { ...m, isRead: true })
+          ? finalMsgData.map((m) => (m.isRead ? m : { ...m, isRead: true }))
           : finalMsgData,
       );
       // CRITICAL: setChatLoading(false) burada olmalıdır (setMessages ilə eyni React batch-da)
@@ -1570,7 +1738,7 @@ function Chat() {
       // ── Cache UPDATE — API-dən gələn fresh data ilə cache-i yenilə ──
       messageCacheRef.current.set(chat.id, {
         messages: allReadPatchRef.current
-          ? finalMsgData.map((m) => m.isRead ? m : { ...m, isRead: true })
+          ? finalMsgData.map((m) => (m.isRead ? m : { ...m, isRead: true }))
           : finalMsgData,
         pinnedMessages: sortedPins,
         favoriteMessages: sortedFavs,
@@ -1587,7 +1755,9 @@ function Chat() {
       // İlkin mesaj ID-lərini yadda saxla — bu mesajlar scroll ilə görünəndə dərhal read olacaq
       // Yeni SignalR mesajları bu set-də olmayacaq → yazmağa/göndərməyə qədər unread qalacaq
       initialMsgIdsRef.current = new Set(
-        finalMsgData.filter((m) => !m.isRead && m.senderId !== user?.id).map((m) => m.id),
+        finalMsgData
+          .filter((m) => !m.isRead && m.senderId !== user?.id)
+          .map((m) => m.id),
       );
 
       // Yeni chatın SignalR qrupuna qoşul
@@ -1619,11 +1789,17 @@ function Chat() {
         // Channel members yüklə — status bar-da "Viewed by X" üçün
         if (!channelMembers[chat.id]) {
           try {
-            const members = await apiGet(`/api/channels/${chat.id}/members?take=100`);
+            const members = await apiGet(
+              `/api/channels/${chat.id}/members?take=100`,
+            );
             setChannelMembers((prev) => ({
               ...prev,
               [chat.id]: members.reduce((map, m) => {
-                map[m.userId] = { fullName: m.fullName, avatarUrl: m.avatarUrl, role: m.role };
+                map[m.userId] = {
+                  fullName: m.fullName,
+                  avatarUrl: m.avatarUrl,
+                  role: m.role,
+                };
                 return map;
               }, {}),
             }));
@@ -1706,7 +1882,7 @@ function Chat() {
         hasMoreDownRef.current = false;
         setShouldScrollBottom(true);
         setMessages((prev) => {
-          const prevMap = new Map(prev.map(m => [m.id, m]));
+          const prevMap = new Map(prev.map((m) => [m.id, m]));
           return data.map((m) => mergeMessageWithPrev(m, prevMap.get(m.id)));
         });
       }
@@ -1826,7 +2002,11 @@ function Chat() {
             // Conversation list — son mesaj bu idisə qalan mesaja görə yenilə
             setConversations((prevConvs) =>
               prevConvs.map((c) => {
-                if (c.id !== selectedChat.id || c._lastProcessedMsgId !== msg.id) return c;
+                if (
+                  c.id !== selectedChat.id ||
+                  c._lastProcessedMsgId !== msg.id
+                )
+                  return c;
                 if (lastRemaining) {
                   return {
                     ...c,
@@ -1835,7 +2015,12 @@ function Chat() {
                     _lastProcessedMsgId: lastRemaining.id,
                   };
                 }
-                return { ...c, lastMessage: "", lastMessageAtUtc: null, _lastProcessedMsgId: null };
+                return {
+                  ...c,
+                  lastMessage: "",
+                  lastMessageAtUtc: null,
+                  _lastProcessedMsgId: null,
+                };
               }),
             );
             return remaining;
@@ -1889,7 +2074,10 @@ function Chat() {
     // 1. Data-nı capture et (state sıfırlanmadan əvvəl)
     const files = [...fileUpload.selectedFiles];
     const currentReply = replyTo;
-    const mentionsToSend = mention.prepareMentionsForSend(text, selectedChat.type);
+    const mentionsToSend = mention.prepareMentionsForSend(
+      text,
+      selectedChat.type,
+    );
 
     let chatId = selectedChat.id;
     let chatType = selectedChat.type;
@@ -1902,7 +2090,12 @@ function Chat() {
         });
         chatId = result.conversationId;
         chatType = 0;
-        const updatedChat = { ...selectedChat, id: chatId, type: 0, otherUserId: selectedChat.id };
+        const updatedChat = {
+          ...selectedChat,
+          id: chatId,
+          type: 0,
+          otherUserId: selectedChat.id,
+        };
         setSelectedChat(updatedChat);
         setConversations((prev) =>
           prev.map((c) =>
@@ -1923,7 +2116,8 @@ function Chat() {
     setReplyTo(null);
     setMessageText("");
     const savedH2 = localStorage.getItem("chatInputHeight");
-    if (inputRef.current) inputRef.current.style.height = savedH2 ? savedH2 + "px" : "auto";
+    if (inputRef.current)
+      inputRef.current.style.height = savedH2 ? savedH2 + "px" : "auto";
     const mirror2 = document.querySelector(".message-input-mirror");
     if (mirror2) mirror2.style.height = savedH2 ? savedH2 + "px" : "auto";
 
@@ -1951,7 +2145,14 @@ function Chat() {
     });
 
     // 4. Upload manager-ə ver — await et ki, upload task yaransın, sonra scroll et
-    await uploadManager.startUpload(files, chatId, chatType, text, currentReply, mentionsToSend);
+    await uploadManager.startUpload(
+      files,
+      chatId,
+      chatType,
+      text,
+      currentReply,
+      mentionsToSend,
+    );
 
     // 5. Aşağı scroll et — upload task artıq messagesWithUploads-dadır
     setShouldScrollBottom(true);
@@ -1981,9 +2182,7 @@ function Chat() {
     if (selectedChat) {
       delete draftsRef.current[selectedChat.id];
       setConversations((prev) =>
-        prev.map((c) =>
-          c.id === selectedChat.id ? { ...c, draft: null } : c,
-        ),
+        prev.map((c) => (c.id === selectedChat.id ? { ...c, draft: null } : c)),
       );
     }
 
@@ -2052,7 +2251,10 @@ function Chat() {
     setReplyTo(null);
 
     // Mentions-ı hazırla (activeMentionsRef sıfırlanır, ona görə API göndərmədən əvvəl saxla)
-    const mentionsForSend = mention.prepareMentionsForSend(text, selectedChat.type);
+    const mentionsForSend = mention.prepareMentionsForSend(
+      text,
+      selectedChat.type,
+    );
 
     // ── Optimistic UI: mesajı dərhal göstər, status=Pending ──
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -2151,7 +2353,9 @@ function Chat() {
       // ── API uğurlu → optimistic mesajın statusunu Sent (1) et + _optimistic sil ──
       // _optimistic silinir ki, react/more butonları dərhal görünsün (SignalR echo gözləmədən)
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, status: 1, _optimistic: false } : m)),
+        prev.map((m) =>
+          m.id === tempId ? { ...m, status: 1, _optimistic: false } : m,
+        ),
       );
 
       // ConversationList-də statusu Sent et
@@ -2206,36 +2410,72 @@ function Chat() {
   // ─── Birləşdirilmiş click-outside handler ───
   // 7 ayrı useEffect əvəzinə tək event listener — daha az memory, daha az GC
   useEffect(() => {
-    const anyOpen = emojiOpen || sidebar.showSidebarMenu || sidebar.favMenuId || sidebar.linksMenuId || sidebar.filesMenuId || sidebar.memberMenuId || channel.showAddMember;
+    const anyOpen =
+      emojiOpen ||
+      sidebar.showSidebarMenu ||
+      sidebar.favMenuId ||
+      sidebar.linksMenuId ||
+      sidebar.filesMenuId ||
+      sidebar.memberMenuId ||
+      channel.showAddMember;
     if (!anyOpen) return;
 
     function handleClickOutside(e) {
       // Emoji panel — .emoji-btn istisnası (toggle üçün)
-      if (emojiOpen && emojiPanelRef.current && !emojiPanelRef.current.contains(e.target) && !e.target.closest(".emoji-btn")) {
+      if (
+        emojiOpen &&
+        emojiPanelRef.current &&
+        !emojiPanelRef.current.contains(e.target) &&
+        !e.target.closest(".emoji-btn")
+      ) {
         setEmojiOpen(false);
       }
       // Sidebar more menu
-      if (sidebar.showSidebarMenu && sidebar.sidebarMenuRef.current && !sidebar.sidebarMenuRef.current.contains(e.target)) {
+      if (
+        sidebar.showSidebarMenu &&
+        sidebar.sidebarMenuRef.current &&
+        !sidebar.sidebarMenuRef.current.contains(e.target)
+      ) {
         sidebar.setShowSidebarMenu(false);
       }
       // Favorite mesaj more menu
-      if (sidebar.favMenuId && sidebar.favMenuRef.current && !sidebar.favMenuRef.current.contains(e.target)) {
+      if (
+        sidebar.favMenuId &&
+        sidebar.favMenuRef.current &&
+        !sidebar.favMenuRef.current.contains(e.target)
+      ) {
         sidebar.setFavMenuId(null);
       }
       // Links more menu
-      if (sidebar.linksMenuId && sidebar.linksMenuRef.current && !sidebar.linksMenuRef.current.contains(e.target)) {
+      if (
+        sidebar.linksMenuId &&
+        sidebar.linksMenuRef.current &&
+        !sidebar.linksMenuRef.current.contains(e.target)
+      ) {
         sidebar.setLinksMenuId(null);
       }
       // Files more menu
-      if (sidebar.filesMenuId && sidebar.filesMenuRef.current && !sidebar.filesMenuRef.current.contains(e.target)) {
+      if (
+        sidebar.filesMenuId &&
+        sidebar.filesMenuRef.current &&
+        !sidebar.filesMenuRef.current.contains(e.target)
+      ) {
         sidebar.setFilesMenuId(null);
       }
       // Member context menu
-      if (sidebar.memberMenuId && sidebar.memberMenuRef.current && !sidebar.memberMenuRef.current.contains(e.target)) {
+      if (
+        sidebar.memberMenuId &&
+        sidebar.memberMenuRef.current &&
+        !sidebar.memberMenuRef.current.contains(e.target)
+      ) {
         sidebar.setMemberMenuId(null);
       }
       // Add member panel — əlavə state sıfırlama
-      if (channel.showAddMember && channel.addMemberRef.current && !channel.addMemberRef.current.contains(e.target)) {
+      if (
+        channel.showAddMember &&
+        channel.addMemberRef.current &&
+        !channel.addMemberRef.current.contains(e.target)
+      ) {
         channel.setShowAddMember(false);
         channel.setAddMemberSearch("");
         channel.setAddMemberSearchActive(false);
@@ -2244,8 +2484,16 @@ function Chat() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emojiOpen, sidebar.showSidebarMenu, sidebar.favMenuId, sidebar.linksMenuId, sidebar.filesMenuId, sidebar.memberMenuId, channel.showAddMember]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    emojiOpen,
+    sidebar.showSidebarMenu,
+    sidebar.favMenuId,
+    sidebar.linksMenuId,
+    sidebar.filesMenuId,
+    sidebar.memberMenuId,
+    channel.showAddMember,
+  ]);
 
   // Add member effects → useChannelManagement hook-una çıxarılıb
   // Sidebar açılanda channel members yüklə → useSidebarPanels hook-una çıxarılıb
@@ -2261,11 +2509,17 @@ function Chat() {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-    if (!selectedChat || selectedChat.type === 2 || selectedChat.isNotes) return;
+    if (!selectedChat || selectedChat.type === 2 || selectedChat.isNotes)
+      return;
     const conn = getConnection();
     if (!conn) return;
     if (selectedChat.type === 0) {
-      conn.invoke("TypingInConversation", selectedChat.id, selectedChat.otherUserId, false);
+      conn.invoke(
+        "TypingInConversation",
+        selectedChat.id,
+        selectedChat.otherUserId,
+        false,
+      );
     } else if (selectedChat.type === 1) {
       conn.invoke("TypingInChannel", selectedChat.id, false);
     }
@@ -2273,14 +2527,20 @@ function Chat() {
 
   // sendTypingSignal — istifadəçi yazarkən SignalR hub-a "typing" siqnalı göndər
   const sendTypingSignal = useCallback(() => {
-    if (!selectedChat || selectedChat.type === 2 || selectedChat.isNotes) return;
+    if (!selectedChat || selectedChat.type === 2 || selectedChat.isNotes)
+      return;
     const conn = getConnection();
     if (!conn) return;
 
     if (!isTypingRef.current) {
       isTypingRef.current = true;
       if (selectedChat.type === 0) {
-        conn.invoke("TypingInConversation", selectedChat.id, selectedChat.otherUserId, true);
+        conn.invoke(
+          "TypingInConversation",
+          selectedChat.id,
+          selectedChat.otherUserId,
+          true,
+        );
       } else if (selectedChat.type === 1) {
         conn.invoke("TypingInChannel", selectedChat.id, true);
       }
@@ -2299,12 +2559,15 @@ function Chat() {
       if (!selectedChat) return;
 
       // DOM-da bu mesaj varmı?
-      const target = messagesAreaRef.current?.querySelector(`[data-bubble-id="${messageId}"]`);
+      const target = messagesAreaRef.current?.querySelector(
+        `[data-bubble-id="${messageId}"]`,
+      );
       if (target) {
         target.scrollIntoView({ behavior: "auto", block: "center" });
         // Highlight
         setTimeout(() => {
-          if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+          if (highlightTimerRef.current)
+            clearTimeout(highlightTimerRef.current);
           target.classList.remove("highlight-message");
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -2332,7 +2595,9 @@ function Chat() {
         hasMoreRef.current = true;
         hasMoreDownRef.current = true;
         loadingMoreRef.current = true;
-        setTimeout(() => { loadingMoreRef.current = false; }, 300);
+        setTimeout(() => {
+          loadingMoreRef.current = false;
+        }, 300);
 
         pendingHighlightRef.current = messageId;
         setMessages(data);
@@ -2345,33 +2610,39 @@ function Chat() {
   );
 
   // handlePinBarClick — PinnedBar-a klik edildikdə
-  const handlePinBarClick = useCallback((messageId) => {
-    handleScrollToMessage(messageId);
-    setCurrentPinIndex((prev) =>
-      prev >= pinnedMessages.length - 1 ? 0 : prev + 1,
-    );
-  }, [handleScrollToMessage, pinnedMessages.length]);
+  const handlePinBarClick = useCallback(
+    (messageId) => {
+      handleScrollToMessage(messageId);
+      setCurrentPinIndex((prev) =>
+        prev >= pinnedMessages.length - 1 ? 0 : prev + 1,
+      );
+    },
+    [handleScrollToMessage, pinnedMessages.length],
+  );
 
   // handleKeyDown — textarea-da klaviatura hadisəsi
   // Enter → mesaj göndər (Shift+Enter → yeni sətir)
-  const handleKeyDown = useCallback((e) => {
-    if (mention.handleMentionKeyDown(e)) return;
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (mention.handleMentionKeyDown(e)) return;
 
-    if (e.ctrlKey || e.altKey || e.metaKey) {
+      if (e.ctrlKey || e.altKey || e.metaKey) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          handleSendMessageRef.current();
+        }
+        return;
+      }
+      if (e.key === "Shift" || e.key === "CapsLock") return;
+
+      sendTypingSignal();
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSendMessageRef.current();
       }
-      return;
-    }
-    if (e.key === "Shift" || e.key === "CapsLock") return;
-
-    sendTypingSignal();
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessageRef.current();
-    }
-  }, [mention, sendTypingSignal]);
+    },
+    [mention, sendTypingSignal],
+  );
 
   // --- CONFIRM DIALOG useCallback HANDLERS ---
 
@@ -2380,7 +2651,10 @@ function Chat() {
     setPendingDeleteMsg(null);
   }, [handleDeleteMessage, pendingDeleteMsg]);
 
-  const handleCancelDeleteMsg = useCallback(() => setPendingDeleteMsg(null), []);
+  const handleCancelDeleteMsg = useCallback(
+    () => setPendingDeleteMsg(null),
+    [],
+  );
 
   const handleConfirmLeaveChannel = useCallback(() => {
     handleLeaveChannel(pendingLeaveChannel);
@@ -2388,7 +2662,10 @@ function Chat() {
     sidebar.setShowSidebar(false);
   }, [handleLeaveChannel, pendingLeaveChannel, sidebar]);
 
-  const handleCancelLeaveChannel = useCallback(() => setPendingLeaveChannel(null), []);
+  const handleCancelLeaveChannel = useCallback(
+    () => setPendingLeaveChannel(null),
+    [],
+  );
 
   const handleConfirmDeleteConv = useCallback(() => {
     handleDeleteConversation(pendingDeleteConv);
@@ -2396,15 +2673,21 @@ function Chat() {
     sidebar.setShowSidebar(false);
   }, [handleDeleteConversation, pendingDeleteConv, sidebar]);
 
-  const handleCancelDeleteConv = useCallback(() => setPendingDeleteConv(null), []);
+  const handleCancelDeleteConv = useCallback(
+    () => setPendingDeleteConv(null),
+    [],
+  );
 
   const handleCloseForward = useCallback(() => setForwardMessage(null), []);
 
   // onFindChatsWithUser — DetailSidebar prop
-  const handleFindChatsWithUser = useCallback((otherUserId) => {
-    sidebar.setShowSidebar(true);
-    sidebar.handleOpenChatsWithUser(otherUserId, "context");
-  }, [sidebar]);
+  const handleFindChatsWithUser = useCallback(
+    (otherUserId) => {
+      sidebar.setShowSidebar(true);
+      sidebar.handleOpenChatsWithUser(otherUserId, "context");
+    },
+    [sidebar],
+  );
 
   // AddMember close/cancel handler (eyni handler — 2 yerdə istifadə olunur)
   const handleCloseAddMember = useCallback(() => {
@@ -2415,22 +2698,32 @@ function Chat() {
   }, [channel]);
 
   // AddMember chip remove handler (loop daxilində)
-  const handleRemoveAddMemberChip = useCallback((uid) => {
-    channel.setAddMemberSelected((prev) => { const next = new Set(prev); next.delete(uid); return next; });
-  }, [channel]);
+  const handleRemoveAddMemberChip = useCallback(
+    (uid) => {
+      channel.setAddMemberSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(uid);
+        return next;
+      });
+    },
+    [channel],
+  );
 
   // AddMember user select/toggle handler (loop daxilində)
-  const handleToggleAddMemberUser = useCallback((userId) => {
-    channel.setAddMemberSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) next.delete(userId);
-      else next.add(userId);
-      return next;
-    });
-    channel.setAddMemberSearch("");
-    channel.setAddMemberSearchActive(false);
-    channel.setAddMemberSearchResults([]);
-  }, [channel]);
+  const handleToggleAddMemberUser = useCallback(
+    (userId) => {
+      channel.setAddMemberSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(userId)) next.delete(userId);
+        else next.add(userId);
+        return next;
+      });
+      channel.setAddMemberSearch("");
+      channel.setAddMemberSearchActive(false);
+      channel.setAddMemberSearchResults([]);
+    },
+    [channel],
+  );
 
   // AddMember filtered users — useMemo (hər render-də Set+filter əvəzinə)
   const addMemberFilteredUsers = useMemo(() => {
@@ -2450,18 +2743,33 @@ function Chat() {
         }));
     }
     return channel.addMemberUsers;
-  }, [channel.showAddMember, channel.addMemberSearch, channel.addMemberSearchResults, channel.addMemberUsers, channelMembers, selectedChat?.id]);
+  }, [
+    channel.showAddMember,
+    channel.addMemberSearch,
+    channel.addMemberSearchResults,
+    channel.addMemberUsers,
+    channelMembers,
+    selectedChat?.id,
+  ]);
 
   // AddMember chip lookup — useMemo (O(n²) → O(1) Map lookup)
   const addMemberChipMap = useMemo(() => {
-    if (!channel.showAddMember || channel.addMemberSelected.size === 0) return new Map();
+    if (!channel.showAddMember || channel.addMemberSelected.size === 0)
+      return new Map();
     const map = new Map();
-    for (const u of channel.addMemberUsers) map.set(u.id, u.fullName || u.name || "User");
+    for (const u of channel.addMemberUsers)
+      map.set(u.id, u.fullName || u.name || "User");
     for (const c of conversations) {
-      if (c.otherUserId && !map.has(c.otherUserId)) map.set(c.otherUserId, c.name || "User");
+      if (c.otherUserId && !map.has(c.otherUserId))
+        map.set(c.otherUserId, c.name || "User");
     }
     return map;
-  }, [channel.showAddMember, channel.addMemberSelected.size, channel.addMemberUsers, conversations]);
+  }, [
+    channel.showAddMember,
+    channel.addMemberSelected.size,
+    channel.addMemberUsers,
+    conversations,
+  ]);
 
   // --- MEMOIZED DƏYƏRLƏR ---
 
@@ -2480,7 +2788,7 @@ function Chat() {
 
   // imageMessages — yalnız şəkillər, xronoloji sıra (köhnə → yeni, thumbnail strip üçün)
   const imageMessages = useMemo(() => {
-    return sidebar.fileMessages.filter(f => f.isImage).reverse();
+    return sidebar.fileMessages.filter((f) => f.isImage).reverse();
   }, [sidebar.fileMessages]);
 
   // handleOpenImageViewer — MessageBubble-dan çağırılır, şəkil klikləndikdə
@@ -2488,13 +2796,15 @@ function Chat() {
   const imageMessagesRef = useRef(imageMessages);
   imageMessagesRef.current = imageMessages;
   const handleOpenImageViewer = useCallback((msgId) => {
-    const idx = imageMessagesRef.current.findIndex(img => img.id === msgId);
+    const idx = imageMessagesRef.current.findIndex((img) => img.id === msgId);
     if (idx === -1) return;
     setImageViewer({ currentIndex: idx });
   }, []);
 
   const handleImageViewerNavigate = useCallback((newIndex) => {
-    setImageViewer(prev => prev ? { ...prev, currentIndex: newIndex } : null);
+    setImageViewer((prev) =>
+      prev ? { ...prev, currentIndex: newIndex } : null,
+    );
   }, []);
 
   const handleCloseImageViewer = useCallback(() => {
@@ -2546,7 +2856,12 @@ function Chat() {
       // Əvvəlki state-i yadda saxla (revert üçün)
       const prevReactions = msg.reactions;
       // Optimistic — dərhal göstər
-      const optimistic = computeOptimisticReactions(prevReactions, emoji, user.id, user.fullName);
+      const optimistic = computeOptimisticReactions(
+        prevReactions,
+        emoji,
+        user.id,
+        user.fullName,
+      );
 
       // Scroll compensation — yalnız aşağıya yaxın olduqda (scroll-to-bottom butonu yoxdursa)
       // reaction yuxarıya genişlənsin. Yuxarıya scroll olunubsa (buton varsa) → normal aşağıya genişlənsin.
@@ -2555,7 +2870,9 @@ function Chat() {
       const scrollHeightBefore = scroller?.scrollHeight;
 
       setMessages((prev) =>
-        prev.map((m) => (m.id === msg.id ? { ...m, reactions: optimistic } : m)),
+        prev.map((m) =>
+          m.id === msg.id ? { ...m, reactions: optimistic } : m,
+        ),
       );
 
       // DOM yeniləndikdən sonra scroll pozisiyasını kompensasiya et
@@ -2585,7 +2902,9 @@ function Chat() {
         console.error("Failed to toggle reaction:", err);
         // Revert — əvvəlki halına qaytar
         setMessages((prev) =>
-          prev.map((m) => (m.id === msg.id ? { ...m, reactions: prevReactions } : m)),
+          prev.map((m) =>
+            m.id === msg.id ? { ...m, reactions: prevReactions } : m,
+          ),
         );
       }
     },
@@ -2634,14 +2953,17 @@ function Chat() {
   const handleScroll = useCallback(() => {
     if (scrollThrottleRef.current) return;
     scrollThrottleRef.current = true;
-    setTimeout(() => { scrollThrottleRef.current = false; }, 80);
+    setTimeout(() => {
+      scrollThrottleRef.current = false;
+    }, 80);
 
     const area = messagesAreaRef.current;
     if (!area) return;
     const THRESHOLD = 800;
 
     // isAtBottom tracking — yeni mesajda auto-scroll üçün
-    const distanceFromBottom = area.scrollHeight - area.scrollTop - area.clientHeight;
+    const distanceFromBottom =
+      area.scrollHeight - area.scrollTop - area.clientHeight;
     isAtBottomRef.current = distanceFromBottom < 50;
 
     // Scroll-to-bottom buton — 1 viewport yuxarı qalxanda göstər
@@ -2660,7 +2982,10 @@ function Chat() {
     if (area.scrollTop < THRESHOLD && !loadOlderTriggeredRef.current) {
       startReachedRef.current();
     }
-    if (hasMoreDownRef.current && area.scrollHeight - area.scrollTop - area.clientHeight < THRESHOLD) {
+    if (
+      hasMoreDownRef.current &&
+      area.scrollHeight - area.scrollTop - area.clientHeight < THRESHOLD
+    ) {
       endReachedRef.current();
     }
 
@@ -2679,10 +3004,14 @@ function Chat() {
       }
       // İlk görünən item date separator-dursa, floating date gizlət (overlap olmasın)
       const firstSep = dateSeps[0];
-      if (firstSep && Math.abs(firstSep.getBoundingClientRect().top - containerTop) < 30) {
+      if (
+        firstSep &&
+        Math.abs(firstSep.getBoundingClientRect().top - containerTop) < 30
+      ) {
         currentLabel = "";
       }
-      if (floatingEl.textContent !== currentLabel) floatingEl.textContent = currentLabel;
+      if (floatingEl.textContent !== currentLabel)
+        floatingEl.textContent = currentLabel;
     }
 
     // Mark-as-read — görünən mesajları topla
@@ -2724,7 +3053,10 @@ function Chat() {
     if (!programmaticScrollRef.current) {
       area.classList.add("scrolling");
       if (scrollbarTimerRef.current) clearTimeout(scrollbarTimerRef.current);
-      scrollbarTimerRef.current = setTimeout(() => area.classList.remove("scrolling"), 800);
+      scrollbarTimerRef.current = setTimeout(
+        () => area.classList.remove("scrolling"),
+        800,
+      );
     }
   }, [user?.id, selectedChat, scrollToBottom]);
 
@@ -2747,157 +3079,198 @@ function Chat() {
         </div>
       )}
       {!isOffline && toast && (
-        <div className={`connection-toast ${toast.type}${toast.hiding ? " toast-hide" : ""}`}>
-          {toast.type === "connected"
-            ? <span className="toast-check">✓</span>
-            : <span className="toast-spinner" />}
+        <div
+          className={`connection-toast ${toast.type}${toast.hiding ? " toast-hide" : ""}`}
+        >
+          {toast.type === "connected" ? (
+            <span className="toast-check">✓</span>
+          ) : (
+            <span className="toast-spinner" />
+          )}
           {toast.message}
         </div>
       )}
       {/* main-body — sidebar + content yan-yana */}
       <div className="main-body">
-      {/* Sidebar — sol dar nav bar (logout button) */}
-      <Sidebar onLogout={logout} />
+        {/* Sidebar — sol dar nav bar (logout button) */}
+        <Sidebar onLogout={logout} />
 
-      {/* main-content — söhbət siyahısı + chat paneli yan-yana */}
-      <div className="main-content">
-        {/* ConversationList — sol panel, söhbət siyahısı */}
-        <ConversationList
-          conversations={conversations}
-          selectedChatId={selectedChat?.id} // Optional chaining — selectedChat null ola bilər
-          searchText={searchText}
-          onSearchChange={setSearchText} // Funksiya prop olaraq ötürülür
-          onSelectChat={handleSelectChat}
-          onCreateChannel={handleOpenCreateChannel}
-          isLoading={isLoading}
-          userId={user.id}
-          typingUsers={typingUsers}
-          onSelectSearchUser={handleSelectSearchUser}
-          onSelectSearchChannel={handleSelectSearchChannel}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          onTogglePin={handleTogglePin}
-          onToggleMute={handleToggleMute}
-          onToggleReadLater={handleToggleReadLater}
-          onHide={handleToggleHide}
-          onLeaveChannel={handleLeaveChannel}
-          onFindChatsWithUser={handleFindChatsWithUser}
-        />
+        {/* main-content — söhbət siyahısı + chat paneli yan-yana */}
+        <div className="main-content">
+          {/* ConversationList — sol panel, söhbət siyahısı */}
+          <ConversationList
+            conversations={conversations}
+            selectedChatId={selectedChat?.id} // Optional chaining — selectedChat null ola bilər
+            searchText={searchText}
+            onSearchChange={setSearchText} // Funksiya prop olaraq ötürülür
+            onSelectChat={handleSelectChat}
+            onCreateChannel={handleOpenCreateChannel}
+            isLoading={isLoading}
+            userId={user.id}
+            typingUsers={typingUsers}
+            onSelectSearchUser={handleSelectSearchUser}
+            onSelectSearchChannel={handleSelectSearchChannel}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onTogglePin={handleTogglePin}
+            onToggleMute={handleToggleMute}
+            onToggleReadLater={handleToggleReadLater}
+            onHide={handleToggleHide}
+            onLeaveChannel={handleLeaveChannel}
+            onFindChatsWithUser={handleFindChatsWithUser}
+          />
 
-        {/* chat-panel — sağ panel, mesajlar */}
-        <div className="chat-panel">
-          {/* showCreateChannel → panel, selectedChat → chat, əks halda empty */}
-          {channel.showCreateChannel ? (
-            <ChannelPanel
-              onCancel={handleCancelCreateChannel}
-              onChannelCreated={handleChannelCreated}
-              onChannelUpdated={handleChannelUpdated}
-              currentUser={user}
-              editMode={!!channel.editChannelData}
-              channelData={channel.editChannelData}
-            />
-          ) : selectedChat ? (
-            <>
-              {/* ChatHeader — chat adı, online status, action düymələr */}
-              <ChatHeader
-                selectedChat={selectedChat}
-                onlineUsers={onlineUsers}
-                pinnedMessages={pinnedMessages}
-                onTogglePinExpand={() => setPinBarExpanded((v) => !v)}
-                onOpenAddMember={() => channel.setShowAddMember(true)}
-                addMemberOpen={channel.showAddMember}
-                onToggleSidebar={() => sidebar.setShowSidebar((v) => !v)}
-                sidebarOpen={sidebar.showSidebar}
-                onOpenSearch={handleOpenSearch}
-                searchOpen={search.showSearchPanel}
+          {/* chat-panel — sağ panel, mesajlar */}
+          <div className="chat-panel">
+            {/* showCreateChannel → panel, selectedChat → chat, əks halda empty */}
+            {channel.showCreateChannel ? (
+              <ChannelPanel
+                onCancel={handleCancelCreateChannel}
+                onChannelCreated={handleChannelCreated}
+                onChannelUpdated={handleChannelUpdated}
+                currentUser={user}
+                editMode={!!channel.editChannelData}
+                channelData={channel.editChannelData}
               />
-
-              {/* PinnedBar — pinlənmiş mesajlar varsa compact bar göstər */}
-              {pinnedMessages.length > 0 && (
-                <PinnedBar
+            ) : selectedChat ? (
+              <>
+                {/* ChatHeader — chat adı, online status, action düymələr */}
+                <ChatHeader
+                  selectedChat={selectedChat}
+                  onlineUsers={onlineUsers}
                   pinnedMessages={pinnedMessages}
-                  currentPinIndex={currentPinIndex}
-                  onToggleExpand={() => setPinBarExpanded((v) => !v)}
-                  onPinClick={handlePinBarClick}
+                  onTogglePinExpand={() => setPinBarExpanded((v) => !v)}
+                  onOpenAddMember={() => channel.setShowAddMember(true)}
+                  addMemberOpen={channel.showAddMember}
+                  onToggleSidebar={() => sidebar.setShowSidebar((v) => !v)}
+                  sidebarOpen={sidebar.showSidebar}
+                  onOpenSearch={handleOpenSearch}
+                  searchOpen={search.showSearchPanel}
                 />
-              )}
 
-              {/* PinnedExpanded — genişləndirilmiş pin siyahısı */}
-              {pinBarExpanded && pinnedMessages.length > 0 && (
-                <PinnedExpanded
-                  pinnedMessages={pinnedMessages}
-                  onToggleExpand={() => setPinBarExpanded(false)}
-                  onScrollToMessage={handleScrollToMessage}
-                  onUnpin={handlePinMessage}
-                />
-              )}
+                {/* PinnedBar — pinlənmiş mesajlar varsa compact bar göstər */}
+                {pinnedMessages.length > 0 && (
+                  <PinnedBar
+                    pinnedMessages={pinnedMessages}
+                    currentPinIndex={currentPinIndex}
+                    onToggleExpand={() => setPinBarExpanded((v) => !v)}
+                    onPinClick={handlePinBarClick}
+                  />
+                )}
 
-              {/* chatLoading — mesajlar yüklənərkən overlay göstər */}
-              {chatLoading && (
-                <div className="chat-loading-overlay">
-                  <div className="chat-loading-spinner" />
-                  <span>Loading chat...</span>
-                </div>
-              )}
+                {/* PinnedExpanded — genişləndirilmiş pin siyahısı */}
+                {pinBarExpanded && pinnedMessages.length > 0 && (
+                  <PinnedExpanded
+                    pinnedMessages={pinnedMessages}
+                    onToggleExpand={() => setPinBarExpanded(false)}
+                    onScrollToMessage={handleScrollToMessage}
+                    onUnpin={handlePinMessage}
+                  />
+                )}
 
-              {/* messages-area — native scroll container */}
-              <div style={{ position: "relative", flex: 1, minHeight: 0, display: chatLoading ? "none" : "flex", flexDirection: "column" }}>
-                {/* Loading older — chat header-in altında sabit loading bar */}
-                <div className={`loading-older${loadingOlder ? " active" : ""}`} />
-                {/* Floating date — absolute overlay */}
-                <div className="floating-date" ref={floatingDateRef} />
-
-                {/* Empty state — mesaj yoxdur və loading deyil */}
-                {!chatLoading && messages.length === 0 && (
-                  <div className="empty-chat-state">
-                    <div className="empty-chat-icon">
-                      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                    </div>
-                    <span className="empty-chat-title">No messages yet</span>
-                    <span className="empty-chat-subtitle">Send the first message to start a conversation</span>
+                {/* chatLoading — mesajlar yüklənərkən overlay göstər */}
+                {chatLoading && (
+                  <div className="chat-loading-overlay">
+                    <div className="chat-loading-spinner" />
+                    <span>Loading chat...</span>
                   </div>
                 )}
 
+                {/* messages-area — native scroll container */}
                 <div
-                  key={selectedChat?.id}
-                  className="messages-area"
-                  ref={messagesAreaRef}
-                  style={flatItems.length === 0 ? { display: "none" } : undefined}
+                  style={{
+                    position: "relative",
+                    flex: 1,
+                    minHeight: 0,
+                    display: chatLoading ? "none" : "flex",
+                    flexDirection: "column",
+                  }}
                 >
-                  {/* Flex spacer — az mesaj olduqda aşağıya itələyir */}
-                  <div style={{ flexGrow: 1 }} />
+                  {/* Loading older — chat header-in altında sabit loading bar */}
+                  <div
+                    className={`loading-older${loadingOlder ? " active" : ""}`}
+                  />
+                  {/* Floating date — absolute overlay */}
+                  <div className="floating-date" ref={floatingDateRef} />
+
+                  {/* Empty state — mesaj yoxdur və loading deyil */}
+                  {!chatLoading && messages.length === 0 && (
+                    <div className="empty-chat-state">
+                      <div className="empty-chat-icon">
+                        <svg
+                          width="64"
+                          height="64"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </div>
+                      <span className="empty-chat-title">No messages yet</span>
+                      <span className="empty-chat-subtitle">
+                        Send the first message to start a conversation
+                      </span>
+                    </div>
+                  )}
+
+                  <div
+                    key={selectedChat?.id}
+                    className="messages-area"
+                    ref={messagesAreaRef}
+                    style={
+                      flatItems.length === 0 ? { display: "none" } : undefined
+                    }
+                  >
+                    {/* Flex spacer — az mesaj olduqda aşağıya itələyir */}
+                    <div style={{ flexGrow: 1 }} />
                     {flatItems.map((item, index) => {
                       const itemKey =
-                        item.type === "message" ? `msg-${item.message._stableKey || item.message.id}`
-                        : item.type === "date" ? `date-${item.label}`
-                        : `${item.type}-${item.label || item.messageId || ""}`;
+                        item.type === "message"
+                          ? `msg-${item.message._stableKey || item.message.id}`
+                          : item.type === "date"
+                            ? `date-${item.label}`
+                            : `${item.type}-${item.label || item.messageId || ""}`;
 
                       // Separator-lar
                       if (item.type === "date") {
                         return (
                           <div key={itemKey} className="msg-item">
-                            <div className="date-separator"><span>{item.label}</span></div>
+                            <div className="date-separator">
+                              <span>{item.label}</span>
+                            </div>
                           </div>
                         );
                       }
                       if (item.type === "readLater") {
                         return (
                           <div key={itemKey} className="msg-item">
-                            <div className="read-later-separator"><span>Read later</span></div>
+                            <div className="read-later-separator">
+                              <span>Read later</span>
+                            </div>
                           </div>
                         );
                       }
                       if (item.type === "newMessages") {
                         return (
                           <div key={itemKey} className="msg-item">
-                            <div className="new-messages-separator"><span>New messages</span></div>
+                            <div className="new-messages-separator">
+                              <span>New messages</span>
+                            </div>
                           </div>
                         );
                       }
 
                       // Mesaj item
-                      const { message: msg, isOwn, senderFullName, isFirstInGroup, isLastInGroup } = item;
+                      const {
+                        message: msg,
+                        isOwn,
+                        senderFullName,
+                        isFirstInGroup,
+                        isLastInGroup,
+                      } = item;
 
                       if (isOwn) {
                         return (
@@ -2928,7 +3301,10 @@ function Chat() {
                               onOpenImageViewer={handleOpenImageViewer}
                               onCancelUpload={uploadManager.cancelUpload}
                               onRetryUpload={uploadManager.retryUpload}
-                              isNewMessage={!initialMsgIdsRef.current.has(msg.id) && !msg._prepended}
+                              isNewMessage={
+                                !initialMsgIdsRef.current.has(msg.id) &&
+                                !msg._prepended
+                              }
                             />
                           </div>
                         );
@@ -2937,9 +3313,16 @@ function Chat() {
                       // Non-own mesajlar
                       return (
                         <div key={itemKey} className="msg-item">
-                          <div className={`sender-group-flat${isFirstInGroup ? " first-in-group" : ""}${isLastInGroup ? " has-avatar" : ""}`}>
+                          <div
+                            className={`sender-group-flat${isFirstInGroup ? " first-in-group" : ""}${isLastInGroup ? " has-avatar" : ""}`}
+                          >
                             {isLastInGroup ? (
-                              <div className="sender-group-avatar" style={{ background: getAvatarColor(senderFullName) }}>
+                              <div
+                                className="sender-group-avatar"
+                                style={{
+                                  background: getAvatarColor(senderFullName),
+                                }}
+                              >
                                 {getInitials(senderFullName)}
                               </div>
                             ) : (
@@ -2967,12 +3350,17 @@ function Chat() {
                                 onDelete={handleDeleteMsgAction}
                                 onEdit={handleEditMsg}
                                 onReaction={handleReaction}
-                                onLoadReactionDetails={handleLoadReactionDetails}
+                                onLoadReactionDetails={
+                                  handleLoadReactionDetails
+                                }
                                 onMentionClick={handleMentionClick}
                                 onOpenImageViewer={handleOpenImageViewer}
                                 onCancelUpload={uploadManager.cancelUpload}
                                 onRetryUpload={uploadManager.retryUpload}
-                                isNewMessage={!initialMsgIdsRef.current.has(msg.id) && !msg._prepended}
+                                isNewMessage={
+                                  !initialMsgIdsRef.current.has(msg.id) &&
+                                  !msg._prepended
+                                }
                               />
                             </div>
                           </div>
@@ -2990,291 +3378,363 @@ function Chat() {
                         channelMembers={channelMembers}
                         onOpenReadersPanel={setReadersPanel}
                       />
-                      <div ref={messagesEndRef} style={{ minHeight: 1, flexShrink: 0 }} />
+                      <div
+                        ref={messagesEndRef}
+                        style={{ minHeight: 1, flexShrink: 0 }}
+                      />
                     </div>
+                  </div>
+                </div>
+
+                {/* Scroll-to-bottom butonu — 1 viewport yuxarı scroll olunduqda görünür */}
+                {showScrollDown && !chatLoading && (
+                  <button
+                    className={`scroll-to-bottom-btn${newUnreadCount > 0 ? " has-unread" : ""}`}
+                    onClick={handleScrollToBottom}
+                  >
+                    {newUnreadCount > 0 && (
+                      <span className="scroll-unread-badge">
+                        {newUnreadCount}
+                      </span>
+                    )}
+                    <svg
+                      width="26"
+                      height="26"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* selectMode → SelectToolbar, əks halda ChatInputArea */}
+                {selectMode ? (
+                  <SelectToolbar
+                    selectedCount={selectedMessages.size}
+                    hasOthersSelected={hasOthersSelected}
+                    onExit={handleExitSelectMode}
+                    onDelete={handleDeleteSelected}
+                    onForward={handleForwardSelected}
+                    deleteConfirmOpen={deleteConfirmOpen}
+                    setDeleteConfirmOpen={setDeleteConfirmOpen}
+                  />
+                ) : (
+                  <ChatInputArea
+                    messageText={messageText}
+                    setMessageText={setMessageText}
+                    replyTo={replyTo}
+                    setReplyTo={setReplyTo}
+                    editMessage={editMessage}
+                    setEditMessage={setEditMessage}
+                    emojiOpen={emojiOpen}
+                    setEmojiOpen={setEmojiOpen}
+                    emojiPanelRef={emojiPanelRef}
+                    inputRef={inputRef}
+                    onSend={handleSendMessage}
+                    onKeyDown={handleKeyDown}
+                    onTyping={sendTypingSignal}
+                    onTextChange={handleMessageTextChange}
+                    mentionOpen={mention.mentionOpen}
+                    mentionItems={mention.mentionItems}
+                    mentionSelectedIndex={mention.mentionSelectedIndex}
+                    mentionLoading={mention.mentionLoading}
+                    mentionPanelRef={mention.mentionPanelRef}
+                    onMentionSelect={mention.handleMentionSelect}
+                    onInputResize={handleInputResize}
+                    selectedFiles={fileUpload.selectedFiles}
+                    onFilesSelected={fileUpload.handleFilesSelected}
+                    onRemoveFile={fileUpload.handleRemoveFile}
+                    onReorderFiles={fileUpload.handleReorderFiles}
+                    onClearFiles={fileUpload.handleClearFiles}
+                    onSendFiles={handleSendFiles}
+                  />
+                )}
+
+                {pendingDeleteMsg && (
+                  <ConfirmDialog
+                    message="Do you want to delete this message?"
+                    onConfirm={handleConfirmDeleteMsg}
+                    onCancel={handleCancelDeleteMsg}
+                  />
+                )}
+
+                {pendingLeaveChannel && (
+                  <ConfirmDialog
+                    message="Are you sure you want to leave this channel?"
+                    confirmText="LEAVE"
+                    onConfirm={handleConfirmLeaveChannel}
+                    onCancel={handleCancelLeaveChannel}
+                  />
+                )}
+
+                {pendingDeleteConv && (
+                  <ConfirmDialog
+                    message="Are you sure you want to delete this chat?"
+                    onConfirm={handleConfirmDeleteConv}
+                    onCancel={handleCancelDeleteConv}
+                  />
+                )}
+
+                {/* forwardMessage varsa ForwardPanel-i göstər (modal overlay) */}
+                {forwardMessage && (
+                  <ForwardPanel
+                    conversations={conversations}
+                    onForward={handleForward}
+                    onClose={handleCloseForward}
+                  />
+                )}
+
+                {/* ReadersPanel — channel mesajını oxuyanların siyahısı */}
+                {readersPanel && (
+                  <ReadersPanel
+                    readByIds={readersPanel.readByIds}
+                    channelMembers={channelMembers[selectedChat?.id] || {}}
+                    onClose={() => setReadersPanel(null)}
+                  />
+                )}
+
+                {/* Image Viewer — şəkil lightbox overlay */}
+                {imageViewer && (
+                  <ImageViewer
+                    images={imageMessages}
+                    currentIndex={imageViewer.currentIndex}
+                    onClose={handleCloseImageViewer}
+                    onNavigate={handleImageViewerNavigate}
+                  />
+                )}
+              </>
+            ) : (
+              // Chat seçilməyib — empty state
+              <div className="chat-empty">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#8899aa"
+                  strokeWidth="1.2"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <h2>Select a chat to start communicating</h2>
+              </div>
+            )}
+          </div>
+
+          {/* Detail Sidebar — ayrı komponentə çıxarılıb */}
+          {sidebar.showSidebar && selectedChat && (
+            <DetailSidebar
+              selectedChat={selectedChat}
+              channelMembers={channelMembers}
+              conversations={conversations}
+              user={user}
+              inputRef={inputRef}
+              sidebar={sidebar}
+              channel={channel}
+              search={search}
+              onTogglePin={handleTogglePin}
+              onToggleMute={handleToggleMute}
+              onToggleHide={handleToggleHide}
+              onEditChannel={handleEditChannel}
+              onSelectChat={handleSelectChat}
+              onScrollToMessage={handleScrollToMessage}
+              onDeleteMessage={handleDeleteMessage}
+              onCloseSearch={handleCloseSearch}
+              setPendingDeleteConv={setPendingDeleteConv}
+              setPendingLeaveChannel={setPendingLeaveChannel}
+              setSelectedChat={setSelectedChat}
+              setMessageText={setMessageText}
+            />
+          )}
+          {/* Add chat members popup — floating dialog sidebar-ın üstündə */}
+          {channel.showAddMember && (
+            <div className="ds-am-overlay">
+              <div className="ds-am-popup" ref={channel.addMemberRef}>
+                {/* Header */}
+                <div className="ds-am-header">
+                  <span className="ds-am-title">Add chat members</span>
+                  <button
+                    className="ds-am-close"
+                    onClick={handleCloseAddMember}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Search sahəsi — chips + input / +Add user butonu */}
+                <div className="ds-am-search-area">
+                  {channel.addMemberSearchActive ||
+                  channel.addMemberSelected.size > 0 ? (
+                    <div className="ds-am-search-box">
+                      {[...channel.addMemberSelected].map((uid) => {
+                        const name = addMemberChipMap.get(uid) || "User";
+                        return (
+                          <span key={uid} className="ds-am-chip">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
+                            </svg>
+                            {name}
+                            <button
+                              className="ds-am-chip-remove"
+                              onClick={() => handleRemoveAddMemberChip(uid)}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                      <input
+                        className="ds-am-search-input"
+                        type="text"
+                        placeholder="Search..."
+                        value={channel.addMemberSearch}
+                        onChange={(e) =>
+                          channel.setAddMemberSearch(e.target.value)
+                        }
+                        autoFocus
+                        onBlur={() => {
+                          if (
+                            !channel.addMemberSearch.trim() &&
+                            channel.addMemberSelected.size === 0
+                          ) {
+                            channel.setAddMemberSearchActive(false);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      className="ds-am-add-user-btn"
+                      onClick={() => channel.setAddMemberSearchActive(true)}
+                    >
+                      + Add user
+                    </button>
+                  )}
+                </div>
+
+                {/* Show chat history — false olduqda yeni üzv yalnız qoşulduqdan sonrakı mesajları görür */}
+                <label className="ds-am-checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={channel.addMemberShowHistory}
+                    onChange={(e) =>
+                      channel.setAddMemberShowHistory(e.target.checked)
+                    }
+                    className="ds-am-checkbox"
+                  />
+                  <span>Show chat history</span>
+                </label>
+
+                {/* Recent chats */}
+                <div className="ds-am-section-title">
+                  {channel.addMemberSearch.trim().length >= 2
+                    ? "Search results"
+                    : "Recent chats"}
+                </div>
+
+                <div className="ds-am-list">
+                  {addMemberFilteredUsers.length === 0 ? (
+                    <div className="ds-am-empty">
+                      {channel.addMemberSearch.trim().length >= 2
+                        ? "No matching users"
+                        : "No recent chats"}
+                    </div>
+                  ) : (
+                    addMemberFilteredUsers.map((u) => {
+                      const isSelected = channel.addMemberSelected.has(u.id);
+                      return (
+                        <div
+                          key={u.id}
+                          className={`ds-am-user${isSelected ? " selected" : ""}`}
+                          onClick={() => handleToggleAddMemberUser(u.id)}
+                        >
+                          <div
+                            className="ds-am-user-avatar"
+                            style={{ background: getAvatarColor(u.fullName) }}
+                          >
+                            {u.avatarUrl ? (
+                              <img
+                                src={u.avatarUrl}
+                                alt=""
+                                className="ds-am-user-avatar-img"
+                              />
+                            ) : (
+                              getInitials(u.fullName)
+                            )}
+                          </div>
+                          <div className="ds-am-user-info">
+                            <span className="ds-am-user-name">
+                              {u.fullName}
+                            </span>
+                            <span className="ds-am-user-role">
+                              {u.position}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <svg
+                              className="ds-am-check"
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#00ace3"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer — INVITE + CANCEL */}
+                <div className="ds-am-footer">
+                  <button
+                    className="ds-am-invite-btn"
+                    disabled={
+                      channel.addMemberSelected.size === 0 ||
+                      channel.addMemberInviting
+                    }
+                    onClick={channel.handleInviteMembers}
+                  >
+                    {channel.addMemberInviting ? "INVITING..." : "INVITE"}
+                  </button>
+                  <button
+                    className="ds-am-cancel-btn"
+                    onClick={handleCloseAddMember}
+                  >
+                    CANCEL
+                  </button>
                 </div>
               </div>
-
-              {/* Scroll-to-bottom butonu — 1 viewport yuxarı scroll olunduqda görünür */}
-              {showScrollDown && !chatLoading && (
-                <button
-                  className={`scroll-to-bottom-btn${newUnreadCount > 0 ? " has-unread" : ""}`}
-                  onClick={handleScrollToBottom}
-                >
-                  {newUnreadCount > 0 && (
-                    <span className="scroll-unread-badge">{newUnreadCount}</span>
-                  )}
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              )}
-
-              {/* selectMode → SelectToolbar, əks halda ChatInputArea */}
-              {selectMode ? (
-                <SelectToolbar
-                  selectedCount={selectedMessages.size}
-                  hasOthersSelected={hasOthersSelected}
-                  onExit={handleExitSelectMode}
-                  onDelete={handleDeleteSelected}
-                  onForward={handleForwardSelected}
-                  deleteConfirmOpen={deleteConfirmOpen}
-                  setDeleteConfirmOpen={setDeleteConfirmOpen}
-                />
-              ) : (
-                <ChatInputArea
-                  messageText={messageText}
-                  setMessageText={setMessageText}
-                  replyTo={replyTo}
-                  setReplyTo={setReplyTo}
-                  editMessage={editMessage}
-                  setEditMessage={setEditMessage}
-                  emojiOpen={emojiOpen}
-                  setEmojiOpen={setEmojiOpen}
-                  emojiPanelRef={emojiPanelRef}
-                  inputRef={inputRef}
-                  onSend={handleSendMessage}
-                  onKeyDown={handleKeyDown}
-                  onTyping={sendTypingSignal}
-                  onTextChange={handleMessageTextChange}
-                  mentionOpen={mention.mentionOpen}
-                  mentionItems={mention.mentionItems}
-                  mentionSelectedIndex={mention.mentionSelectedIndex}
-                  mentionLoading={mention.mentionLoading}
-                  mentionPanelRef={mention.mentionPanelRef}
-                  onMentionSelect={mention.handleMentionSelect}
-                  onInputResize={handleInputResize}
-                  selectedFiles={fileUpload.selectedFiles}
-                  onFilesSelected={fileUpload.handleFilesSelected}
-                  onRemoveFile={fileUpload.handleRemoveFile}
-                  onReorderFiles={fileUpload.handleReorderFiles}
-                  onClearFiles={fileUpload.handleClearFiles}
-                  onSendFiles={handleSendFiles}
-                />
-              )}
-
-              {pendingDeleteMsg && (
-                <ConfirmDialog
-                  message="Do you want to delete this message?"
-                  onConfirm={handleConfirmDeleteMsg}
-                  onCancel={handleCancelDeleteMsg}
-                />
-              )}
-
-              {pendingLeaveChannel && (
-                <ConfirmDialog
-                  message="Are you sure you want to leave this channel?"
-                  confirmText="LEAVE"
-                  onConfirm={handleConfirmLeaveChannel}
-                  onCancel={handleCancelLeaveChannel}
-                />
-              )}
-
-              {pendingDeleteConv && (
-                <ConfirmDialog
-                  message="Are you sure you want to delete this chat?"
-                  onConfirm={handleConfirmDeleteConv}
-                  onCancel={handleCancelDeleteConv}
-                />
-              )}
-
-              {/* forwardMessage varsa ForwardPanel-i göstər (modal overlay) */}
-              {forwardMessage && (
-                <ForwardPanel
-                  conversations={conversations}
-                  onForward={handleForward}
-                  onClose={handleCloseForward}
-                />
-              )}
-
-              {/* ReadersPanel — channel mesajını oxuyanların siyahısı */}
-              {readersPanel && (
-                <ReadersPanel
-                  readByIds={readersPanel.readByIds}
-                  channelMembers={channelMembers[selectedChat?.id] || {}}
-                  onClose={() => setReadersPanel(null)}
-                />
-              )}
-
-              {/* Image Viewer — şəkil lightbox overlay */}
-              {imageViewer && (
-                <ImageViewer
-                  images={imageMessages}
-                  currentIndex={imageViewer.currentIndex}
-                  onClose={handleCloseImageViewer}
-                  onNavigate={handleImageViewerNavigate}
-                />
-              )}
-            </>
-          ) : (
-            // Chat seçilməyib — empty state
-            <div className="chat-empty">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#8899aa"
-                strokeWidth="1.2"
-              >
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <h2>Select a chat to start communicating</h2>
             </div>
           )}
         </div>
-
-        {/* Detail Sidebar — ayrı komponentə çıxarılıb */}
-        {sidebar.showSidebar && selectedChat && (
-          <DetailSidebar
-            selectedChat={selectedChat}
-            channelMembers={channelMembers}
-            conversations={conversations}
-            user={user}
-            inputRef={inputRef}
-            sidebar={sidebar}
-            channel={channel}
-            search={search}
-            onTogglePin={handleTogglePin}
-            onToggleMute={handleToggleMute}
-            onToggleHide={handleToggleHide}
-            onEditChannel={handleEditChannel}
-            onSelectChat={handleSelectChat}
-            onScrollToMessage={handleScrollToMessage}
-            onDeleteMessage={handleDeleteMessage}
-            onCloseSearch={handleCloseSearch}
-            setPendingDeleteConv={setPendingDeleteConv}
-            setPendingLeaveChannel={setPendingLeaveChannel}
-            setSelectedChat={setSelectedChat}
-            setMessageText={setMessageText}
-          />
-        )}
-        {/* Add chat members popup — floating dialog sidebar-ın üstündə */}
-        {channel.showAddMember && (
-          <div className="ds-am-overlay">
-            <div className="ds-am-popup" ref={channel.addMemberRef}>
-              {/* Header */}
-              <div className="ds-am-header">
-                <span className="ds-am-title">Add chat members</span>
-                <button
-                  className="ds-am-close"
-                  onClick={handleCloseAddMember}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Search sahəsi — chips + input / +Add user butonu */}
-              <div className="ds-am-search-area">
-                {channel.addMemberSearchActive || channel.addMemberSelected.size > 0 ? (
-                  <div className="ds-am-search-box">
-                    {[...channel.addMemberSelected].map((uid) => {
-                      const name = addMemberChipMap.get(uid) || "User";
-                      return (
-                        <span key={uid} className="ds-am-chip">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" /></svg>
-                          {name}
-                          <button
-                            className="ds-am-chip-remove"
-                            onClick={() => handleRemoveAddMemberChip(uid)}
-                          >×</button>
-                        </span>
-                      );
-                    })}
-                    <input
-                      className="ds-am-search-input"
-                      type="text"
-                      placeholder="Search..."
-                      value={channel.addMemberSearch}
-                      onChange={(e) => channel.setAddMemberSearch(e.target.value)}
-                      autoFocus
-                      onBlur={() => {
-                        if (!channel.addMemberSearch.trim() && channel.addMemberSelected.size === 0) {
-                          channel.setAddMemberSearchActive(false);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <button className="ds-am-add-user-btn" onClick={() => channel.setAddMemberSearchActive(true)}>
-                    + Add user
-                  </button>
-                )}
-              </div>
-
-              {/* Show chat history — false olduqda yeni üzv yalnız qoşulduqdan sonrakı mesajları görür */}
-              <label className="ds-am-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={channel.addMemberShowHistory}
-                  onChange={(e) => channel.setAddMemberShowHistory(e.target.checked)}
-                  className="ds-am-checkbox"
-                />
-                <span>Show chat history</span>
-              </label>
-
-              {/* Recent chats */}
-              <div className="ds-am-section-title">
-                {channel.addMemberSearch.trim().length >= 2 ? "Search results" : "Recent chats"}
-              </div>
-
-              <div className="ds-am-list">
-                {addMemberFilteredUsers.length === 0 ? (
-                  <div className="ds-am-empty">{channel.addMemberSearch.trim().length >= 2 ? "No matching users" : "No recent chats"}</div>
-                ) : (
-                  addMemberFilteredUsers.map((u) => {
-                    const isSelected = channel.addMemberSelected.has(u.id);
-                    return (
-                      <div
-                        key={u.id}
-                        className={`ds-am-user${isSelected ? " selected" : ""}`}
-                        onClick={() => handleToggleAddMemberUser(u.id)}
-                      >
-                        <div className="ds-am-user-avatar" style={{ background: getAvatarColor(u.fullName) }}>
-                          {u.avatarUrl ? (
-                            <img src={u.avatarUrl} alt="" className="ds-am-user-avatar-img" />
-                          ) : (
-                            getInitials(u.fullName)
-                          )}
-                        </div>
-                        <div className="ds-am-user-info">
-                          <span className="ds-am-user-name">{u.fullName}</span>
-                          <span className="ds-am-user-role">{u.position}</span>
-                        </div>
-                        {isSelected && (
-                          <svg className="ds-am-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ace3" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Footer — INVITE + CANCEL */}
-              <div className="ds-am-footer">
-                <button
-                  className="ds-am-invite-btn"
-                  disabled={channel.addMemberSelected.size === 0 || channel.addMemberInviting}
-                  onClick={channel.handleInviteMembers}
-                >
-                  {channel.addMemberInviting ? "INVITING..." : "INVITE"}
-                </button>
-                <button
-                  className="ds-am-cancel-btn"
-                  onClick={handleCloseAddMember}
-                >
-                  CANCEL
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
       </div>
     </div>
   );
