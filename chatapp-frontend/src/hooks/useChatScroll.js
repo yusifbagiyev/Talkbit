@@ -91,13 +91,6 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
         }
       }
 
-      // Prepend flash suppress — opacity:0 ilə gizlət, useLayoutEffect bərpa edəcək
-      const scroller = messagesAreaRef?.current;
-      if (scroller) {
-        scroller.style.opacity = "0";
-        if (scroller.parentElement) scroller.parentElement.style.opacity = "0";
-      }
-
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const unique = olderMessages.filter((m) => !existingIds.has(m.id));

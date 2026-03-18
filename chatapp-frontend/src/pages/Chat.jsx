@@ -609,21 +609,11 @@ function Chat() {
   // useLayoutEffect (paint-dən ƏVVƏL) anchor elementin yeni pozisiyasını müqayisə edib
   // scrollTop-u düzəldir → istifadəçi eyni yerdə qalır (jump yoxdur).
   useLayoutEffect(() => {
-    const area = messagesAreaRef.current;
     const anchor = prependAnchorRef.current;
-
-    const restoreOpacity = () => {
-      if (area) {
-        area.style.opacity = "";
-        if (area.parentElement) area.parentElement.style.opacity = "";
-      }
-    };
-
-    if (!anchor) {
-      restoreOpacity();
-      return;
-    }
+    if (!anchor) return;
     prependAnchorRef.current = null;
+
+    const area = messagesAreaRef.current;
     if (!area) return;
 
     const el = area.querySelector(`[data-bubble-id="${anchor.id}"]`);
@@ -635,7 +625,8 @@ function Chat() {
         area.scrollTop += diff;
       }
     }
-    restoreOpacity();
+    // Scroll correction bitdi — yeni scroll event-lərinin handleStartReached çağırmasına icazə ver
+    loadOlderTriggeredRef.current = false;
   });
 
   // ─── Scroll effektləri (native DOM) ───
@@ -647,20 +638,19 @@ function Chat() {
   }, []);
 
   // shouldScrollBottom → native scrollTop = scrollHeight
-  useEffect(() => {
+  // useLayoutEffect — paint-dən ƏVVƏL scroll edir → istifadəçi yanlış pozisiyanı görməz
+  useLayoutEffect(() => {
     if (!shouldScrollBottom) return;
     setShouldScrollBottom(false);
     programmaticScrollRef.current = true;
 
-    // 1 frame gözlə — React DOM update bitsin
-    requestAnimationFrame(() => {
-      scrollToBottom();
-      // Fallback — şəkillər/lazy content yüklənə bilər
-      setTimeout(scrollToBottom, 150);
-      setTimeout(() => {
-        programmaticScrollRef.current = false;
-      }, 400);
-    });
+    // useLayoutEffect-də DOM artıq commit olunub — birbaşa scroll et
+    scrollToBottom();
+    // Fallback — şəkillər/lazy content yüklənə bilər
+    setTimeout(scrollToBottom, 150);
+    setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 400);
   }, [shouldScrollBottom, scrollToBottom]);
 
   // getAround / highlight — mesajlar yüklənəndən sonra hədəfə scroll + highlight
@@ -1509,11 +1499,7 @@ function Chat() {
       };
       const unread = chat.unreadCount || 0;
       allReadPatchRef.current = unread === 0;
-      initialMsgIdsRef.current = new Set(
-        cached.messages
-          .filter((m) => !m.isRead && m.senderId !== user?.id)
-          .map((m) => m.id),
-      );
+      initialMsgIdsRef.current = new Set(cached.messages.map((m) => m.id));
       // Favorites — cache-dən restore et
       if (cached.favoriteMessages) {
         sidebar.setFavoriteMessages(cached.favoriteMessages);
@@ -1752,13 +1738,9 @@ function Chat() {
         chatType: String(chat.type),
       };
 
-      // İlkin mesaj ID-lərini yadda saxla — bu mesajlar scroll ilə görünəndə dərhal read olacaq
-      // Yeni SignalR mesajları bu set-də olmayacaq → yazmağa/göndərməyə qədər unread qalacaq
-      initialMsgIdsRef.current = new Set(
-        finalMsgData
-          .filter((m) => !m.isRead && m.senderId !== user?.id)
-          .map((m) => m.id),
-      );
+      // İlkin mesaj ID-lərini yadda saxla — bütün ilkin mesajlar set-ə daxildir
+      // SignalR ilə gələn yeni mesajlar bu set-də olmayacaq → isNewMessage=true alacaq
+      initialMsgIdsRef.current = new Set(finalMsgData.map((m) => m.id));
 
       // Yeni chatın SignalR qrupuna qoşul
       if (chat.type === 0) {
@@ -3226,7 +3208,7 @@ function Chat() {
                   >
                     {/* Flex spacer — az mesaj olduqda aşağıya itələyir */}
                     <div style={{ flexGrow: 1 }} />
-                    {flatItems.map((item, index) => {
+                    {flatItems.map((item) => {
                       const itemKey =
                         item.type === "message"
                           ? `msg-${item.message._stableKey || item.message.id}`
