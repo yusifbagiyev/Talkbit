@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 
 // ChatStatusBar — mesaj input sahəsinin üstündə sabit yer tutan status bar
 // İki hissəsi var:
@@ -161,4 +161,4 @@ function ChatStatusBar({
   );
 }
 
-export default ChatStatusBar;
+export default memo(ChatStatusBar);

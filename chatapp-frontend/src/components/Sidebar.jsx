@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 // Sidebar komponenti — sol dar navigasiya paneli (60px en)
 // Props:
 //   onLogout — Chat.jsx-dən gəlir, logout button-una klikləndikdə çağırılır
@@ -107,4 +109,4 @@ function Sidebar({ onLogout }) {
   );
 }
 
-export default Sidebar;
+export default memo(Sidebar);

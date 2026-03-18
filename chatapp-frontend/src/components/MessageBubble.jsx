@@ -83,7 +83,7 @@ function renderEmojiContent(text) {
 //   onReply/onForward/onPin/onFavorite/onRemoveFavorite/onSelect/onToggleSelect/onScrollToMessage/onDelete/onEdit/onReaction/onLoadReactionDetails
 //                    — Chat.jsx-dən gəlir, useCallback ilə stabildir
 //   isFavorite       — bu mesaj favori siyahısındadırmı (favoriteIds Set-dən)
-const MessageBubble = memo(function MessageBubble({
+function MessageBubble({
   msg,
   isOwn,
   showAvatar,
@@ -1013,6 +1013,6 @@ const MessageBubble = memo(function MessageBubble({
       </div>
     </div>
   );
-});
+}
 
-export default MessageBubble;
+export default memo(MessageBubble);

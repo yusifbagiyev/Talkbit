@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, memo } from "react";
 import { getInitials, getAvatarColor } from "../utils/chatUtils";
 
 const READERS_PAGE_SIZE = 20;
@@ -79,4 +79,4 @@ function ReadersPanel({ readByIds, channelMembers, onClose }) {
   );
 }
 
-export default ReadersPanel;
+export default memo(ReadersPanel);

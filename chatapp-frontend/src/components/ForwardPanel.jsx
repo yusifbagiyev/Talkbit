@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { apiGet } from "../services/api";
 import { getInitials, getAvatarColor } from "../utils/chatUtils";
 
@@ -166,4 +166,4 @@ function ForwardPanel({ conversations, onForward, onClose }) {
   );
 }
 
-export default ForwardPanel;
+export default memo(ForwardPanel);

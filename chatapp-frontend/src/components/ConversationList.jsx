@@ -1,7 +1,7 @@
 // useState — komponent daxili state (like C# reactive property)
 // useRef — re-render etmədən dəyər saxlamaq (timer id, DOM referansı)
 // useEffect — side effect (API çağrısı, event listener, cleanup)
-import { useState, useRef, useEffect, useCallback, memo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, formatTime } from "../utils/chatUtils";
@@ -60,7 +60,7 @@ function ConversationList({
 
   // renderPreviewEmojis — preview mətndəki Unicode emojiləri Apple CDN img-ə çevirir
   // ConversationList-də son mesaj preview-unda gözəl Apple emoji göstərmək üçün
-  const renderPreviewEmojis = (text) => {
+  const renderPreviewEmojis = useCallback((text) => {
     if (!text || typeof text !== "string") return text;
     const parts = renderTextWithEmojis(text);
     if (typeof parts === "string") return parts;
@@ -81,7 +81,7 @@ function ConversationList({
         />
       )
     );
-  };
+  }, []);
 
   // --- Filter dropdown state ---
   // filterOpen — filter dropdown açıq/bağlı
@@ -212,17 +212,17 @@ function ConversationList({
     exitSearchMode();
   }
 
-  // Client-side filter — searchMode deyilsə mövcud conversation-ları filtrə et
-  const filteredConversations = conversations.filter((c) =>
-    c.name.toLowerCase().includes(searchText.toLowerCase()),
-  );
-
-  // Pinlənmiş conversations yuxarıda göstərilir
-  const sortedConversations = [...filteredConversations].sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    return 0;
-  });
+  // Client-side filter + pin sort — memoized (conversations/searchText dəyişməsə yenidən hesablanmır)
+  const sortedConversations = useMemo(() => {
+    const filtered = conversations.filter((c) =>
+      c.name.toLowerCase().includes(searchText.toLowerCase()),
+    );
+    return filtered.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return 0;
+    });
+  }, [conversations, searchText]);
 
   // --- Search nəticələrinin render funksiyası ---
   // Bütün nəticələr (conversations, users, channels) birləşdirilir, dublikatlar çıxarılır

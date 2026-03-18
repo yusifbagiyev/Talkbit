@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from "react";
 import { getFileUrl, downloadFile } from "../services/api";
 
-const ImageViewer = memo(function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
+function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
   const [zoom, setZoom] = useState(1);
   const thumbStripRef = useRef(null);
   const currentImage = images[currentIndex];
@@ -137,6 +137,6 @@ const ImageViewer = memo(function ImageViewer({ images, currentIndex, onClose, o
       </div>
     </div>
   );
-});
+}
 
-export default ImageViewer;
+export default memo(ImageViewer);

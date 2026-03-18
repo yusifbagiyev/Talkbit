@@ -22,7 +22,7 @@ import { downloadFile } from "../services/api";
 //   onSelect  — Select seçildi (çox mesaj seçmə rejiminə gir)
 //   onDelete  — Delete seçildi (yalnız isOwn)
 //   onClose   — menyu bağlandı
-const MessageActionMenu = memo(function MessageActionMenu({
+function MessageActionMenu({
   msg,
   isOwn,
   menuRef,
@@ -231,6 +231,6 @@ const MessageActionMenu = memo(function MessageActionMenu({
       )}
     </div>
   );
-});
+}
 
-export default MessageActionMenu;
+export default memo(MessageActionMenu);
