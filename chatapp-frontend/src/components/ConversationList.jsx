@@ -10,6 +10,165 @@ import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Ap
 // API servis — backend-ə HTTP GET request göndərmək üçün
 import { apiGet } from "../services/api";
 
+// ─── renderPreviewEmojis — preview mətndəki Unicode emojiləri Apple CDN img-ə çevirir ───
+function renderPreviewEmojis(text) {
+  if (!text || typeof text !== "string") return text;
+  const parts = renderTextWithEmojis(text);
+  if (typeof parts === "string") return parts;
+  return parts.map((part, i) =>
+    typeof part === "string" ? (
+      <span key={i}>{part}</span>
+    ) : (
+      <img
+        key={i}
+        src={part.url}
+        alt={part.emoji}
+        className="inline-emoji"
+        onError={(e) => {
+          const span = document.createElement("span");
+          span.textContent = part.emoji;
+          e.target.replaceWith(span);
+        }}
+      />
+    )
+  );
+}
+
+// ─── ConversationItem — memo-lanmış conversation item ───────────────────────
+// Hər item yalnız öz prop-ları dəyişdikdə yenidən render olur
+const ConversationItem = memo(function ConversationItem({
+  conv, isSelected, userId, typingUsers, onSelectChat, onContextMenu,
+}) {
+  const isOwnLastMessage = conv.lastMessageSenderId === userId;
+
+  let previewContent;
+  let previewPrefix = null;
+
+  if (conv.draft) {
+    previewPrefix = <span className="preview-draft-label">Draft:</span>;
+    previewContent = conv.draft;
+  } else if (conv.type === 2) {
+    previewContent = conv.positionName || "User";
+  } else if (!conv.lastMessage) {
+    previewContent = "No messages yet";
+  } else if (conv.isNotes) {
+    previewPrefix = <span className="preview-reply-icon"><svg viewBox="0 0 16 16"><path d="M14 3v4c0 1.1-.9 2-2 2H4m0 0l3-3M4 9l3 3"/></svg></span>;
+    previewContent = conv.lastMessage;
+  } else if (isOwnLastMessage) {
+    previewPrefix = <span className="preview-reply-icon"><svg viewBox="0 0 16 16"><path d="M14 3v4c0 1.1-.9 2-2 2H4m0 0l3-3M4 9l3 3"/></svg></span>;
+    previewContent = conv.lastMessage;
+  } else if (conv.type === 1 && conv.lastMessageSenderFullName) {
+    previewPrefix = (
+      <span
+        className="preview-sender-avatar"
+        style={{ background: getAvatarColor(conv.lastMessageSenderFullName) }}
+      >
+        {getInitials(conv.lastMessageSenderFullName)}
+      </span>
+    );
+    previewContent = conv.lastMessage;
+  } else {
+    previewContent = conv.lastMessage;
+  }
+
+  return (
+    <div
+      className={`conversation-item${isSelected ? " selected" : ""}${conv.isPinned ? " pinned" : ""}`}
+      onClick={() => onSelectChat(conv)}
+      onContextMenu={(e) => onContextMenu(e, conv)}
+    >
+      <div className="conversation-avatar-wrapper">
+        <div
+          className="conversation-avatar"
+          style={{ background: conv.isNotes ? "#2FC6F6" : getAvatarColor(conv.name) }}
+        >
+          {conv.isNotes ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+          ) : (
+            getInitials(conv.name)
+          )}
+        </div>
+        {typingUsers[conv.id] && (
+          <span className="avatar-typing-indicator">
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+          </span>
+        )}
+      </div>
+
+      <div className="conversation-info">
+        <div className="conversation-top-row">
+          <div className="conversation-name-wrapper">
+            <span className="conversation-name">{conv.name}</span>
+            {conv.isMuted && (
+              <span className="conv-mute-icon" title="Muted">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
+                </svg>
+              </span>
+            )}
+          </div>
+          <div className="conversation-time-wrapper">
+            {isOwnLastMessage && conv.type !== 2 && !conv.isNotes && conv.lastMessage && (
+              conv.lastMessageStatus === "Pending" ? (
+                <span className="preview-tick pending">
+                  <svg viewBox="0 0 16 16">
+                    <circle cx="8" cy="8" r="6.5" fill="none" strokeWidth="1.5" />
+                    <polyline points="8 4 8 8 11 9.5" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              ) : (
+                <span className={`preview-tick ${conv.lastMessageStatus === "Read" ? "read" : ""}`}>
+                  <svg viewBox="0 0 16 11">
+                    <polyline points="1 5.5 5 9.5 11 1" />
+                    {conv.lastMessageStatus === "Read" && (
+                      <polyline points="5.5 5.5 9.5 9.5 15 1" />
+                    )}
+                  </svg>
+                </span>
+              )
+            )}
+            <span className="conversation-time">
+              {formatTime(conv.lastMessageAtUtc)}
+            </span>
+          </div>
+        </div>
+
+        <div className="conversation-bottom-row">
+          <span className="conversation-preview">
+            {previewPrefix}
+            {typeof previewContent === "string"
+              ? renderPreviewEmojis(previewContent)
+              : previewContent}
+          </span>
+          {conv.isPinned && (
+            <span className="conv-pin-icon" title="Pinned">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ transform: "rotate(45deg)" }}>
+                <path d="M16 2a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v1h1.5v5.26a2.5 2.5 0 0 1-1.39 2.24L6.5 11.56A1.5 1.5 0 0 0 5.83 13v1.5h5.67V22a.5.5 0 0 0 1 0v-7.5h5.67V13a1.5 1.5 0 0 0-.67-1.44l-1.61-1.06A2.5 2.5 0 0 1 14.5 8.26V3H16V2Z" />
+              </svg>
+            </span>
+          )}
+          {(conv.lastReadLaterMessageId || conv.isMarkedReadLater) && (
+            <span className="read-later-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+            </span>
+          )}
+          {conv.unreadCount > 0 && (
+            <span className="unread-badge">{conv.unreadCount}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // ConversationList komponenti — sol panel, söhbət siyahısı
 // Props:
 //   conversations   — bütün söhbətlər array-i (Chat.jsx state-dən gəlir)
@@ -60,30 +219,6 @@ function ConversationList({
   const [contextMenu, setContextMenu] = useState(null);
   const contextMenuRef = useRef(null);
 
-  // renderPreviewEmojis — preview mətndəki Unicode emojiləri Apple CDN img-ə çevirir
-  // ConversationList-də son mesaj preview-unda gözəl Apple emoji göstərmək üçün
-  const renderPreviewEmojis = useCallback((text) => {
-    if (!text || typeof text !== "string") return text;
-    const parts = renderTextWithEmojis(text);
-    if (typeof parts === "string") return parts;
-    return parts.map((part, i) =>
-      typeof part === "string" ? (
-        <span key={i}>{part}</span>
-      ) : (
-        <img
-          key={i}
-          src={part.url}
-          alt={part.emoji}
-          className="inline-emoji"
-          onError={(e) => {
-            const span = document.createElement("span");
-            span.textContent = part.emoji;
-            e.target.replaceWith(span);
-          }}
-        />
-      )
-    );
-  }, []);
 
   // --- Filter dropdown state ---
   // filterOpen — filter dropdown açıq/bağlı
@@ -449,162 +584,17 @@ function ConversationList({
           // Nəticə yoxdur
           <div className="empty-state">No conversations yet</div>
         ) : (
-          sortedConversations.map((c) => {
-            // Öz mesajımdırmı? — tick icon göstərmək üçün
-            const isOwnLastMessage = c.lastMessageSenderId === userId;
-
-            // Preview mətni — tiplərə görə fərqlənir
-            let previewContent;
-            // Preview-un solunda əlavə icon/avatar olacaqmı?
-            let previewPrefix = null;
-
-            if (c.draft) {
-              // Draft varsa — qırmızı "Draft:" prefix ilə göstər
-              previewPrefix = <span className="preview-draft-label">Draft:</span>;
-              previewContent = c.draft;
-            } else if (c.type === 2) {
-              // DepartmentUser → vəzifə adı
-              previewContent = c.positionName || "User";
-            } else if (!c.lastMessage) {
-              previewContent = "No messages yet";
-            } else if (c.isNotes) {
-              // Notes — ↩ icon ilə
-              previewPrefix = <span className="preview-reply-icon"><svg viewBox="0 0 16 16"><path d="M14 3v4c0 1.1-.9 2-2 2H4m0 0l3-3M4 9l3 3"/></svg></span>;
-              previewContent = c.lastMessage;
-            } else if (isOwnLastMessage) {
-              // Öz mesajım (DM/Channel) — ↩ icon + mətn
-              previewPrefix = <span className="preview-reply-icon"><svg viewBox="0 0 16 16"><path d="M14 3v4c0 1.1-.9 2-2 2H4m0 0l3-3M4 9l3 3"/></svg></span>;
-              previewContent = c.lastMessage;
-            } else if (c.type === 1 && c.lastMessageSenderFullName) {
-              // Channel + başqasının mesajı → kiçik avatar + mətn
-              previewPrefix = (
-                <span
-                  className="preview-sender-avatar"
-                  style={{ background: getAvatarColor(c.lastMessageSenderFullName) }}
-                >
-                  {getInitials(c.lastMessageSenderFullName)}
-                </span>
-              );
-              previewContent = c.lastMessage;
-            } else {
-              // DM — qarşı tərəfin mesajı → sadəcə mətn
-              previewContent = c.lastMessage;
-            }
-
-            return (
-              <div
-                key={c.id}
-                className={`conversation-item${selectedChatId === c.id ? " selected" : ""}${c.isPinned ? " pinned" : ""}`}
-                onClick={() => onSelectChat(c)}
-                onContextMenu={(e) => handleContextMenu(e, c)}
-              >
-                {/* Avatar + typing indicator wrapper */}
-                <div className="conversation-avatar-wrapper">
-                  <div
-                    className="conversation-avatar"
-                    style={{ background: c.isNotes ? "#2FC6F6" : getAvatarColor(c.name) }}
-                  >
-                    {c.isNotes ? (
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="white"
-                        stroke="white"
-                        strokeWidth="2"
-                      >
-                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                      </svg>
-                    ) : (
-                      getInitials(c.name)
-                    )}
-                  </div>
-                  {/* Typing indicator — avatar-ın sağ-aşağı küncündə animasiyalı dots */}
-                  {typingUsers[c.id] && (
-                    <span className="avatar-typing-indicator">
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                    </span>
-                  )}
-                </div>
-
-                {/* Söhbət məlumatı */}
-                <div className="conversation-info">
-                  {/* Üst sıra: ad + tick + tarix */}
-                  <div className="conversation-top-row">
-                    <div className="conversation-name-wrapper">
-                      <span className="conversation-name">{c.name}</span>
-                      {/* Mute icon — mute olunmuş conversation üçün adın yanında */}
-                      {c.isMuted && (
-                        <span className="conv-mute-icon" title="Muted">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                            <line x1="23" y1="9" x2="17" y2="15" />
-                            <line x1="17" y1="9" x2="23" y2="15" />
-                          </svg>
-                        </span>
-                      )}
-                    </div>
-                    <div className="conversation-time-wrapper">
-                      {/* Status icon — time-ın solunda, yalnız öz mesajımda (Notes-da yox) */}
-                      {isOwnLastMessage && c.type !== 2 && !c.isNotes && c.lastMessage && (
-                        c.lastMessageStatus === "Pending" ? (
-                          <span className="preview-tick pending">
-                            <svg viewBox="0 0 16 16">
-                              <circle cx="8" cy="8" r="6.5" fill="none" strokeWidth="1.5" />
-                              <polyline points="8 4 8 8 11 9.5" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </span>
-                        ) : (
-                          <span className={`preview-tick ${c.lastMessageStatus === "Read" ? "read" : ""}`}>
-                            <svg viewBox="0 0 16 11">
-                              <polyline points="1 5.5 5 9.5 11 1" />
-                              {c.lastMessageStatus === "Read" && (
-                                <polyline points="5.5 5.5 9.5 9.5 15 1" />
-                              )}
-                            </svg>
-                          </span>
-                        )
-                      )}
-                      <span className="conversation-time">
-                        {formatTime(c.lastMessageAtUtc)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Alt sıra: preview + unread badge */}
-                  <div className="conversation-bottom-row">
-                    <span className="conversation-preview">
-                      {previewPrefix}
-                      {typeof previewContent === "string"
-                        ? renderPreviewEmojis(previewContent)
-                        : previewContent}
-                    </span>
-                    {/* Pin icon — pinlənmiş conversation üçün */}
-                    {c.isPinned && (
-                      <span className="conv-pin-icon" title="Pinned">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ transform: "rotate(45deg)" }}>
-                          <path d="M16 2a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v1h1.5v5.26a2.5 2.5 0 0 1-1.39 2.24L6.5 11.56A1.5 1.5 0 0 0 5.83 13v1.5h5.67V22a.5.5 0 0 0 1 0v-7.5h5.67V13a1.5 1.5 0 0 0-.67-1.44l-1.61-1.06A2.5 2.5 0 0 1 14.5 8.26V3H16V2Z" />
-                        </svg>
-                      </span>
-                    )}
-                    {/* Read later icon — mesaj və ya conversation səviyyəsində mark varsa bookmark göstər */}
-                    {(c.lastReadLaterMessageId || c.isMarkedReadLater) && (
-                      <span className="read-later-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                        </svg>
-                      </span>
-                    )}
-                    {c.unreadCount > 0 && (
-                      <span className="unread-badge">{c.unreadCount}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
+          sortedConversations.map((c) => (
+            <ConversationItem
+              key={c.id}
+              conv={c}
+              isSelected={selectedChatId === c.id}
+              userId={userId}
+              typingUsers={typingUsers}
+              onSelectChat={onSelectChat}
+              onContextMenu={handleContextMenu}
+            />
+          ))
         )}
       </div>
 

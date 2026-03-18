@@ -33,6 +33,8 @@ export default function useMention({ selectedChat, channelMembers, conversations
   const activeMentionsRef = useRef([]);        // Seçilmiş mention-lar (göndərmə üçün)
   const conversationsRef = useRef(conversations); // conversations ref — useEffect dep-dən çıxarır
   conversationsRef.current = conversations;
+  const channelMembersRef = useRef(channelMembers); // channelMembers ref — useEffect dep-dən çıxarır
+  channelMembersRef.current = channelMembers;
 
   // ─── closeMentionPanel ─────────────────────────────────────────────────────
   function closeMentionPanel() {
@@ -170,7 +172,7 @@ export default function useMention({ selectedChat, channelMembers, conversations
     if (selectedChat.type === 1) {
       // ── Channel: "All members" + üzvlər ──
       const allItem = { id: null, fullName: "All members", type: "all", isAll: true };
-      const members = channelMembers[selectedChat.id] || {};
+      const members = channelMembersRef.current[selectedChat.id] || {};
       const memberList = Object.entries(members)
         .filter(([uid]) => uid !== user.id)
         .map(([uid, m]) => ({
@@ -288,7 +290,7 @@ export default function useMention({ selectedChat, channelMembers, conversations
       if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mentionOpen, mentionSearch, selectedChat?.id, selectedChat?.type, channelMembers, user?.id]);
+  }, [mentionOpen, mentionSearch, selectedChat?.id, selectedChat?.type, user?.id]);
 
   // ─── Mention click-outside useEffect ───────────────────────────────────────
   useEffect(() => {

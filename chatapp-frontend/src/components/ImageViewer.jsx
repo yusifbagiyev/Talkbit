@@ -3,6 +3,7 @@ import { getFileUrl, downloadFile } from "../services/api";
 
 function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
   const [zoom, setZoom] = useState(1);
+  const [imageError, setImageError] = useState(false);
   const thumbStripRef = useRef(null);
   const currentImage = images[currentIndex];
 
@@ -11,6 +12,7 @@ function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
   if (prevIndex !== currentIndex) {
     setPrevIndex(currentIndex);
     setZoom(1);
+    setImageError(false);
   }
 
   // Keyboard: Escape=bağla, ←/→=naviqasiya
@@ -98,14 +100,25 @@ function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
           </button>
         )}
 
-        <img
-          src={getFileUrl(currentImage.fileUrl)}
-          alt={currentImage.fileName}
-          className="iv-image"
-          style={{ transform: `scale(${zoom})` }}
-          onDoubleClick={handleDoubleClick}
-          draggable={false}
-        />
+        {imageError ? (
+          <div className="iv-error">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
+            </svg>
+            <span style={{ color: "rgba(255,255,255,0.5)", marginTop: 8, fontSize: 14 }}>Image could not be loaded</span>
+          </div>
+        ) : (
+          <img
+            src={getFileUrl(currentImage.fileUrl)}
+            alt={currentImage.fileName}
+            className="iv-image"
+            style={{ transform: `scale(${zoom})` }}
+            onDoubleClick={handleDoubleClick}
+            onError={() => setImageError(true)}
+            draggable={false}
+          />
+        )}
 
         {currentIndex < images.length - 1 && (
           <button className="iv-nav iv-nav-right" onClick={() => onNavigate(currentIndex + 1)}>
@@ -130,6 +143,7 @@ function ImageViewer({ images, currentIndex, onClose, onNavigate }) {
                 src={getFileUrl(img.fileUrl)}
                 alt={img.fileName}
                 loading="lazy"
+                onError={(e) => { e.target.style.display = "none"; }}
               />
             </div>
           );

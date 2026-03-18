@@ -2625,6 +2625,7 @@
   justify-content: center;
   color: var(--gray-400);
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .readers-panel-close:hover {
@@ -6641,7 +6642,7 @@
 
 /* Fayl kartı upload status text stili */
 .bubble-file-card.uploading .bubble-file-size {
-  color: var(--primary);
+  color: var(--primary-color);
 }
 
 /* Backend ölçüsü olan image-only şəkillər — container artıq düzgün ölçüdədir, img doldurar */
@@ -6953,6 +6954,14 @@
   transition: transform 0.15s ease;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.iv-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
 }
 
 /* ─── Navigation arrows ─── */

@@ -152,6 +152,7 @@ function FilePreviewPanel({
                   src={previews[0].url}
                   alt={selectedFiles[0].name}
                   className="file-preview-single-img"
+                  onError={(e) => { e.target.style.display = "none"; }}
                 />
               )}
             </div>
@@ -188,6 +189,7 @@ function FilePreviewPanel({
                       src={previews[idx].url}
                       alt={file.name}
                       className="file-preview-item-thumb"
+                      onError={(e) => { e.target.style.display = "none"; }}
                     />
                   ) : (
                     <div className="file-preview-item-icon">

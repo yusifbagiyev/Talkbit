@@ -102,7 +102,14 @@
       "Bash(node -e \":*)",
       "Read(//mnt/c/Users/ybaghiyev/Desktop/ChatApp/chatapp-frontend/**)",
       "Read(//mnt/c/Users/ybaghiyev/Desktop/**)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(awk '/^\\\\.search-clear-btn\\\\s*\\\\{/,/^}/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")",
+      "Bash(awk '/^\\\\.filter-dropdown-item\\\\s*\\\\{/,/^}/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")",
+      "Bash(awk '/^\\\\.conversation-item:hover\\\\s*\\\\{/,/^}/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")",
+      "Bash(awk '/^\\\\.conversation-item\\\\s*\\\\{/,/^\\\\.conversation-item:hover/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")",
+      "Bash(awk '/^\\\\.action-menu-item\\\\s*\\\\{/,/^}/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")",
+      "Bash(awk '/^\\\\.reaction-badge\\\\s*\\\\{/,/^}/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")",
+      "Bash(awk '/^\\\\.img-error\\\\s*\\\\{/,/^}/' \"C:\\\\Users\\\\ybaghiyev\\\\Desktop\\\\ChatApp\\\\chatapp-frontend\\\\src\\\\pages\\\\Chat.css\")"
     ],
     "deny": [],
     "ask": []
