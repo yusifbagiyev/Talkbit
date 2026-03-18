@@ -335,31 +335,44 @@ function ChatInputArea({
                 const caret = e.target.selectionStart;
                 if (onTextChange) onTextChange(val, caret);
                 else setMessageText(val);
-                // Auto-resize — yalnız hündürlük dəyişdikdə scroll et
                 // Textarea boşaldıqda manual resize sıfırlansın (mesaj göndərildikdən sonra)
                 if (manualResizeRef.current && val.length === 0) {
                   manualResizeRef.current = false;
                 }
-                // Manual resize flag varsa: yalnız content manual ölçünü aşdıqda resize et
+                // Auto-resize + overflow idarəsi
+                const ta = e.target;
                 if (manualResizeRef.current) {
-                  const manualH = e.target.offsetHeight;
-                  // scrollHeight > offsetHeight → content manual ölçüdən böyükdür → expand et
-                  if (e.target.scrollHeight > manualH) {
-                    const h = Math.min(e.target.scrollHeight, 300);
-                    e.target.style.height = h + "px";
+                  // Manual resize: yalnız content manual ölçünü aşdıqda expand et
+                  if (ta.scrollHeight > ta.offsetHeight) {
+                    const h = Math.min(ta.scrollHeight, 300);
+                    ta.style.height = h + "px";
                     if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
-                    manualResizeRef.current = false; // Artıq auto-resize idarə edir
+                    manualResizeRef.current = false;
                     onInputResize?.();
                   }
                 } else {
-                  const prevH = e.target.offsetHeight;
-                  e.target.style.height = "auto";
-                  const h = Math.min(e.target.scrollHeight, 300);
-                  e.target.style.height = h + "px";
-                  if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
-                  // Yalnız textarea hündürlüyü dəyişdikdə mesajları aşağı scroll et
-                  if (h !== prevH) onInputResize?.();
+                  const prevH = ta.offsetHeight;
+                  // Content aşır → expand et
+                  if (ta.scrollHeight > ta.offsetHeight) {
+                    const h = Math.min(ta.scrollHeight, 300);
+                    ta.style.height = h + "px";
+                    if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
+                    if (h !== prevH) onInputResize?.();
+                  }
+                  // Content kiçilib (məs. silmə) → shrink lazımdırsa ölç
+                  // height=0 ilə scrollHeight-ı ölçürük (height=auto fərqli nəticə verir)
+                  else if (val.length === 0 || ta.scrollHeight < ta.offsetHeight) {
+                    ta.style.height = "0";
+                    const natural = Math.min(ta.scrollHeight, 300);
+                    ta.style.height = natural + "px";
+                    if (mirrorRef.current) mirrorRef.current.style.height = natural + "px";
+                    if (natural !== prevH) onInputResize?.();
+                  }
                 }
+                // Overflow: content max-height-a çatıbsa scroll lazımdır, yoxsa gizlət
+                const needsScroll = ta.scrollHeight > 300;
+                ta.style.overflow = needsScroll ? "auto" : "hidden";
+                if (mirrorRef.current) mirrorRef.current.style.overflow = needsScroll ? "auto" : "hidden";
               }}
               onScroll={(e) => {
                 if (mirrorRef.current) mirrorRef.current.scrollTop = e.target.scrollTop;
@@ -436,8 +449,34 @@ function ChatInputArea({
             previewConfig={{ showPreview: false }}
             lazyLoadEmojis
             onEmojiClick={(emojiData) => {
-              setMessageText((prev) => prev + emojiData.emoji);
-              inputRef.current?.focus();
+              const textarea = inputRef.current;
+              if (!textarea) {
+                setMessageText((prev) => prev + emojiData.emoji);
+                return;
+              }
+              // Cursor pozisiyasına emoji əlavə et (sona deyil)
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const before = messageText.slice(0, start);
+              const after = messageText.slice(end);
+              const newText = before + emojiData.emoji + after;
+              const newCaret = start + emojiData.emoji.length;
+              // onTextChange varsa onu çağır (mention panel yenilənir)
+              if (onTextChange) onTextChange(newText, newCaret);
+              else setMessageText(newText);
+              // Auto-resize trigger — requestAnimationFrame ilə DOM yenilənməsini gözlə
+              requestAnimationFrame(() => {
+                if (!manualResizeRef.current) {
+                  textarea.style.height = "auto";
+                  const h = Math.min(textarea.scrollHeight, 300);
+                  textarea.style.height = h + "px";
+                  if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
+                }
+                // Cursor-u düzgün pozisiyaya qoy
+                textarea.selectionStart = newCaret;
+                textarea.selectionEnd = newCaret;
+                textarea.focus();
+              });
             }}
           />
         </div>

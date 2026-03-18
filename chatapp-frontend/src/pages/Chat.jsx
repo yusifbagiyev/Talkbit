@@ -2096,13 +2096,19 @@ function Chat() {
       );
     }
 
-    // Textarea + mirror hündürlüyünü saxlanılmış ölçüyə qaytar (və ya default)
+    // Textarea + mirror hündürlüyünü saxlanılmış ölçüyə qaytar (və ya default 71px)
+    // Overflow hidden — boş textarea-da scroll lazım deyil
     const savedH = localStorage.getItem("chatInputHeight");
+    const resetH = savedH ? savedH + "px" : "71px";
     if (inputRef.current) {
-      inputRef.current.style.height = savedH ? savedH + "px" : "auto";
+      inputRef.current.style.height = resetH;
+      inputRef.current.style.overflow = "hidden";
     }
     const mirror = document.querySelector(".message-input-mirror");
-    if (mirror) mirror.style.height = savedH ? savedH + "px" : "auto";
+    if (mirror) {
+      mirror.style.height = resetH;
+      mirror.style.overflow = "hidden";
+    }
 
     // --- EDIT MODE ---
     if (editMessage) {

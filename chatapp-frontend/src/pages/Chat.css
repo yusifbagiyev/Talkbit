@@ -2848,7 +2848,8 @@
   line-height: 1.4;
   white-space: pre-wrap;
   word-wrap: break-word;
-  overflow-y: scroll;
+  box-sizing: border-box; /* Textarea ilə eyni hesablama */
+  overflow-y: hidden; /* Textarea ilə sinxron — JS content artdıqda auto edir */
   pointer-events: none;
   color: var(--gray-900);
   scrollbar-width: thin;
@@ -2902,9 +2903,12 @@
   font-family: inherit;
   line-height: 1.4;
   resize: none;
+  box-sizing: border-box; /* padding daxil — scrollHeight/offsetHeight eyni bazada hesablanır */
+  /* 1 sətir = ceil(15 * 1.4) + 6 + 44 = 71px — stabil baza, rows=1-dən asılı deyil */
+  min-height: 71px;
   max-height: 300px;
-  overflow-y: auto;
-  height: auto;
+  overflow-y: hidden; /* Default gizli — content 1 sətri aşdıqda JS overflow:auto edir */
+  height: 71px;
   z-index: 1;
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
