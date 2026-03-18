@@ -5,7 +5,7 @@
   --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
 
   /* Neutral Colors */
-  --white: #ffffff;
+  --white: #fff;
   --gray-50: #f8f9fb;
   --gray-100: #f1f3f5;
   --gray-200: #e5e7eb;
@@ -25,7 +25,7 @@
 
   /* Chat Specific */
   --bubble-own: #e9fecb;
-  --bubble-other: #ffffff;
+  --bubble-other: var(--white);
   --selected-chat: #00ace3;
   --unread-badge: #4cc5eb;
 
@@ -251,7 +251,7 @@
   );
   display: flex;
   flex-direction: column;
-  z-index: 100;
+  z-index: var(--z-sidebar);
 }
 
 .sidebar-logo {
@@ -302,7 +302,7 @@
   transform: translateY(-50%) scaleY(0);
   width: 3px;
   height: 24px;
-  background: #ffffff;
+  background: var(--white);
   border-radius: 0 3px 3px 0;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -317,7 +317,7 @@
 }
 
 .nav-item.active {
-  color: #ffffff;
+  color: var(--white);
   background: rgba(255, 255, 255, 0.18);
 }
 
@@ -395,7 +395,7 @@
 }
 
 .header-icon-btn.create-btn:hover {
-  background: #3bb8de;
+  background: var(--primary-hover);
   color: var(--white);
 }
 
@@ -490,7 +490,7 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 10;
+  z-index: var(--z-dropdown);
   background: var(--white);
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -521,7 +521,7 @@
   transition: background var(--transition-fast);
 }
 .filter-dropdown-item:hover {
-  background: #f7f7f7;
+  background: var(--gray-50);
 }
 
 /* ===================================
@@ -562,7 +562,7 @@
 }
 
 .conv-context-item:hover {
-  background: #f7f7f7;
+  background: var(--gray-50);
 }
 
 /* ===================================
@@ -740,7 +740,7 @@
 .conversation-item.selected .conversation-name,
 .conversation-item.selected .conversation-time,
 .conversation-item.selected .conversation-preview {
-  color: #ffffff;
+  color: var(--white);
 }
 
 .conversation-item.selected .preview-tick svg {
@@ -1095,7 +1095,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  z-index: 1;
+  z-index: var(--z-base);
 }
 
 .chat-header-left {
@@ -1259,7 +1259,7 @@
 
 .pinned-bar-preview {
   font-size: 13px;
-  color: #000000;
+  color: var(--gray-900);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1315,7 +1315,7 @@
   top: 56px;
   left: 0;
   right: 0;
-  z-index: 10;
+  z-index: var(--z-dropdown);
 }
 
 .pinned-expanded-header {
@@ -1498,7 +1498,7 @@
   align-items: center;
   justify-content: center;
   gap: 20px;
-  color: #ffffff;
+  color: var(--white);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: 0.4px;
@@ -1508,7 +1508,7 @@
   width: 56px;
   height: 56px;
   border: 3.5px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
+  border-top-color: var(--white);
   border-radius: 50%;
   animation: chatLoadingSpin 0.8s linear infinite;
 }
@@ -1600,7 +1600,7 @@
   top: 8px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  z-index: var(--z-float);
   background: rgba(126, 161, 182, 0.55);
   color: var(--white);
   font-size: 12px;
@@ -1685,7 +1685,7 @@
   box-shadow:
     0 2px 12px rgba(0, 0, 0, 0.1),
     0 0 0 1px rgba(0, 0, 0, 0.04);
-  z-index: 10;
+  z-index: var(--z-dropdown);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
@@ -1759,7 +1759,7 @@
 }
 
 .read-later-separator span {
-  color: #000;
+  color: var(--gray-900);
   font-size: 13px;
   font-weight: 450;
 }
@@ -1776,7 +1776,7 @@
 }
 
 .new-messages-separator span {
-  color: #000;
+  color: var(--gray-900);
   font-size: 13px;
   font-weight: 450;
 }
@@ -1891,7 +1891,7 @@
 
 /* Qarşı tərəfin şəkil+mətn bubble — şəkil kənarları #F0F6EE, mətn hissəsi #FFFFFF */
 .message-bubble:not(.own):has(.bubble-file-image:not(.image-only)) {
-  background: #ffffff;
+  background: var(--white);
   overflow: hidden;
 }
 
@@ -2128,7 +2128,7 @@
   position: absolute;
   top: 4px;
   left: calc(100% + 4px);
-  z-index: 5;
+  z-index: var(--z-float);
 }
 .bubble-more-wrap.own {
   left: auto;
@@ -2140,7 +2140,7 @@
   position: absolute;
   bottom: -5px;
   right: -18px;
-  z-index: 5;
+  z-index: var(--z-float);
 }
 .bubble-react-wrap.own {
   right: auto;
@@ -2227,7 +2227,7 @@
 }
 
 .action-menu-item:hover {
-  background: #f7f7f7;
+  background: var(--gray-50);
 }
 
 .action-menu-item svg {
@@ -2526,13 +2526,13 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--white);
   animation: typingBounce 1.2s infinite ease-in-out;
 }
 
 .status-bar-typing {
   font-size: 13px;
-  color: #ffffff;
+  color: var(--white);
   font-weight: 450;
   font-style: italic;
 }
@@ -2545,7 +2545,7 @@
 
 .status-bar-tick polyline {
   fill: none;
-  stroke: #ffffff;
+  stroke: var(--white);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -2553,14 +2553,14 @@
 
 .status-bar-viewed {
   font-size: 12px;
-  color: #ffffff;
+  color: var(--white);
   font-weight: 400;
 }
 
 .status-bar-more-btn {
   border: none;
   background: none;
-  color: #ffffff;
+  color: var(--white);
   font-size: 12px;
   font-weight: 450;
   text-decoration: underline;
@@ -2998,7 +2998,7 @@
   max-height: 300px;
   overflow-y: hidden; /* Default gizli — content 1 sətri aşdıqda JS overflow:auto edir */
   height: auto;
-  z-index: 1;
+  z-index: var(--z-base);
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
@@ -4121,7 +4121,7 @@
 .add-member-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-sidebar);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4417,7 +4417,7 @@
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.15),
     0 2px 6px rgba(0, 0, 0, 0.08);
-  z-index: 100;
+  z-index: var(--z-sidebar);
   overflow: hidden;
   animation: dropdownIn 0.15s ease-out;
   transform-origin: top right;
@@ -4439,7 +4439,7 @@
 }
 
 .ds-dropdown-item:hover {
-  background: #f7f7f7;
+  background: var(--gray-50);
 }
 
 .ds-dropdown-danger {
@@ -4845,7 +4845,7 @@
   background: var(--white);
   display: flex;
   flex-direction: column;
-  z-index: 10;
+  z-index: var(--z-dropdown);
 }
 
 .ds-favorites-header {
@@ -6478,7 +6478,7 @@
   background-size: 200% 100%;
   animation: imgShimmer 1.5s ease-in-out infinite;
   border-radius: inherit;
-  z-index: 1;
+  z-index: var(--z-base);
 }
 
 @keyframes imgShimmer {
@@ -6516,7 +6516,7 @@
   color: #999;
   cursor: pointer;
   border-radius: inherit;
-  z-index: 1;
+  z-index: var(--z-base);
   font-size: 12px;
 }
 
@@ -6617,7 +6617,7 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.45);
   border-radius: 6px;
-  z-index: 1;
+  z-index: var(--z-base);
 }
 
 .upload-cancel-btn-small,
@@ -6721,7 +6721,7 @@
   border-radius: 10px;
   padding: 2px 8px;
   gap: 6px;
-  z-index: 1;
+  z-index: var(--z-base);
   flex-wrap: nowrap;
 }
 /* Image-only — reaction badges bubble-ın birbaşa uşağı, şəklin altında sol tərəfdə */
@@ -6890,7 +6890,7 @@
 }
 
 .iv-filename {
-  color: #ffffff;
+  color: var(--white);
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
@@ -6910,7 +6910,7 @@
   height: 36px;
   border: none;
   background: transparent;
-  color: #ffffff;
+  color: var(--white);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -6973,7 +6973,7 @@
   height: 48px;
   border: none;
   background: rgba(0, 0, 0, 0.5);
-  color: #ffffff;
+  color: var(--white);
   border-radius: 50%;
   cursor: pointer;
   display: flex;
