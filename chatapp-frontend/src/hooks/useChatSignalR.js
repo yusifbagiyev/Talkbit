@@ -35,12 +35,12 @@ export default function useChatSignalR(
     // conn: SignalR connection obyekti — cleanup funksiyasında istifadə üçün
     let conn = null;
 
-    // ─── handleNewDirectMessage ────────────────────────────────────────────────
-    // Server "NewDirectMessage" event-i göndərəndə çağırılır (yeni DM mesaj)
-    // 2 işi var:
-    //   1. Əgər bu conversation açıqdırsa — messages state-ə əlavə et
-    //   2. Conversation list-dəki son mesajı yenilə
-    function handleNewDirectMessage(message) {
+    // ─── handleNewMessage — DM və Channel üçün ortaq handler ─────────────────
+    // chatType: 0 = DM, 1 = Channel
+    // chatIdField: mesajdan chat ID-ni almaq üçün key ("conversationId" / "channelId")
+    function handleNewMessage(message, chatType, chatIdField) {
+      const chatId = message[chatIdField];
+
       // Upload task-ı sil — real mesaj gəldi, optimistic upload mesajını əvəz edir
       if (message.fileId && onCheckUploadCompletion) {
         onCheckUploadCompletion(message.fileId);
@@ -48,19 +48,15 @@ export default function useChatSignalR(
 
       // Cache invalidasiya — yeni mesaj gəldi, cache köhnəldi
       if (messageCacheRef?.current) {
-        messageCacheRef.current.delete(message.conversationId);
+        messageCacheRef.current.delete(chatId);
       }
 
+      // Əgər bu chat açıqdırsa — messages state-ə əlavə et
       setSelectedChat((current) => {
-        if (
-          current &&
-          current.type === 0 &&
-          current.id === message.conversationId
-        ) {
+        if (current && current.type === chatType && current.id === chatId) {
           setMessages((prev) => {
             if (prev.some((m) => m.id === message.id)) return prev;
             // Öz mesajımızın echo-su — optimistic mesajı tap və əvəz et
-            // Echo-da reply/mention data olmaya bilər — optimistic-dən merge et
             // FIFO: ən köhnə optimistic-i tap (echo-lar göndərmə sırasına uyğun gəlir)
             let enrichedMsg = message;
             let matchedOptId = null;
@@ -74,18 +70,14 @@ export default function useChatSignalR(
                   replyToContent: message.replyToContent || optimistic.replyToContent || null,
                   replyToSenderName: message.replyToSenderName || optimistic.replyToSenderName || null,
                   mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
-                  // _stableKey kopyala — React key dəyişməsin, re-render olmasın
                   _stableKey: optimistic._stableKey || optimistic.id,
                 };
               }
             }
-            // Öz echo-muzda: optimistic → real əvəzləmə, mesaj sayı eyni qalır.
-            // Aşağıda deyilsə programmatic scroll et.
+            // Aşağıda deyilsə programmatic scroll et
             if (message.senderId === userId && showScrollDownRef?.current) {
               setShouldScrollBottom(true);
             }
-            // Optimistic varsa in-place əvəz et (key dəyişmir → remount yox),
-            // yoxdursa başa əlavə et (başqasının mesajı və ya optimistic tapılmadı)
             if (matchedOptId) {
               return prev.map((m) => m.id === matchedOptId ? enrichedMsg : m);
             }
@@ -95,20 +87,18 @@ export default function useChatSignalR(
         return current;
       });
 
-      // Conversation list-dəki son mesajı yenilə (və ya yeni conversation əlavə et)
+      // Conversation list-i yenilə
       setConversations((prev) => {
-        const exists = prev.some((c) => c.id === message.conversationId);
+        const exists = prev.some((c) => c.id === chatId);
 
-        // ── Yeni conversation (ilk mesaj) — listdə yoxdur → yarat və başa əlavə et ──
-        if (!exists) {
-          // Öz mesajımızın echo-su — conversation-ı handleSendMessage yaradacaq,
-          // burada yaratma (yanlış ad və unread count olar)
+        // ── Yeni DM conversation (ilk mesaj) — listdə yoxdur → yarat ──
+        if (!exists && chatType === 0) {
+          // Öz mesajımızın echo-su — conversation-ı handleSendMessage yaradacaq
           if (message.senderId === userId) return prev;
-
           const newConv = {
-            id: message.conversationId,
+            id: chatId,
             name: message.senderFullName,
-            type: 0, // DM
+            type: 0,
             avatarUrl: message.senderAvatarUrl,
             otherUserId: message.senderId,
             lastMessage: getMessagePreview(message),
@@ -117,16 +107,15 @@ export default function useChatSignalR(
             lastMessageSenderFullName: message.senderFullName,
             lastMessageSenderAvatarUrl: message.senderAvatarUrl,
             lastMessageStatus: null,
-            unreadCount: message.senderId !== userId ? 1 : 0,
+            unreadCount: 1,
             _lastProcessedMsgId: message.id,
           };
           return [newConv, ...prev];
         }
 
-        // ── Mövcud conversation — yenilə ──
+        // ── Mövcud conversation/channel — yenilə ──
         const updated = prev.map((c) => {
-          if (c.id === message.conversationId) {
-            // Duplicate check — hybrid broadcast eyni mesajı 2 dəfə göndərə bilər
+          if (c.id === chatId) {
             const isDuplicate = c._lastProcessedMsgId === message.id;
             return {
               ...c,
@@ -137,7 +126,6 @@ export default function useChatSignalR(
               lastMessageSenderFullName: message.senderFullName,
               lastMessageSenderAvatarUrl: message.senderAvatarUrl,
               lastMessageStatus: message.senderId === userId ? "Sent" : c.lastMessageStatus,
-              // Başqasının mesajı + duplicate deyilsə → unread artır (chat açıq olsa belə)
               unreadCount:
                 message.senderId !== userId && !isDuplicate
                   ? c.unreadCount + 1
@@ -146,8 +134,8 @@ export default function useChatSignalR(
           }
           return c;
         });
-        // Yeni mesajlı conversation-ı siyahının başına gətir
-        const idx = updated.findIndex((c) => c.id === message.conversationId);
+        // Yeni mesajlı chat-ı siyahının başına gətir
+        const idx = updated.findIndex((c) => c.id === chatId);
         if (idx > 0) {
           const [item] = updated.splice(idx, 1);
           updated.unshift(item);
@@ -156,90 +144,12 @@ export default function useChatSignalR(
       });
     }
 
-    // ─── handleNewChannelMessage ───────────────────────────────────────────────
-    // handleNewDirectMessage-ın Channel versiyası (type === 1)
+    // DM və Channel handler-ları — ortaq handleNewMessage-ə delege edir
+    function handleNewDirectMessage(message) {
+      handleNewMessage(message, 0, "conversationId");
+    }
     function handleNewChannelMessage(message) {
-      // Upload task-ı sil — real mesaj gəldi, optimistic upload mesajını əvəz edir
-      if (message.fileId && onCheckUploadCompletion) {
-        onCheckUploadCompletion(message.fileId);
-      }
-
-      // Cache invalidasiya — yeni mesaj gəldi, cache köhnəldi
-      if (messageCacheRef?.current) {
-        messageCacheRef.current.delete(message.channelId);
-      }
-
-      setSelectedChat((current) => {
-        if (current && current.type === 1 && current.id === message.channelId) {
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === message.id)) return prev;
-            // Öz mesajımızın echo-su — optimistic mesajı tap və əvəz et
-            // Echo-da reply/mention data olmaya bilər — optimistic-dən merge et
-            // FIFO: ən köhnə optimistic-i tap (echo-lar göndərmə sırasına uyğun gəlir)
-            let enrichedMsg = message;
-            let matchedOptId = null;
-            if (message.senderId === userId) {
-              const optimistics = prev.filter((m) => m._optimistic || (typeof m.id === "string" && m.id.startsWith("temp-")));
-              const optimistic = optimistics.length > 0 ? optimistics[optimistics.length - 1] : null;
-              if (optimistic) {
-                matchedOptId = optimistic.id;
-                enrichedMsg = {
-                  ...message,
-                  replyToContent: message.replyToContent || optimistic.replyToContent || null,
-                  replyToSenderName: message.replyToSenderName || optimistic.replyToSenderName || null,
-                  mentions: message.mentions?.length > 0 ? message.mentions : (optimistic.mentions || []),
-                  _stableKey: optimistic._stableKey || optimistic.id,
-                };
-              }
-            }
-            // Öz echo-muzda: optimistic → real əvəzləmə, mesaj sayı eyni qalır.
-            // Aşağıda deyilsə programmatic scroll et.
-            if (message.senderId === userId && showScrollDownRef?.current) {
-              setShouldScrollBottom(true);
-            }
-            // Optimistic varsa in-place əvəz et (key dəyişmir → remount yox),
-            // yoxdursa başa əlavə et
-            if (matchedOptId) {
-              return prev.map((m) => m.id === matchedOptId ? enrichedMsg : m);
-            }
-            return [enrichedMsg, ...prev];
-          });
-        }
-        return current;
-      });
-
-      setConversations((prev) => {
-        const updated = prev.map((c) => {
-          if (c.id === message.channelId) {
-            // Duplicate check — hybrid broadcast eyni mesajı 2 dəfə göndərə bilər
-            const isDuplicate = c._lastProcessedMsgId === message.id;
-            return {
-              ...c,
-              _lastProcessedMsgId: message.id,
-              lastMessage: getMessagePreview(message),
-              lastMessageAtUtc: message.createdAtUtc,
-              lastMessageSenderId: message.senderId,
-              lastMessageSenderFullName: message.senderFullName,
-              lastMessageSenderAvatarUrl: message.senderAvatarUrl,
-              lastMessageStatus: message.senderId === userId ? "Sent" : c.lastMessageStatus,
-              // Başqasının mesajı + duplicate deyilsə → unread artır (chat açıq olsa belə)
-              // Bitrix davranışı: mesaj input-a klik olunmayınca oxundu sayılmır
-              unreadCount:
-                message.senderId !== userId && !isDuplicate
-                  ? c.unreadCount + 1
-                  : c.unreadCount,
-            };
-          }
-          return c;
-        });
-        // Yeni mesajlı channel-ı siyahının başına gətir
-        const idx = updated.findIndex((c) => c.id === message.channelId);
-        if (idx > 0) {
-          const [item] = updated.splice(idx, 1);
-          updated.unshift(item);
-        }
-        return updated;
-      });
+      handleNewMessage(message, 1, "channelId");
     }
 
     // ─── handleMessageRead ────────────────────────────────────────────────────

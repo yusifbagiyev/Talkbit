@@ -82,21 +82,14 @@ export function getChatEndpoint(chatId, chatType, path = "") {
 }
 
 // ─── Avatar Color Palette ─────────────────────────────────────────────────────
-// Avatar üçün istifadə olunan 12 rəng. Tailwind/CSS color palette-dən.
+// Avatar üçün istifadə olunan 5 rəng — profil şəkli olmayanda göstərilir.
 // getAvatarColor() bu array-dən hash ilə rəng seçir.
 const avatarColors = [
-  "#6366f1", // indigo
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#ef4444", // red
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#06b6d4", // cyan
-  "#3b82f6", // blue
-  "#6d28d9", // purple
-  "#db2777", // rose
-  "#ea580c", // orange
-  "#0891b2", // sky
+  "#4BA5C3", // mavi
+  "#F76187", // çəhrayı
+  "#8474C8", // bənövşəyi
+  "#AB7761", // qəhvəyi
+  "#64A513", // yaşıl
 ];
 
 // ─── getInitials ──────────────────────────────────────────────────────────────

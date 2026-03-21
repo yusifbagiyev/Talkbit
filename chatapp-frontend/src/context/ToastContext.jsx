@@ -26,6 +26,8 @@ export function useToast() {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const idCounter = useRef(0);
+  // Timer ID-ləri saxla — unmount-da cleanup üçün
+  const timersRef = useRef(new Map());
 
   // showToast — yeni toast əlavə et
   // message: göstəriləcək mətn
@@ -37,15 +39,23 @@ export function ToastProvider({ children }) {
 
     // Avtomatik bağlanma — duration > 0 olduqda
     if (duration > 0) {
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
+        timersRef.current.delete(id);
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, duration);
+      timersRef.current.set(id, timerId);
     }
     return id;
   }, []);
 
   // removeToast — toast-u əl ilə bağla (X düyməsi üçün)
   const removeToast = useCallback((id) => {
+    // Timer-i ləğv et — artıq lazım deyil
+    const timerId = timersRef.current.get(id);
+    if (timerId) {
+      clearTimeout(timerId);
+      timersRef.current.delete(id);
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 

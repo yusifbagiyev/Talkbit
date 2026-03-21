@@ -140,31 +140,37 @@ export default function useFileUploadManager(user, onFallbackReload, onMessageSe
         onMessageSentRef.current?.(task.chatId, task.chatType);
 
         // Dərhal mesajları reload et — SignalR echo-ya bel bağlama
+        // Timer-ləri saxla ki, task silinəndə cleanup olsun
+        const timers = [];
+
         // 1 saniyə gözlə ki, server mesajı DB-ə yazıb bitirsin
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
           const remaining = map.get(task.tempId);
           if (remaining && remaining.status === "sent") {
             onFallbackReloadRef.current?.(task.chatId, task.chatType);
           }
-        }, 1000);
+        }, 1000));
 
         // Fallback: 8 saniyə sonra — hələ "sent" statusundadırsa yenidən reload et
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
           const remaining = map.get(task.tempId);
           if (remaining && remaining.status === "sent") {
             onFallbackReloadRef.current?.(task.chatId, task.chatType);
           }
-        }, 8000);
+        }, 8000));
 
         // Safety net: 15 saniyə sonra — hələ silinməyibsə təmizlə
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
           const remaining = map.get(task.tempId);
           if (remaining) {
             if (remaining.previewUrl) URL.revokeObjectURL(remaining.previewUrl);
             map.delete(task.tempId);
             syncImmediate();
           }
-        }, 15000);
+        }, 15000));
+
+        // Timer-ləri task-a bağla — checkForCompletion/removeUpload-da cleanup üçün
+        t2._timers = timers;
       }
     } catch (err) {
       if (err?.name === "AbortError") {
@@ -286,6 +292,8 @@ export default function useFileUploadManager(user, onFallbackReload, onMessageSe
     const map = uploadsRef.current;
     for (const [tempId, task] of map) {
       if (task.fileId === incomingFileId && (task.status === "sent" || task.status === "sending")) {
+        // Pending timer-ləri ləğv et — artıq lazım deyil
+        if (task._timers) task._timers.forEach(clearTimeout);
         if (task.previewUrl) URL.revokeObjectURL(task.previewUrl);
         map.delete(tempId);
         syncImmediate();
@@ -298,7 +306,10 @@ export default function useFileUploadManager(user, onFallbackReload, onMessageSe
   const removeUpload = useCallback((tempId) => {
     const map = uploadsRef.current;
     const task = map.get(tempId);
-    if (task?.previewUrl) URL.revokeObjectURL(task.previewUrl);
+    if (task) {
+      if (task._timers) task._timers.forEach(clearTimeout);
+      if (task.previewUrl) URL.revokeObjectURL(task.previewUrl);
+    }
     map.delete(tempId);
     syncImmediate();
   }, [syncImmediate]);

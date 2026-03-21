@@ -409,9 +409,30 @@ function Chat() {
     const unsubscribe = onConnectionStateChange((state) => {
       if (state === "connected") {
         if (wasConnectedRef.current) {
-          // Əvvəl connected idi, kəsildi, indi yenidən qoşuldu —
-          // səhifəni reload et ki, qaçırılmış mesajlar, statuslar hamısı təmiz yüklənsin
-          window.location.reload();
+          // Soft refresh — conversation list + açıq chatın mesajlarını yenilə
+          // window.location.reload() əvəzinə state-i qoruyaraq yeniləyirik
+          messageCacheRef.current.clear();
+          loadConversations();
+          // Açıq chat varsa — mesajları yenidən yüklə
+          setSelectedChat((current) => {
+            if (current) {
+              const msgBase = getChatEndpoint(current.id, current.type, "/messages");
+              if (msgBase) {
+                apiGet(`${msgBase}?pageSize=${MESSAGE_PAGE_SIZE}`)
+                  .then((data) => {
+                    const msgs = Array.isArray(data) ? data : data?.items || [];
+                    if (msgs.length > 0) {
+                      setMessages(msgs);
+                      hasMoreRef.current = msgs.length >= MESSAGE_PAGE_SIZE;
+                      hasMoreDownRef.current = false;
+                    }
+                  })
+                  .catch(() => {});
+              }
+            }
+            return current;
+          });
+          setToast(null);
           return;
         }
         wasConnectedRef.current = true;
@@ -791,14 +812,11 @@ function Chat() {
       }),
     );
 
-    // Backend-ə batch read göndər
-    Promise.all(
-      batch.map((msgId) =>
-        chatType === "0"
-          ? apiPost(`/api/conversations/${chatId}/messages/${msgId}/read`)
-          : apiPost(`/api/channels/${chatId}/messages/${msgId}/mark-as-read`),
-      ),
-    ).catch(() => {});
+    // Backend-ə tək batch request göndər (N request əvəzinə 1)
+    const endpoint = chatType === "0"
+      ? `/api/conversations/${chatId}/messages/batch-read`
+      : `/api/channels/${chatId}/messages/batch-read`;
+    apiPost(endpoint, { messageIds: batch }).catch(() => {});
   }
 
   // markAllAsReadForCurrentChat — bütün unread mesajları oxundu et

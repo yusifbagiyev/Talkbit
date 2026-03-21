@@ -309,18 +309,18 @@ function ConversationList({
   }, [contextMenu]);
 
   // handleContextMenu — conversation item üzərində sağ klik
-  function handleContextMenu(e, conv) {
+  const handleContextMenu = useCallback((e, conv) => {
     e.preventDefault(); // Brauzer default context menu-nu ləğv et
     setContextMenu({ conv, x: e.clientX, y: e.clientY });
-  }
+  }, []);
 
   // Context menu action handler — action çağır, menu bağla
-  function handleContextAction(action) {
-    const conv = contextMenu?.conv;
-    if (!conv) return;
-    setContextMenu(null);
-    action(conv);
-  }
+  const handleContextAction = useCallback((action) => {
+    setContextMenu((prev) => {
+      if (prev?.conv) action(prev.conv);
+      return null;
+    });
+  }, []);
 
   // exitSearchMode — search mode bağla, input təmizlə
   const exitSearchMode = useCallback(() => {
@@ -343,28 +343,28 @@ function ConversationList({
   }, [searchMode, exitSearchMode]);
 
   // handleSearchFocus — search input-a fokus olduqda search mode-a keç
-  function handleSearchFocus() {
+  const handleSearchFocus = useCallback(() => {
     setSearchMode(true);
-  }
+  }, []);
 
   // handleSearchKeyDown — ESC basıldıqda search mode-dan çıx
-  function handleSearchKeyDown(e) {
+  const handleSearchKeyDown = useCallback((e) => {
     if (e.key === "Escape") {
       exitSearchMode();
     }
-  }
+  }, [exitSearchMode]);
 
   // handleSelectUser — search nəticəsindən user-ə klik
-  function handleSelectUser(user) {
+  const handleSelectUser = useCallback((user) => {
     onSelectSearchUser(user);
     exitSearchMode();
-  }
+  }, [onSelectSearchUser, exitSearchMode]);
 
   // handleSelectChannel — search nəticəsindən channel-ə klik
-  function handleSelectChannel(channel) {
+  const handleSelectChannel = useCallback((channel) => {
     onSelectSearchChannel(channel);
     exitSearchMode();
-  }
+  }, [onSelectSearchChannel, exitSearchMode]);
 
   // Client-side filter + pin sort — memoized (conversations/searchText dəyişməsə yenidən hesablanmır)
   const sortedConversations = useMemo(() => {

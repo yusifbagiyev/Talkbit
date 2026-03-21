@@ -303,11 +303,15 @@ function downloadFile(fileId, fileName, fallbackUrl) {
 }
 
 // downloadFileByUrl — birbaşa URL-dən yükləmə (DetailSidebar files tab üçün)
+// DOM-a əlavə et → klik → sil — bəzi brauzerlərdə DOM-da olmayan <a> işləmir
 function downloadFileByUrl(fileUrl, fileName) {
   const a = document.createElement("a");
   a.href = fileUrl;
   a.download = fileName || "file";
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
 }
 
 // Named exports — başqa fayllar bunları import edə bilsin

@@ -349,7 +349,6 @@
   overflow-x: hidden;
   padding: 12px 0;
   -webkit-overflow-scrolling: touch;
-  will-change: scroll-position;
 }
 
 /* Hər mesaj/separator öz wrapper div-ində — flex container + padding */

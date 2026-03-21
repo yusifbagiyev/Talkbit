@@ -476,6 +476,32 @@ namespace ChatApp.Modules.DirectMessages.Api.Controllers
         }
 
 
+        /// <summary>
+        /// Batch marks multiple messages as read (viewport-based, N request → 1 request)
+        /// </summary>
+        [HttpPost("batch-read")]
+        [RequirePermission("Messages.Read")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> BatchMarkAsRead(
+            [FromRoute] Guid conversationId,
+            [FromBody] BatchReadRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            var result = await _mediator.Send(
+                new BatchMarkMessagesAsReadCommand(conversationId, request.MessageIds, userId),
+                cancellationToken);
+
+            if (result.IsFailure)
+                return BadRequest(new { error = result.Error });
+
+            return Ok(new { message = "Messages marked as read" });
+        }
 
 
         /// <summary>
