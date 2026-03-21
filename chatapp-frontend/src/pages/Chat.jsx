@@ -3016,34 +3016,6 @@ function Chat() {
       endReachedRef.current();
     }
 
-    // Floating date — scroll pozisiyasına əsasən görünən tarixi tap
-    const floatingEl = floatingDateRef.current;
-    if (floatingEl) {
-      const containerTop = area.getBoundingClientRect().top;
-      const containerBottom = containerTop + area.clientHeight;
-      const dateSeps = area.querySelectorAll(".date-separator");
-      let currentLabel = "";
-      let currentSep = null;
-      for (const sep of dateSeps) {
-        const sepTop = sep.getBoundingClientRect().top;
-        if (sepTop - containerTop <= 20) {
-          currentLabel = sep.textContent || "";
-          currentSep = sep;
-        } else {
-          break;
-        }
-      }
-      // Əgər floating date-in göstərəcəyi separator hələ görünürdürsə — gizlət (overlap olmasın)
-      if (currentSep) {
-        const sepTop = currentSep.getBoundingClientRect().top;
-        if (sepTop >= containerTop && sepTop < containerBottom) {
-          currentLabel = "";
-        }
-      }
-      if (floatingEl.textContent !== currentLabel)
-        floatingEl.textContent = currentLabel;
-    }
-
     // Mark-as-read — görünən mesajları topla
     const containerTop = area.getBoundingClientRect().top;
     const containerBottom = containerTop + area.clientHeight;
@@ -3095,7 +3067,30 @@ function Chat() {
     const area = messagesAreaRef.current;
     if (!area) return;
     area.addEventListener("scroll", handleScroll, { passive: true });
-    return () => area.removeEventListener("scroll", handleScroll);
+
+    // Floating date — throttle-sız, hər scroll event-də işləyir
+    // Throttle olunsa sürətli scroll zamanı floating date yenilənmir → dublikat görünür
+    const floatingEl = floatingDateRef.current;
+    function updateFloatingDate() {
+      if (!floatingEl) return;
+      const containerTop = area.getBoundingClientRect().top;
+      const dateSeps = area.querySelectorAll(".date-separator");
+      let label = "";
+      for (const sep of dateSeps) {
+        if (sep.getBoundingClientRect().bottom < containerTop) {
+          label = sep.textContent || "";
+        } else {
+          break;
+        }
+      }
+      if (floatingEl.textContent !== label) floatingEl.textContent = label;
+    }
+    area.addEventListener("scroll", updateFloatingDate, { passive: true });
+
+    return () => {
+      area.removeEventListener("scroll", handleScroll);
+      area.removeEventListener("scroll", updateFloatingDate);
+    };
   }, [handleScroll, selectedChat]);
 
   // --- JSX RENDER ---

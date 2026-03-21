@@ -414,7 +414,6 @@
   padding: 4px 12px;
   border-radius: 12px;
   pointer-events: none;
-  transition: opacity var(--transition-base);
 }
 
 .floating-date:empty {
