@@ -25,7 +25,7 @@ function Sidebar({ onLogout }) {
       {/* nav — navigasiya düymələri qrupu */}
       <nav className="sidebar-nav">
         {/* Messages — aktiv (active class var) */}
-        <button className="nav-item active" title="Messages">
+        <button className="nav-item active" title="Messages" aria-label="Messages">
           <svg
             width="22"
             height="22"
@@ -39,7 +39,7 @@ function Sidebar({ onLogout }) {
         </button>
 
         {/* Contacts — TODO: onClick əlavə et, panel aç */}
-        <button className="nav-item" title="Contacts">
+        <button className="nav-item" title="Contacts" aria-label="Contacts">
           <svg
             width="22"
             height="22"
@@ -56,7 +56,7 @@ function Sidebar({ onLogout }) {
         </button>
 
         {/* Channels — TODO: onClick əlavə et, panel aç */}
-        <button className="nav-item" title="Channels">
+        <button className="nav-item" title="Channels" aria-label="Channels">
           <svg
             width="22"
             height="22"
@@ -72,7 +72,7 @@ function Sidebar({ onLogout }) {
         </button>
 
         {/* Settings — TODO: onClick əlavə et, panel aç */}
-        <button className="nav-item" title="Settings">
+        <button className="nav-item" title="Settings" aria-label="Settings">
           <svg
             width="22"
             height="22"
@@ -91,7 +91,7 @@ function Sidebar({ onLogout }) {
       <div className="sidebar-bottom">
         {/* onClick={onLogout} — prop olaraq gəlir (Chat.jsx-dən: logout funksiyası) */}
         {/* AuthContext.logout() çağırır → backend POST /api/auth/logout, state sıfırlanır */}
-        <button className="nav-item" title="Logout" onClick={onLogout}>
+        <button className="nav-item" title="Logout" aria-label="Logout" onClick={onLogout}>
           <svg
             width="22"
             height="22"

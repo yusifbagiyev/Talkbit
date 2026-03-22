@@ -63,7 +63,8 @@ export default function useSearchPanel(selectedChat) {
       cancelled = true;
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [searchQuery, selectedChat]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedChat?.id, selectedChat?.type]);
 
   // ─── loadMoreSearchResults ─────────────────────────────────────────────────
   async function loadMoreSearchResults() {

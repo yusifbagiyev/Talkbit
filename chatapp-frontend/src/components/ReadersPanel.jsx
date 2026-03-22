@@ -40,7 +40,7 @@ function ReadersPanel({ readByIds, channelMembers, onClose }) {
         {/* Header */}
         <div className="readers-panel-header">
           <span>Viewed by {readers.length}</span>
-          <button className="readers-panel-close" onClick={onClose}>
+          <button className="readers-panel-close" onClick={onClose} aria-label="Close readers panel">
             <svg
               width="18"
               height="18"

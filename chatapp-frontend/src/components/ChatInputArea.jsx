@@ -1,11 +1,12 @@
 // Sabitlər import et
-import { useRef, useState, useEffect, useCallback, memo } from "react";
+import { useRef, useState, useEffect, useCallback, memo, lazy, Suspense } from "react";
 import { MESSAGE_MAX_LENGTH, MAX_FILE_SIZE, formatFileSize, isAllowedFileExtension } from "../utils/chatUtils";
 import { useToast } from "../context/ToastContext";               // Toast notification sistemi
 import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Apple img çevirici
 import MentionPanel from "./MentionPanel";                       // @ mention dropdown paneli
 import FilePreviewPanel from "./FilePreviewPanel";               // Fayl preview modal
-import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react"; // Modern emoji picker
+// EmojiPicker lazy load — ~200KB bundle, yalnız açıldıqda yüklənir
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import "./ChatInputArea.css";
 
 // ChatInputArea komponenti — mesaj yazma sahəsi + emoji panel
@@ -336,31 +337,30 @@ function ChatInputArea({
                 const caret = e.target.selectionStart;
                 if (onTextChange) onTextChange(val, caret);
                 else setMessageText(val);
-                // Manual resize saxlanılır — yalnız mesaj göndərildikdə sıfırlanır (Chat.jsx-dən)
-                // Auto-resize + overflow idarəsi
+                // Resize hesablamasını rAF ilə batch et — layout thrashing-in qarşısını al
+                // write (state update) → sonra read+write (DOM ölçmə) ayrı frame-da olur
                 const ta = e.target;
-                if (manualResizeRef.current) {
-                  // Manual resize: yalnız content manual ölçünü aşdıqda expand et
-                  if (ta.scrollHeight > ta.offsetHeight) {
-                    const h = Math.min(ta.scrollHeight, 300);
-                    ta.style.height = h + "px";
-                    if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
-                    manualResizeRef.current = false;
-                    onInputResize?.();
+                requestAnimationFrame(() => {
+                  if (manualResizeRef.current) {
+                    if (ta.scrollHeight > ta.offsetHeight) {
+                      const h = Math.min(ta.scrollHeight, 300);
+                      ta.style.height = h + "px";
+                      if (mirrorRef.current) mirrorRef.current.style.height = h + "px";
+                      manualResizeRef.current = false;
+                      onInputResize?.();
+                    }
+                  } else {
+                    const prevH = ta.offsetHeight;
+                    ta.style.height = "0";
+                    const natural = Math.max(71, Math.min(ta.scrollHeight, 300));
+                    ta.style.height = natural + "px";
+                    if (mirrorRef.current) mirrorRef.current.style.height = natural + "px";
+                    if (natural !== prevH) onInputResize?.();
                   }
-                } else {
-                  const prevH = ta.offsetHeight;
-                  // height=0 ilə real scrollHeight ölç, sonra tətbiq et
-                  ta.style.height = "0";
-                  const natural = Math.max(71, Math.min(ta.scrollHeight, 300));
-                  ta.style.height = natural + "px";
-                  if (mirrorRef.current) mirrorRef.current.style.height = natural + "px";
-                  if (natural !== prevH) onInputResize?.();
-                }
-                // Overflow: content max-height-a çatıbsa scroll lazımdır, yoxsa gizlət
-                const needsScroll = ta.scrollHeight > 300;
-                ta.style.overflow = needsScroll ? "auto" : "hidden";
-                if (mirrorRef.current) mirrorRef.current.style.overflow = needsScroll ? "auto" : "hidden";
+                  const needsScroll = ta.scrollHeight > 300;
+                  ta.style.overflow = needsScroll ? "auto" : "hidden";
+                  if (mirrorRef.current) mirrorRef.current.style.overflow = needsScroll ? "auto" : "hidden";
+                });
               }}
               onScroll={(e) => {
                 if (mirrorRef.current) mirrorRef.current.scrollTop = e.target.scrollTop;
@@ -427,9 +427,10 @@ function ChatInputArea({
       {/* Emoji picker panel — Apple stilində modern emojilər */}
       {emojiOpen && (
         <div className="emoji-panel" ref={emojiPanelRef}>
+          <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>Loading...</div>}>
           <EmojiPicker
-            emojiStyle={EmojiStyle.APPLE}
-            theme={Theme.LIGHT}
+            emojiStyle="apple"
+            theme="light"
             width="100%"
             height="100%"
             searchPlaceHolder="Search emoji..."
@@ -467,6 +468,7 @@ function ChatInputArea({
               });
             }}
           />
+          </Suspense>
         </div>
       )}
 

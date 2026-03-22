@@ -1039,17 +1039,13 @@
   transform: scale(0.95);
 }
 
-/* Files & Media Panel — tab content cross-fade */
-.ds-fm-media-grid {
-  animation: messageFadeIn 0.2s ease-out;
-}
-
 /* Files & Media Panel — Media Grid */
 .ds-fm-media-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   padding: 0 12px;
+  animation: messageFadeIn 0.2s ease-out;
 }
 
 .ds-fm-media-grid .ds-favorites-date {
@@ -1467,7 +1463,7 @@
 }
 
 .ds-am-error {
-  color: #e74c3c;
+  color: var(--error-color);
   font-size: 12px;
   padding: 6px 16px;
   text-align: center;

@@ -537,11 +537,11 @@ function Chat() {
 
   // grouped — mesajları tarix separator-ları ilə qruplaşdır
   // useMemo — messages dəyişmədikdə bu hesablamanı yenidən etmə
-  // [...messages].reverse() — messages DESC-dir, ASC-ə çevir (köhnə → yeni)
+  // groupMessagesByDate DESC array-ı tərsinə iterate edir — copy+reverse lazım deyil
   const grouped = useMemo(
     () =>
       groupMessagesByDate(
-        [...messagesWithUploads].reverse(),
+        messagesWithUploads,
         readLaterMessageId,
         newMessagesStartId,
       ),
@@ -2381,12 +2381,12 @@ function Chat() {
       // Echo gəldikdə bütün field-lər (status, id, _optimistic) bir dəfəyə yenilənir
       // Bu, aralıq re-render-i və scroll sıçramasını aradan qaldırır
 
-      // ConversationList-də statusu Sent et
+      // ConversationList-də statusu Sent et — Pending yoxlaması yox, birbaşa set et
+      // Tez-tez göndərəndə əvvəlki API "Sent" etmişdi, sonrakı hələ "Pending" olmalıdır
+      // Amma lastMessage artıq sonuncu mesajdır, ona görə birbaşa "Sent" düzgündür
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === chatId && c.lastMessageStatus === "Pending"
-            ? { ...c, lastMessageStatus: "Sent" }
-            : c,
+          c.id === chatId ? { ...c, lastMessageStatus: "Sent" } : c,
         ),
       );
 
@@ -2427,8 +2427,10 @@ function Chat() {
     }
   }
 
-  // handleSendMessage ref — handleKeyDown useCallback-ında stale closure-dan qoruyur
+  // handleSendMessage ref — handleKeyDown və onSend prop üçün stabil referans
   handleSendMessageRef.current = handleSendMessage;
+  // Stabil onSend callback — memo(ChatInputArea) pozulmasın
+  const stableOnSend = useCallback(() => handleSendMessageRef.current(), []);
 
   // ─── Birləşdirilmiş click-outside handler ───
   // 7 ayrı useEffect əvəzinə tək event listener — daha az memory, daha az GC
@@ -2712,6 +2714,12 @@ function Chat() {
     [sidebar],
   );
 
+  // ─── Stabil callback-lar — inline arrow əvəzinə useCallback ────────────────
+  const handleTogglePinExpand = useCallback(() => setPinBarExpanded((v) => !v), []);
+  const handleOpenAddMember = useCallback(() => channel.setShowAddMember(true), [channel]);
+  const handleToggleSidebar = useCallback(() => sidebar.setShowSidebar((v) => !v), [sidebar]);
+  const handleCloseReadersPanel = useCallback(() => setReadersPanel(null), []);
+
   // AddMember close/cancel handler (eyni handler — 2 yerdə istifadə olunur)
   const handleCloseAddMember = useCallback(() => {
     channel.setShowAddMember(false);
@@ -2812,6 +2820,15 @@ function Chat() {
 
   // hasOthersSelected → useMessageSelection hook-unda (destructured)
   // favoriteIds, linkMessages, fileMessages → useSidebarPanels hook-unda (sidebar.*)
+
+  // messagesWrapperStyle — inline style memoize (hər render yeni obyekt yaratmasın)
+  const messagesWrapperStyle = useMemo(() => ({
+    position: "relative",
+    flex: 1,
+    minHeight: 0,
+    display: chatLoading ? "none" : "flex",
+    flexDirection: "column",
+  }), [chatLoading]);
 
   // imageMessages — yalnız şəkillər, xronoloji sıra (köhnə → yeni, thumbnail strip üçün)
   const imageMessages = useMemo(() => {
@@ -3163,10 +3180,10 @@ function Chat() {
                   selectedChat={selectedChat}
                   onlineUsers={onlineUsers}
                   pinnedMessages={pinnedMessages}
-                  onTogglePinExpand={() => setPinBarExpanded((v) => !v)}
-                  onOpenAddMember={() => channel.setShowAddMember(true)}
+                  onTogglePinExpand={handleTogglePinExpand}
+                  onOpenAddMember={handleOpenAddMember}
                   addMemberOpen={channel.showAddMember}
-                  onToggleSidebar={() => sidebar.setShowSidebar((v) => !v)}
+                  onToggleSidebar={handleToggleSidebar}
                   sidebarOpen={sidebar.showSidebar}
                   onOpenSearch={handleOpenSearch}
                   searchOpen={search.showSearchPanel}
@@ -3177,7 +3194,7 @@ function Chat() {
                   <PinnedBar
                     pinnedMessages={pinnedMessages}
                     currentPinIndex={currentPinIndex}
-                    onToggleExpand={() => setPinBarExpanded((v) => !v)}
+                    onToggleExpand={handleTogglePinExpand}
                     onPinClick={handlePinBarClick}
                   />
                 )}
@@ -3186,7 +3203,7 @@ function Chat() {
                 {pinBarExpanded && pinnedMessages.length > 0 && (
                   <PinnedExpanded
                     pinnedMessages={pinnedMessages}
-                    onToggleExpand={() => setPinBarExpanded(false)}
+                    onToggleExpand={handleTogglePinExpand}
                     onScrollToMessage={handleScrollToMessage}
                     onUnpin={handlePinMessage}
                   />
@@ -3201,15 +3218,7 @@ function Chat() {
                 )}
 
                 {/* messages-area — native scroll container */}
-                <div
-                  style={{
-                    position: "relative",
-                    flex: 1,
-                    minHeight: 0,
-                    display: chatLoading ? "none" : "flex",
-                    flexDirection: "column",
-                  }}
-                >
+                <div style={messagesWrapperStyle}>
                   {/* Loading older — chat header-in altında sabit loading bar */}
                   <div
                     className={`loading-older${loadingOlder ? " active" : ""}`}
@@ -3463,7 +3472,7 @@ function Chat() {
                     setEmojiOpen={setEmojiOpen}
                     emojiPanelRef={emojiPanelRef}
                     inputRef={inputRef}
-                    onSend={handleSendMessage}
+                    onSend={stableOnSend}
                     onKeyDown={handleKeyDown}
                     onTyping={sendTypingSignal}
                     onTextChange={handleMessageTextChange}
@@ -3522,7 +3531,7 @@ function Chat() {
                   <ReadersPanel
                     readByIds={readersPanel.readByIds}
                     channelMembers={channelMembers[selectedChat?.id] || {}}
-                    onClose={() => setReadersPanel(null)}
+                    onClose={handleCloseReadersPanel}
                   />
                 )}
 

@@ -1,3 +1,4 @@
+import { memo } from "react";
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, getMessagePreview } from "../utils/chatUtils";
 import { getFileUrl } from "../services/api";
@@ -170,8 +171,9 @@ function PinnedExpanded({
 }
 
 // default export — PinnedBar əsas komponentdir
-export default PinnedBar;
+export default memo(PinnedBar);
 
 // named export — PinnedExpanded əlavə komponentdir
 // import PinnedBar, { PinnedExpanded } from "./PinnedBar" ilə istifadə olunur
-export { PinnedExpanded };
+const MemoizedPinnedExpanded = memo(PinnedExpanded);
+export { MemoizedPinnedExpanded as PinnedExpanded };

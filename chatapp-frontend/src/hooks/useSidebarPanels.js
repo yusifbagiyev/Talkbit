@@ -116,20 +116,22 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
       );
       if (!endpoint) return;
 
-      // Əvvəlki state-i saxla (revert üçün)
-      const prevFavorites = [...(favoriteMessages || [])];
-      // Optimistic — dərhal sil
-      setFavoriteMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      // Functional updater ilə snapshot capture — stale closure problemi yox
+      let prevSnapshot;
+      setFavoriteMessages((prev) => {
+        prevSnapshot = prev;
+        return prev.filter((m) => m.id !== msg.id);
+      });
 
       try {
         await apiDelete(endpoint);
       } catch (err) {
         console.error("Failed to remove favorite:", err);
-        // Revert — geri əlavə et
-        setFavoriteMessages(prevFavorites);
+        // Revert — capture olunmuş snapshot-u bərpa et
+        setFavoriteMessages(prevSnapshot);
       }
     },
-    [selectedChat, favoriteMessages],
+    [selectedChat],
   );
 
   // ─── handleOpenChatsWithUser ───────────────────────────────────────────────
@@ -170,9 +172,11 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   // ─── Sidebar açılanda channel members yüklə ───────────────────────────────
   useEffect(() => {
     if (!showSidebar || !selectedChat || selectedChat.type !== 1) return;
+    let cancelled = false;
     (async () => {
       try {
         const members = await apiGet(`/api/channels/${selectedChat.id}/members?take=100`);
+        if (cancelled) return;
         setChannelMembers((prev) => ({
           ...prev,
           [selectedChat.id]: members.reduce((map, m) => {
@@ -181,9 +185,10 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
           }, {}),
         }));
       } catch (err) {
-        console.error("Failed to load channel members for sidebar:", err);
+        if (!cancelled) console.error("Failed to load channel members for sidebar:", err);
       }
     })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSidebar, selectedChat?.id]);
 

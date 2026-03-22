@@ -397,7 +397,7 @@
   justify-content: center;
   gap: 6px;
   border-radius: inherit;
-  z-index: 3;
+  z-index: var(--z-sticky);
   pointer-events: auto;
 }
 

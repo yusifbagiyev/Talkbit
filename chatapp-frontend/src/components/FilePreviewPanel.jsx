@@ -3,7 +3,7 @@
 // Tək şəkil: böyük preview, çoxlu fayl: kiçik siyahı.
 // Drag-and-drop ilə faylların sırasını dəyişmək mümkündür.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { memo, useState, useEffect, useRef, useCallback } from "react";
 import { formatFileSize } from "../utils/chatUtils";
 import FileTypeIcon from "./FileTypeIcon";
 import "./FilePreviewPanel.css";
@@ -22,6 +22,18 @@ function FilePreviewPanel({
   const [dragIndex, setDragIndex] = useState(null);
   const [overIndex, setOverIndex] = useState(null);
   const listRef = useRef(null);
+  const dragListenersRef = useRef(null);
+
+  // Unmount zamanı drag listener-ləri təmizlə
+  useEffect(() => {
+    return () => {
+      if (dragListenersRef.current) {
+        document.removeEventListener("mousemove", dragListenersRef.current.move);
+        document.removeEventListener("mouseup", dragListenersRef.current.up);
+        dragListenersRef.current = null;
+      }
+    };
+  }, []);
 
   // ─── Object URL-lər — useEffect daxilində yaradılır + cleanup olunur ───
   // URL.createObjectURL side-effect-dir, Strict Mode-da useMemo 2 dəfə run olur
@@ -92,8 +104,10 @@ function FilePreviewPanel({
       });
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      dragListenersRef.current = null;
     };
 
+    dragListenersRef.current = { move: onMove, up: onUp };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }, [onReorderFiles]);
@@ -118,8 +132,10 @@ function FilePreviewPanel({
       setTextDragging(false);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      dragListenersRef.current = null;
     };
 
+    dragListenersRef.current = { move: onMove, up: onUp };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }, []);
@@ -260,4 +276,4 @@ function FilePreviewPanel({
   );
 }
 
-export default FilePreviewPanel;
+export default memo(FilePreviewPanel);

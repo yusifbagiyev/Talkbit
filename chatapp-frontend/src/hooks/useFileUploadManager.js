@@ -7,7 +7,7 @@
 //
 // MessageBubble upload overlay-i bu hook-dan gələn data ilə render olunur.
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { apiUpload, apiPost } from "../services/api";
 import { getChatEndpoint } from "../utils/chatUtils";
 
@@ -313,6 +313,23 @@ export default function useFileUploadManager(user, onFallbackReload, onMessageSe
     map.delete(tempId);
     syncImmediate();
   }, [syncImmediate]);
+
+  // ─── Unmount cleanup — pending timeout-lar və Object URL-ləri təmizlə ──────
+  useEffect(() => {
+    return () => {
+      // Throttle timer-i təmizlə
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+        pendingUpdateRef.current = null;
+      }
+      // Bütün aktiv upload task-larının timer-lərini və Object URL-lərini təmizlə
+      for (const task of uploadsRef.current.values()) {
+        if (task._timers) task._timers.forEach(clearTimeout);
+        if (task.previewUrl) URL.revokeObjectURL(task.previewUrl);
+      }
+      uploadsRef.current.clear();
+    };
+  }, []);
 
   return {
     uploadTasks,

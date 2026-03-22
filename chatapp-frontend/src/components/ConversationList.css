@@ -307,7 +307,6 @@
 .conversation-list::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 3px;
-  transition: background var(--transition-base);
 }
 
 .conversation-list:hover::-webkit-scrollbar-thumb {
@@ -609,7 +608,7 @@
 
 /* Draft label — conversation preview-da */
 .preview-draft-label {
-  color: #e74c3c;
+  color: var(--error-color);
   font-weight: 600;
   margin-right: 4px;
   flex-shrink: 0;

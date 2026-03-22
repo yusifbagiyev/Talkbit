@@ -198,7 +198,7 @@ export async function stopConnection() {
 
   // Əgər bağlantı hələ qurulursa — əvvəl gözlə, sonra dayandır
   if (connectionPromise) {
-    await connectionPromise;
+    try { await connectionPromise; } catch { /* ignore — we're stopping anyway */ }
   }
   if (connection) {
     const conn = connection;

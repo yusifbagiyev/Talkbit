@@ -282,24 +282,30 @@ function getFileUrl(path) {
 
 // downloadFile — fayl yükləmə üçün mərkəzləşdirilmiş funksiya
 // fileId varsa API endpoint-dən blob ilə yükləyir, yoxdursa birbaşa URL açır
-function downloadFile(fileId, fileName, fallbackUrl) {
+// 401 gəldikdə refreshToken + retry — apiFetch JSON parse edir, biz blob lazımdır
+async function downloadFile(fileId, fileName, fallbackUrl) {
   if (!fileId) {
     if (fallbackUrl) window.open(getFileUrl(fallbackUrl), "_blank");
     return;
   }
-  fetch(getFileUrl(`/api/files/${fileId}/download`), { credentials: "include" })
-    .then((res) => res.blob())
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName || "file";
-      a.click();
-      URL.revokeObjectURL(url);
-    })
-    .catch(() => {
-      if (fallbackUrl) window.open(getFileUrl(fallbackUrl), "_blank");
-    });
+  try {
+    let res = await fetch(BASE_URL + `/api/files/${fileId}/download`, { credentials: "include" });
+    // 401 → token refresh + retry
+    if (res.status === 401) {
+      await refreshToken();
+      res = await fetch(BASE_URL + `/api/files/${fileId}/download`, { credentials: "include" });
+    }
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "file";
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    if (fallbackUrl) window.open(getFileUrl(fallbackUrl), "_blank");
+  }
 }
 
 // downloadFileByUrl — birbaşa URL-dən yükləmə (DetailSidebar files tab üçün)

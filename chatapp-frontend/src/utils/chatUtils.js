@@ -278,6 +278,7 @@ function formatDateSeparator(dateString) {
 // readLaterMessageId (optional) — "sonra oxu" olaraq işarələnmiş mesajın id-si.
 // newMessagesStartId (optional) — ilk oxunmamış mesajın id-si.
 // Varsa, həmin mesajdan ƏVVƏL müvafiq separator əlavə olunur.
+// msgs DESC sırada gəlir (yeni→köhnə) — copy+reverse əvəzinə tərsinə iterate edirik
 export function groupMessagesByDate(
   msgs,
   readLaterMessageId,
@@ -286,7 +287,9 @@ export function groupMessagesByDate(
   const groups = [];
   let currentDateKey = ""; // Müqayisə açarı (sabit format)
 
-  for (const msg of msgs) {
+  // DESC array-ı tərsinə iterate et — ASC nəticə ver (copy+reverse əvəzinə)
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const msg = msgs[i];
     // Müqayisə üçün sabit tarix açarı: "2026-02-21"
     const d = new Date(msg.createdAtUtc);
     const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;

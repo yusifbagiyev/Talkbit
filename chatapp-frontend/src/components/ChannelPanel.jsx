@@ -67,7 +67,7 @@ function filterHierarchy(nodes, query) {
 }
 
 // ─── HierarchyNode — recursive tree node render ────────────────────────────
-function HierarchyNode({ node, selectedIds, onToggle, expandedDepts, onToggleExpand }) {
+const HierarchyNode = memo(function HierarchyNode({ node, selectedIds, onToggle, expandedDepts, onToggleExpand }) {
   const isDept = node.type === "Department";
   const isCompany = node.type === "Company";
   const isUser = node.type === "User";
@@ -196,7 +196,7 @@ function HierarchyNode({ node, selectedIds, onToggle, expandedDepts, onToggleExp
   }
 
   return null;
-}
+});
 
 // ─── ChannelPanel — Bitrix24 stilində channel yaratma/redaktə paneli ─────────
 function ChannelPanel({
@@ -552,23 +552,15 @@ function ChannelPanel({
       // Silinənlər
       const toRemove = [...originalUserIds].filter((id) => !currentUserIds.has(id));
 
-      // 3. Əlavə et
-      for (const userId of toAdd) {
-        try {
-          await apiPost(`/api/channels/${channelData.id}/members`, { userId, showChatHistory: true });
-        } catch {
-          // Artıq member-dirsə ignore et
-        }
-      }
+      // 3. Əlavə et — parallel execution
+      await Promise.all(toAdd.map((userId) =>
+        apiPost(`/api/channels/${channelData.id}/members`, { userId, showChatHistory: true }).catch(() => {})
+      ));
 
-      // 4. Sil
-      for (const userId of toRemove) {
-        try {
-          await apiDelete(`/api/channels/${channelData.id}/members/${userId}`);
-        } catch {
-          // Artıq silinmişdirsə ignore et
-        }
-      }
+      // 4. Sil — parallel execution
+      await Promise.all(toRemove.map((userId) =>
+        apiDelete(`/api/channels/${channelData.id}/members/${userId}`).catch(() => {})
+      ));
 
       // 5. Callback
       if (onChannelUpdated) {

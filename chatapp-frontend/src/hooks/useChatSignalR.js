@@ -61,12 +61,14 @@ export default function useChatSignalR(
         setMessages((prev) => {
           if (prev.some((m) => m.id === message.id)) return prev;
           // Öz mesajımızın echo-su — optimistic mesajı tap və əvəz et
-          // FIFO: ən köhnə optimistic-i tap (echo-lar göndərmə sırasına uyğun gəlir)
+          // FIFO: ən köhnə temp- prefix-li mesajı tap (echo-lar göndərmə sırasına uyğun gəlir)
+          // YALNIZ temp- ID-li mesajlar axtarılır — artıq əvəz olunmuş (real UUID) mesajlar tapılmaz
           let enrichedMsg = message;
           let matchedOptId = null;
           if (message.senderId === userId) {
-            const optimistics = prev.filter((m) => m._optimistic || (typeof m.id === "string" && m.id.startsWith("temp-")));
-            const optimistic = optimistics.length > 0 ? optimistics[optimistics.length - 1] : null;
+            const pendingOptimistics = prev.filter((m) => typeof m.id === "string" && m.id.startsWith("temp-"));
+            // DESC sıra: pendingOptimistics[0] = ən yeni, [length-1] = ən köhnə (FIFO)
+            const optimistic = pendingOptimistics.length > 0 ? pendingOptimistics[pendingOptimistics.length - 1] : null;
             if (optimistic) {
               matchedOptId = optimistic.id;
               enrichedMsg = {
@@ -79,7 +81,6 @@ export default function useChatSignalR(
                 _stableKey: optimistic._stableKey || optimistic.id,
               };
               // Scroll sabitləşdikdən sonra _optimistic sil + status yenilə
-              // useLayoutEffect -32 shift-i paint-dən əvvəl düzəldəcək
               const realId = message.id;
               setTimeout(() => {
                 setMessages((prev) =>
@@ -500,8 +501,8 @@ export default function useChatSignalR(
     return () => {
       aborted = true;
       if (conn) {
-        for (const [event] of eventHandlers) {
-          conn.off(event);
+        for (const [event, handler] of eventHandlers) {
+          conn.off(event, handler);
         }
       }
     };

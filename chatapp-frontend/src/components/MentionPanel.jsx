@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { getInitials, getAvatarColor } from "../utils/chatUtils";
 import { getFileUrl } from "../services/api";
 import "./MentionPanel.css";
@@ -100,4 +100,4 @@ function MentionPanel({ items, selectedIndex, onSelect, isLoading, panelRef }) {
   );
 }
 
-export default MentionPanel;
+export default memo(MentionPanel);

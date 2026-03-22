@@ -48,6 +48,8 @@
 
   /* Z-index Scale — aydın iyerarxiya */
   --z-base: 1; /* komponent daxili stacking */
+  --z-panel: 2; /* pinned-bar, input area buttons */
+  --z-sticky: 3; /* upload overlay, sticky headers */
   --z-float: 5; /* floating-date, bubble buttons */
   --z-dropdown: 10; /* filter-dropdown, pinned-expanded, scroll-btn */
   --z-sidebar: 100; /* sidebar, panel overlays */
@@ -272,7 +274,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  z-index: 6;
+  z-index: var(--z-float);
   flex-shrink: 0;
   pointer-events: none;
   opacity: 0;

@@ -5,7 +5,7 @@
 //   - Keyboard navigation (ArrowUp/Down/Enter/Tab/Escape)
 //   - Seçilmiş mention-ların göndərmə üçün hazırlanması
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { apiGet } from "../services/api";
 import { detectMentionTrigger } from "../utils/chatUtils";
 
@@ -35,9 +35,15 @@ export default function useMention({ selectedChat, channelMembers, conversations
   conversationsRef.current = conversations;
   const channelMembersRef = useRef(channelMembers); // channelMembers ref — useEffect dep-dən çıxarır
   channelMembersRef.current = channelMembers;
+  const messageTextRef = useRef(messageText);        // messageText ref — useCallback dep-dən çıxarır
+  messageTextRef.current = messageText;
+  const mentionItemsRef = useRef(mentionItems);      // mentionItems ref — useCallback dep-dən çıxarır
+  mentionItemsRef.current = mentionItems;
+  const mentionSelectedIndexRef = useRef(mentionSelectedIndex); // mentionSelectedIndex ref
+  mentionSelectedIndexRef.current = mentionSelectedIndex;
 
   // ─── closeMentionPanel ─────────────────────────────────────────────────────
-  function closeMentionPanel() {
+  const closeMentionPanel = useCallback(() => {
     setMentionOpen(false);
     setMentionSearch("");
     setMentionItems([]);
@@ -46,12 +52,12 @@ export default function useMention({ selectedChat, channelMembers, conversations
     if (mentionSearchTimerRef.current) {
       clearTimeout(mentionSearchTimerRef.current);
     }
-  }
+  }, []);
 
   // ─── detectMentionInText ───────────────────────────────────────────────────
   // Textarea dəyişdikdə @ trigger yoxla (handleMessageTextChange-dən çağırılır)
   // onCloseEmoji: emoji panel açıqdırsa bağlamaq üçün callback
-  function detectMentionInText(newText, caretPos, onCloseEmoji) {
+  const detectMentionInText = useCallback((newText, caretPos, onCloseEmoji) => {
     const trigger = detectMentionTrigger(newText, caretPos);
     if (trigger) {
       mentionStartRef.current = trigger.mentionStart;
@@ -62,15 +68,15 @@ export default function useMention({ selectedChat, channelMembers, conversations
     } else {
       if (mentionOpen) closeMentionPanel();
     }
-  }
+  }, [mentionOpen, closeMentionPanel]);
 
   // ─── handleMentionSelect ──────────────────────────────────────────────────
   // Mention elementi seçildikdə (paneldən klik və ya Enter/Tab)
-  function handleMentionSelect(item) {
+  const handleMentionSelect = useCallback((item) => {
     const textarea = inputRef.current;
     if (!textarea) return;
 
-    const currentText = messageText;
+    const currentText = messageTextRef.current;
     const start = mentionStartRef.current;
     const caretPos = textarea.selectionStart;
 
@@ -104,30 +110,31 @@ export default function useMention({ selectedChat, channelMembers, conversations
       textarea.setSelectionRange(newCaretPos, newCaretPos);
       textarea.focus();
     });
-  }
+  }, [inputRef, setMessageText, closeMentionPanel]);
 
   // ─── handleMentionKeyDown ──────────────────────────────────────────────────
   // Mention panel keyboard navigation — true qaytarırsa event handle olunub
-  function handleMentionKeyDown(e) {
-    if (!mentionOpen || mentionItems.length === 0) return false;
+  const handleMentionKeyDown = useCallback((e) => {
+    const items = mentionItemsRef.current;
+    if (!mentionOpen || items.length === 0) return false;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setMentionSelectedIndex((prev) =>
-        prev < mentionItems.length - 1 ? prev + 1 : 0
+        prev < items.length - 1 ? prev + 1 : 0
       );
       return true;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
       setMentionSelectedIndex((prev) =>
-        prev > 0 ? prev - 1 : mentionItems.length - 1
+        prev > 0 ? prev - 1 : items.length - 1
       );
       return true;
     }
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      handleMentionSelect(mentionItems[mentionSelectedIndex]);
+      handleMentionSelect(items[mentionSelectedIndexRef.current]);
       return true;
     }
     if (e.key === "Escape") {
@@ -136,11 +143,11 @@ export default function useMention({ selectedChat, channelMembers, conversations
       return true;
     }
     return false;
-  }
+  }, [mentionOpen, handleMentionSelect, closeMentionPanel]);
 
   // ─── prepareMentionsForSend ────────────────────────────────────────────────
   // Göndərmə zamanı mention-ları hazırla və activeMentionsRef-i sıfırla
-  function prepareMentionsForSend(text, chatType) {
+  const prepareMentionsForSend = useCallback((text, chatType) => {
     const mentionsToSend = activeMentionsRef.current
       .filter((m) => {
         if (m.isAllMention) return text.includes("All members");
@@ -154,14 +161,14 @@ export default function useMention({ selectedChat, channelMembers, conversations
       }));
     activeMentionsRef.current = [];
     return mentionsToSend;
-  }
+  }, []);
 
   // ─── resetMention ──────────────────────────────────────────────────────────
   // handleSelectChat-da çağırılır (state sıfırlama)
-  function resetMention() {
+  const resetMention = useCallback(() => {
     closeMentionPanel();
     activeMentionsRef.current = [];
-  }
+  }, [closeMentionPanel]);
 
   // ─── Mention search useEffect ─────────────────────────────────────────────
   useEffect(() => {
@@ -307,8 +314,7 @@ export default function useMention({ selectedChat, channelMembers, conversations
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mentionOpen]);
+  }, [mentionOpen, closeMentionPanel, inputRef]);
 
   return {
     mentionOpen,

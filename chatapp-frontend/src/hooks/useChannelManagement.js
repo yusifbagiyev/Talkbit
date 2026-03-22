@@ -4,7 +4,7 @@
 // handleOpenCreateChannel, handleEditChannel, handleChannelCreated, handleChannelUpdated
 // Chat.jsx-də qalır — çoxlu cross-cutting dependency var.
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../services/api";
 
 // ─── useChannelManagement ────────────────────────────────────────────────────
@@ -35,68 +35,77 @@ export default function useChannelManagement(selectedChat, conversations, channe
 
   // ─── Ref ───────────────────────────────────────────────────────────────────
   const addMemberRef = useRef(null);
+  const selectedChatRef = useRef(selectedChat);
+  selectedChatRef.current = selectedChat;
+  const showMembersPanelRef = useRef(showMembersPanel);
+  showMembersPanelRef.current = showMembersPanel;
 
   // ─── refreshChannelMembers ─────────────────────────────────────────────────
   // Channel members cache-ini yenilə + members paneli açıqdırsa onu da yenilə
-  async function refreshChannelMembers(channelId) {
+  const refreshChannelMembers = useCallback(async (channelId) => {
     try {
       const members = await apiGet(`/api/channels/${channelId}/members?take=100`);
-      // Tam member obj saxla — handleInviteMembers ilə eyni format
       setChannelMembers((prev) => ({
         ...prev,
         [channelId]: members.reduce((map, m) => ({ ...map, [m.userId]: m }), {}),
       }));
-      // Members paneli açıqdırsa — paneli də yenilə
-      if (showMembersPanel) {
+      if (showMembersPanelRef.current) {
         loadMembersPanelPage(channelId, 0, true);
       }
     } catch (err) {
       console.error("Failed to refresh channel members:", err);
     }
-  }
+  }, [setChannelMembers, loadMembersPanelPage]);
 
   // ─── handleMakeAdmin ───────────────────────────────────────────────────────
-  async function handleMakeAdmin(targetUserId) {
+  const handleMakeAdmin = useCallback(async (targetUserId) => {
+    const chat = selectedChatRef.current;
+    if (!chat) return;
     setActionError(null);
     try {
-      await apiPut(`/api/channels/${selectedChat.id}/members/${targetUserId}/role`, { newRole: 2 });
-      await refreshChannelMembers(selectedChat.id);
+      await apiPut(`/api/channels/${chat.id}/members/${targetUserId}/role`, { newRole: 2 });
+      await refreshChannelMembers(chat.id);
     } catch {
       setActionError("Admin etmək mümkün olmadı");
     }
-  }
+  }, [refreshChannelMembers]);
 
   // ─── handleRemoveAdmin ─────────────────────────────────────────────────────
-  async function handleRemoveAdmin(targetUserId) {
+  const handleRemoveAdmin = useCallback(async (targetUserId) => {
+    const chat = selectedChatRef.current;
+    if (!chat) return;
     setActionError(null);
     try {
-      await apiPut(`/api/channels/${selectedChat.id}/members/${targetUserId}/role`, { newRole: 1 });
-      await refreshChannelMembers(selectedChat.id);
+      await apiPut(`/api/channels/${chat.id}/members/${targetUserId}/role`, { newRole: 1 });
+      await refreshChannelMembers(chat.id);
     } catch {
       setActionError("Admin statusunu silmək mümkün olmadı");
     }
-  }
+  }, [refreshChannelMembers]);
 
   // ─── handleRemoveFromChat ──────────────────────────────────────────────────
-  async function handleRemoveFromChat(targetUserId) {
+  const handleRemoveFromChat = useCallback(async (targetUserId) => {
+    const chat = selectedChatRef.current;
+    if (!chat) return;
     setActionError(null);
     try {
-      await apiDelete(`/api/channels/${selectedChat.id}/members/${targetUserId}`);
-      await refreshChannelMembers(selectedChat.id);
+      await apiDelete(`/api/channels/${chat.id}/members/${targetUserId}`);
+      await refreshChannelMembers(chat.id);
     } catch {
       setActionError("Üzvü silmək mümkün olmadı");
     }
-  }
+  }, [refreshChannelMembers]);
 
   // ─── handleInviteMembers ───────────────────────────────────────────────────
   // Promise.all ilə paralel invite — 10 user üçün 10 ardıcıl request əvəzinə 1 batch
-  async function handleInviteMembers() {
-    if (addMemberSelected.size === 0 || !selectedChat) return;
+  const handleInviteMembers = useCallback(async () => {
+    const chat = selectedChatRef.current;
+    if (addMemberSelected.size === 0 || !chat) return;
     setAddMemberInviting(true);
     try {
       const results = await Promise.allSettled(
         [...addMemberSelected].map((userId) =>
-          apiPost(`/api/channels/${selectedChat.id}/members`, {
+          apiPost(`/api/channels/${chat.id}/members`, {
             userId,
             showChatHistory: addMemberShowHistory,
           })
@@ -108,7 +117,7 @@ export default function useChannelManagement(selectedChat, conversations, channe
         setInviteError(`${failed.length} üzvü dəvət etmək mümkün olmadı`);
       }
 
-      await refreshChannelMembers(selectedChat.id);
+      await refreshChannelMembers(chat.id);
       setShowAddMember(false);
       setAddMemberSearch("");
       setAddMemberSearchActive(false);
@@ -119,7 +128,7 @@ export default function useChannelManagement(selectedChat, conversations, channe
     } finally {
       setAddMemberInviting(false);
     }
-  }
+  }, [addMemberSelected, addMemberShowHistory, refreshChannelMembers]);
 
   // ─── Add member panel açılanda channel members yenilə ─────────────────────
   useEffect(() => {
@@ -177,14 +186,14 @@ export default function useChannelManagement(selectedChat, conversations, channe
   }, [showAddMember, selectedChat, conversations, channelMembers]);
 
   // ─── resetChannelState — handleSelectChat-da çağırılır ─────────────────────
-  function resetChannelState() {
+  const resetChannelState = useCallback(() => {
     setShowAddMember(false);
     setAddMemberSearch("");
     setAddMemberSearchActive(false);
     setAddMemberSelected(new Set());
     setInviteError(null);
     setActionError(null);
-  }
+  }, []);
 
   return {
     // Channel create/edit

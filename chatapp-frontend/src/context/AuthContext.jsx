@@ -9,7 +9,7 @@
 // createContext: yeni bir "kanal" yaradır. null — default dəyər (Provider olmadıqda).
 // useState: React state hook — dəyər dəyişdikdə komponenti yenidən render edir.
 // useEffect: yan-təsirlər üçün hook — mount/unmount, dependency dəyişikliyi.
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback, useMemo } from "react";
 
 // api.js-dən HTTP yardımçı funksiyalar
 // scheduleRefresh: token expire olmadan 5 dəq əvvəl refresh edir
@@ -65,7 +65,7 @@ function AuthProvider({ children }) {
   //   1. POST /api/auth/login — server cookie (session) yaradır
   //   2. GET /api/users/me — user məlumatını al
   // Uğursuz olarsa — throw edir, Login.jsx catch edib error göstərir
-  async function login(email, password, rememberMe) {
+  const login = useCallback(async (email, password, rememberMe) => {
     // Kill switch-i sıfırla — checkAuth() uğursuz olubsa sessionExpired=true qalıb,
     // apiPost onu görüb throw edər. Login endpoint-i ƏVVƏL sıfırlanmalıdır.
     resetSessionExpired();
@@ -77,11 +77,11 @@ function AuthProvider({ children }) {
     const data = await apiGet("/api/users/me");
     setUser(data);        // → app yenidən render olur, user artıq null deyil
     scheduleRefresh();    // → proactive refresh timer başlat
-  }
+  }, []);
 
   // ─── logout ─────────────────────────────────────────────────────────────────
   // Sidebar-dan çağırılır. Cookie-ni server silir, frontend-i də təmizlər.
-  async function logout() {
+  const logout = useCallback(async () => {
     stopRefreshTimer(); // Refresh timer-i dayandır (boşuna refresh etməsin)
     try {
       await apiPost("/api/auth/logout"); // Server-də session-u sil
@@ -90,14 +90,18 @@ function AuthProvider({ children }) {
       // İstifadəçi "sıxışıb qalmasın"
     }
     setUser(null); // user = null → ProtectedRoute /login-ə yönləndirir
-  }
+  }, []);
 
   // ─── AuthContext.Provider ────────────────────────────────────────────────────
-  // value prop: context kanalından göndərilən məlumatlar.
-  // Hər hansı komponent useContext(AuthContext) yazarsa,
-  // bu value-dəki { user, isLoading, login, logout } alır.
+  // value memoized — user/isLoading dəyişmədikdə yeni obyekt yaranmır
+  // Bu, bütün useContext(AuthContext) consumer-lərinin lazımsız re-render-ini önləyir
+  const value = useMemo(
+    () => ({ user, isLoading, login, logout }),
+    [user, isLoading, login, logout],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children} {/* Bütün child komponentlər (App, Chat, Login...) buraya render olur */}
     </AuthContext.Provider>
   );

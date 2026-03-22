@@ -10,7 +10,7 @@
 //   - Yuxarı scroll (prepend): 300-dən çox olsa ən yeniləri trim et → hasMoreDown = true
 //   - Aşağı scroll (append): 300-dən çox olsa ən köhnələri trim et → hasMore = true
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { apiGet } from "../services/api";
 import { getChatEndpoint, MESSAGE_PAGE_SIZE } from "../utils/chatUtils";
 
@@ -44,21 +44,29 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
   // loadingOlder: "köhnə mesajlar yüklənir" loading bar göstərmək üçün (UI state)
   const [loadingOlder, setLoadingOlder] = useState(false);
 
+  // Stale closure-dan qaçmaq üçün — scroll handler messages-i ref-dən oxuyur
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const selectedChatRef = useRef(selectedChat);
+  selectedChatRef.current = selectedChat;
+
   // ─── handleStartReached ──────────────────────────────────────────────────────
   // Scroll listener trigger — istifadəçi yuxarıya yaxın olduqda çağırılır
   // Köhnə mesajları yükləyir (cursor-based pagination)
-  async function handleStartReached() {
+  const handleStartReached = useCallback(async () => {
     if (loadingMoreRef.current) return;
     if (!hasMoreRef.current) return;
-    if (!selectedChat) return;
+    const currentChat = selectedChatRef.current;
+    if (!currentChat) return;
 
-    const oldestMsg = messages[messages.length - 1];
+    const currentMessages = messagesRef.current;
+    const oldestMsg = currentMessages[currentMessages.length - 1];
     if (!oldestMsg) return;
 
     const beforeDate = oldestMsg.createdAtUtc || oldestMsg.sentAt;
     if (!beforeDate) return;
 
-    const base = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages");
+    const base = getChatEndpoint(currentChat.id, currentChat.type, "/messages");
     if (!base) return;
     const endpoint = `${base}?pageSize=${MESSAGE_PAGE_SIZE}&before=${encodeURIComponent(beforeDate)}`;
 
@@ -123,23 +131,25 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
       loadingMoreRef.current = false;
       setLoadingOlder(false);
     }
-  }
+  }, [setMessages, allReadPatchRef, messagesAreaRef]);
 
   // ─── handleEndReached ──────────────────────────────────────────────────────────
   // Scroll listener trigger — istifadəçi aşağıya yaxın olduqda çağırılır
   // Yalnız around mode / trim sonrası aktiv (hasMoreDownRef === true)
-  async function handleEndReached() {
+  const handleEndReached = useCallback(async () => {
     if (loadingMoreRef.current) return;
     if (!hasMoreDownRef.current) return;
-    if (!selectedChat) return;
+    const currentChat = selectedChatRef.current;
+    if (!currentChat) return;
 
-    const newestMsg = messages[0];
+    const currentMessages = messagesRef.current;
+    const newestMsg = currentMessages[0];
     if (!newestMsg) return;
 
     const afterDate = newestMsg.createdAtUtc || newestMsg.sentAt;
     if (!afterDate) return;
 
-    const base = getChatEndpoint(selectedChat.id, selectedChat.type, "/messages/after");
+    const base = getChatEndpoint(currentChat.id, currentChat.type, "/messages/after");
     if (!base) return;
     const endpoint = `${base}?date=${encodeURIComponent(afterDate)}&limit=${MESSAGE_PAGE_SIZE}`;
 
@@ -179,7 +189,7 @@ export default function useChatScroll(messages, selectedChat, setMessages, allRe
     } finally {
       loadingMoreRef.current = false;
     }
-  }
+  }, [setMessages, allReadPatchRef]);
 
   return {
     handleStartReached,

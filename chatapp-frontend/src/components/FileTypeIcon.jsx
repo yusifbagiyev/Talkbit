@@ -1,3 +1,4 @@
+import { memo } from "react";
 // ─── FileTypeIcon — Fayl tipinə görə rəngli SVG icon ────────────────────────
 // Generik blank sənəd iconu əvəzinə fayl extension-ına görə fərqli rəng + glyph.
 // PDF = qırmızı + mətn sətirləri, Excel = yaşıl + cədvəl, Video = bənövşəyi + play və s.
@@ -140,4 +141,4 @@ function FileTypeIcon({ fileName, size = 24 }) {
   );
 }
 
-export default FileTypeIcon;
+export default memo(FileTypeIcon);
