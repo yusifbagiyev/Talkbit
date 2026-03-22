@@ -136,12 +136,16 @@ function ChatInputArea({
   }, [attachMenuOpen]);
 
   // Fayl seçmə handler — gizli input-un onChange-i
-  const handleFileChange = useCallback((e) => {
+  const handleFileChange = useCallback(async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    // Extension + ölçü yoxlaması — icazə verilməyən/böyük faylları filtrələ
-    const valid = files.filter((f) => {
+    // Extension + ölçü yoxlaması — icazə verilməyən/böyük/boş faylları filtrələ
+    const basicValid = files.filter((f) => {
+      if (f.size === 0) {
+        showToast(`"${f.name}" is empty (0 bytes)`, "error");
+        return false;
+      }
       if (!isAllowedFileExtension(f.name)) {
         showToast(`"${f.name}" — unsupported file type`, "error");
         return false;
@@ -152,6 +156,25 @@ function ChatInputArea({
       }
       return true;
     });
+
+    // Şəkil fayllarını Image() ilə yoxla — corrupt/preview olmayan şəkillər reject olunur
+    const validated = await Promise.all(
+      basicValid.map((f) => {
+        if (!f.type?.startsWith("image/")) return Promise.resolve(f);
+        return new Promise((resolve) => {
+          const url = URL.createObjectURL(f);
+          const img = new Image();
+          img.onload = () => { URL.revokeObjectURL(url); resolve(f); };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            showToast(`"${f.name}" — corrupt or unreadable image`, "error");
+            resolve(null);
+          };
+          img.src = url;
+        });
+      }),
+    );
+    const valid = validated.filter(Boolean);
     if (valid.length > 0) onFilesSelected(valid);
 
     // Input-u sıfırla — eyni faylı yenidən seçə bilsin

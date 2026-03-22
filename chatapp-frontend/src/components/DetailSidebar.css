@@ -985,6 +985,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .ds-files-header {
@@ -999,6 +1001,53 @@
   font-size: 15px;
   font-weight: 600;
   color: #00789e;
+}
+
+/* Sidebar card — thumbnail preview grid */
+.ds-files-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 6px;
+  padding: 4px 16px 14px;
+  cursor: pointer;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ds-files-preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.ds-files-preview-img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.ds-files-preview-file {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--gray-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ds-files-preview-name {
+  font-size: 10px;
+  color: var(--gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
 }
 
 /* Files & Media Panel — Tab-lar */
@@ -1060,9 +1109,17 @@
 .ds-fm-media-item {
   position: relative;
   aspect-ratio: 1;
+  cursor: pointer;
+}
+
+/* Inner container — şəkil + avatar burada clip olunur, dropdown kənarda qalır */
+.ds-fm-media-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
   border-radius: 8px;
   overflow: hidden;
-  cursor: pointer;
+  background: var(--gray-100);
 }
 
 .ds-fm-media-img {
@@ -1073,7 +1130,7 @@
   transition: transform var(--transition-fast);
 }
 
-.ds-fm-media-item:hover .ds-fm-media-img {
+.ds-fm-media-inner:hover .ds-fm-media-img {
   transform: scale(1.04);
 }
 
@@ -1112,7 +1169,9 @@
   transition: opacity var(--transition-fast);
 }
 
-.ds-fm-media-item:hover .ds-fm-media-more-wrap {
+/* More butonu yalnız hover-da görünür, amma dropdown açıq olan item həmişə göstərir */
+.ds-fm-media-item:hover .ds-fm-media-more-wrap,
+.ds-fm-media-more-wrap:has(.ds-dropdown) {
   opacity: 1;
 }
 
@@ -1134,32 +1193,43 @@
   background: rgba(0, 0, 0, 0.7);
 }
 
-/* Files & Media Panel — Files List */
+/* Media dropdown — scroll container-dən kəsilməməsi üçün fixed */
+.ds-fm-media-more-wrap .ds-dropdown {
+  position: fixed;
+  top: auto;
+  right: auto;
+  margin-top: 4px;
+}
+
+/* Dropdown açıq olduqda digər media item-ların hover-ını blokla */
+.ds-fm-media-grid:has(.ds-dropdown) .ds-fm-media-item:not(:has(.ds-dropdown)) {
+  pointer-events: none;
+}
+
+/* Files & Media Panel — Files List (Bitrix24 stil) */
 .ds-fm-file-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
+  padding: 7px 12px;
   cursor: pointer;
   transition: background var(--transition-fast);
   border-radius: 8px;
   margin: 0 8px;
+  position: relative;
 }
 
 .ds-fm-file-item:hover {
   background: var(--gray-50);
 }
 
-.ds-fm-file-icon {
+.ds-fm-file-icon-wrap {
+  flex-shrink: 0;
   width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #e8f4f8;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--selected-chat);
-  flex-shrink: 0;
 }
 
 .ds-fm-file-body {
@@ -1186,9 +1256,52 @@
   border-radius: 2px;
 }
 
-.ds-fm-file-meta {
+.ds-fm-file-size {
   font-size: 12px;
   color: var(--gray-400);
+}
+
+/* Sender avatar + ad — fayl item-ın altında */
+.ds-fm-file-sender {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.ds-fm-file-sender-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ds-fm-file-sender-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.ds-fm-file-sender-name {
+  font-size: 12px;
+  color: var(--gray-400);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Files tab — more butonu hover-da görünür */
+.ds-fm-file-item:hover .ds-favorites-more-wrap,
+.ds-fm-file-item .ds-favorites-more-wrap:has(.ds-dropdown) {
+  opacity: 1;
 }
 
 /* Add chat members — floating popup */

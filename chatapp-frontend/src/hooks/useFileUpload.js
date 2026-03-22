@@ -10,8 +10,11 @@ export default function useFileUpload() {
   const [selectedFiles, setSelectedFiles] = useState([]);       // Seçilmiş fayllar (File[])
 
   // ─── handleFilesSelected — attach menu-dan fayl seçildikdə ────────────────
+  // 0 bytes fayllar filter olunur — boş faylın yüklənməsinə icazə verilmir
   function handleFilesSelected(files) {
-    setSelectedFiles((prev) => [...prev, ...files]);
+    const valid = files.filter((f) => f.size > 0);
+    if (valid.length === 0) return;
+    setSelectedFiles((prev) => [...prev, ...valid]);
   }
 
   // ─── handleRemoveFile — preview paneldən faylı sil ─────────────────────────
