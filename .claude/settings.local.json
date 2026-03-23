@@ -115,7 +115,9 @@
       "Bash(dotnet ef:*)",
       "Bash(PGPASSWORD=mysecretpassword psql -h localhost -U postgres -d chatapp -c \":*)",
       "Bash(where psql:*)",
-      "Read(//c/Program Files/**)"
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/Joseph/.claude/**)",
+      "Bash(mkdir -p /c/Users/Joseph/.claude/skills/)"
     ],
     "deny": [],
     "ask": []
