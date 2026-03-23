@@ -7,6 +7,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { apiGet, apiPost, apiDelete } from "../services/api";
 import { getChatEndpoint } from "../utils/chatUtils";
 
+
 // ─── useSidebarPanels ────────────────────────────────────────────────────────
 // selectedChat: hansı chat açıqdır
 // messages: mesajlar (linkMessages, fileMessages memo üçün)
@@ -18,6 +19,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [showSidebarMenu, setShowSidebarMenu] = useState(false);
+  const [sidebarDataLoading, setSidebarDataLoading] = useState(false);
 
   // ─── Favorites panel ──────────────────────────────────────────────────────
   const [showFavorites, setShowFavorites] = useState(false);
@@ -77,19 +79,13 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
         id: msg.id, fileId: msg.fileId, fileName: msg.fileName,
         fileContentType: msg.fileContentType, fileSizeInBytes: msg.fileSizeInBytes,
         fileUrl: msg.fileUrl, createdAtUtc: msg.createdAtUtc,
+        senderFullName: msg.senderFullName, senderAvatarUrl: msg.senderAvatarUrl,
       }));
       setPreviewFiles(mapped);
     } catch {
       // Preview yüklənməsə boş qalır
     }
   }, []);
-
-  // Sidebar açıldığında və ya chat dəyişdikdə preview faylları yüklə
-  useEffect(() => {
-    if (showSidebar && selectedChat) {
-      loadPreviewFiles(selectedChat);
-    }
-  }, [showSidebar, selectedChat, loadPreviewFiles]);
 
   // ─── loadFavoriteMessages ──────────────────────────────────────────────────
   const loadFavoriteMessages = useCallback(async (chat) => {
@@ -109,6 +105,23 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
       setFavoritesLoading(false);
     }
   }, []);
+
+  // ─── Sidebar açıldığında: data yoxdursa API-dən yüklə ──────────────────────
+  // Cache bərpası handleSelectChat-da olur — burada yalnız boşdursa yüklə
+  useEffect(() => {
+    if (!showSidebar || !selectedChat) return;
+    // Əgər favoriteMessages və previewFiles artıq cache-dən bərpa olunubsa, yenidən yükləmə
+    if (favoriteMessages.length > 0 || previewFiles.length > 0) {
+      setSidebarDataLoading(false);
+      return;
+    }
+    setSidebarDataLoading(true);
+    Promise.all([
+      loadPreviewFiles(selectedChat),
+      loadFavoriteMessages(selectedChat),
+    ]).finally(() => setSidebarDataLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSidebar, selectedChat?.id]);
 
   // ─── handleFavoriteMessage — mesajı favorilərə əlavə et (Optimistic UI) ────
   const handleFavoriteMessage = useCallback(
@@ -200,9 +213,11 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     }
   }, []);
 
-  // ─── Sidebar açılanda channel members yüklə ───────────────────────────────
+  // ─── Sidebar açılanda channel members yüklə (cache yoxdursa) ────────────────
   useEffect(() => {
     if (!showSidebar || !selectedChat || selectedChat.type !== 1) return;
+    // handleSelectChat artıq yükləyibsə, dublikat sorğu göndərmə
+    if (channelMembers[selectedChat.id]) return;
     let cancelled = false;
     (async () => {
       try {
@@ -339,6 +354,37 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     }
   }, []);
 
+  // ─── handleNewFileMessage — yeni fayl mesajı gəldikdə panelləri real-time yenilə
+  const handleNewFileMessage = useCallback((msg) => {
+    if (!msg?.fileId) return;
+    const newFile = {
+      id: msg.id, fileId: msg.fileId, fileName: msg.fileName,
+      fileContentType: msg.fileContentType, fileSizeInBytes: msg.fileSizeInBytes,
+      fileUrl: msg.fileUrl, createdAtUtc: msg.createdAtUtc,
+      senderFullName: msg.senderFullName, senderAvatarUrl: msg.senderAvatarUrl,
+      isImage: msg.fileContentType?.startsWith("image/"),
+    };
+
+    // Preview grid-ə əlavə et (max 6 ədəd, ən yeni əvvəl)
+    setPreviewFiles((prev) => {
+      if (prev.some((f) => f.id === msg.id)) return prev;
+      return [newFile, ...prev].slice(0, 6);
+    });
+
+    // Files & Media paneli açıqdırsa, uyğun tab-a əlavə et
+    if (showFilesMedia) {
+      const isImage = msg.fileContentType?.startsWith("image/");
+      const shouldAdd = (filesMediaTab === "media" && isImage) ||
+                        (filesMediaTab === "files" && !isImage);
+      if (shouldAdd) {
+        setFileMessages((prev) => {
+          if (prev.some((f) => f.id === msg.id)) return prev;
+          return [newFile, ...prev];
+        });
+      }
+    }
+  }, [showFilesMedia, filesMediaTab]);
+
   // ─── closeSidebar — animasiyalı bağlama (200ms slide-out, sonra unmount) ──
   const closeSidebar = useCallback(() => {
     setSidebarClosing(true);
@@ -404,6 +450,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     showSidebar, setShowSidebar,
     sidebarClosing,
     showSidebarMenu, setShowSidebarMenu,
+    sidebarDataLoading,
     // Favorites
     showFavorites, setShowFavorites,
     favoriteMessages, setFavoriteMessages,
@@ -434,7 +481,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     // Functions
     loadFavoriteMessages, handleFavoriteMessage, handleRemoveFavorite,
     handleOpenChatsWithUser, loadMembersPanelPage, loadFileMessages, loadPreviewFiles,
-    closeSidebar, resetSidebarPanels, resetChatsWithUser,
+    handleNewFileMessage, closeSidebar, resetSidebarPanels, resetChatsWithUser,
     // Memos
     favoriteIds, linkMessages,
   };

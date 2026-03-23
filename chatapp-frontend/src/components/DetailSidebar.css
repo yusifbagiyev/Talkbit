@@ -2,6 +2,18 @@
    DETAIL SIDEBAR — Bitrix24 Style
    =================================== */
 
+/* Skeleton — müasir shimmer animasiya */
+.ds-skeleton {
+  background: linear-gradient(90deg, #e8ecef 25%, #f3f5f7 50%, #e8ecef 75%);
+  background-size: 200% 100%;
+  animation: ds-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes ds-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .detail-sidebar {
   width: 350px;
   min-width: 350px;
@@ -139,10 +151,10 @@
   flex: 1;
   overflow-y: auto;
   background: #eef2f4;
-  padding: 8px 2px;
+  padding: 4px 2px 4px 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* Ortaq müasir scrollbar — bütün sidebar scroll konteynerlər üçün */
@@ -1038,7 +1050,8 @@
   flex-direction: column;
   border-radius: 12px;
   overflow: hidden;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .ds-files-header {
@@ -1060,7 +1073,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  padding: 6px 16px 14px;
+  padding: 6px 16px 4px;
 }
 
 .ds-files-preview-item {
@@ -1091,6 +1104,7 @@
 
 .ds-files-preview-name {
   font-size: 11px;
+  font-weight: 600;
   color: var(--gray-600);
   white-space: nowrap;
   overflow: hidden;

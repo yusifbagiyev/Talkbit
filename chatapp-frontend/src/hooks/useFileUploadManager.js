@@ -316,18 +316,20 @@ export default function useFileUploadManager(user, onFallbackReload, onMessageSe
 
   // ─── Unmount cleanup — pending timeout-lar və Object URL-ləri təmizlə ──────
   useEffect(() => {
+    const uploads = uploadsRef.current;
+    const pendingUpdate = pendingUpdateRef;
     return () => {
       // Throttle timer-i təmizlə
-      if (pendingUpdateRef.current) {
-        clearTimeout(pendingUpdateRef.current);
-        pendingUpdateRef.current = null;
+      if (pendingUpdate.current) {
+        clearTimeout(pendingUpdate.current);
+        pendingUpdate.current = null;
       }
       // Bütün aktiv upload task-larının timer-lərini və Object URL-lərini təmizlə
-      for (const task of uploadsRef.current.values()) {
+      for (const task of uploads.values()) {
         if (task._timers) task._timers.forEach(clearTimeout);
         if (task.previewUrl) URL.revokeObjectURL(task.previewUrl);
       }
-      uploadsRef.current.clear();
+      uploads.clear();
     };
   }, []);
 

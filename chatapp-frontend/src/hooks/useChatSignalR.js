@@ -28,6 +28,7 @@ export default function useChatSignalR(
   scrollerRef,            // Scroll container ref — reaction height compensation üçün
   showScrollDownRef,      // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
   messageCacheRef,        // Message cache ref — yeni mesaj gəldikdə cache-i invalidasiya etmək üçün
+  onNewFileMessageRef,    // Sidebar — fayl mesajı gəldikdə Files & Media panelini yeniləmək üçün
 ) {
   // useEffect — komponentin mount olduğunda 1 dəfə işləyir
   // [userId] — dependency array: yalnız userId dəyişəndə yenidən işləyir
@@ -101,7 +102,10 @@ export default function useChatSignalR(
           return [enrichedMsg, ...prev];
         });
 
-
+        // Fayl mesajıdırsa — sidebar Files & Media panelini yenilə
+        if (message.fileId && onNewFileMessageRef?.current) {
+          onNewFileMessageRef.current(message);
+        }
       }
 
       // Conversation list-i yenilə

@@ -10,6 +10,48 @@ import { downloadFileByUrl, getFileUrl } from "../services/api";
 import FileTypeIcon from "./FileTypeIcon";
 import "./DetailSidebar.css";
 
+// ─── Skeleton — müasir shimmer effektli placeholder ─────────────────────────
+const Skeleton = ({ width = "100%", height = 14, radius = 6, style }) => (
+  <div
+    className="ds-skeleton"
+    style={{ width, height, borderRadius: radius, ...style }}
+  />
+);
+
+// Sidebar body skeleton — profile + menu items + files preview
+const SidebarSkeleton = () => (
+  <div className="ds-body">
+    {/* Profil kartı skeleton */}
+    <div className="ds-card" style={{ padding: "24px 16px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+      <Skeleton width={96} height={96} radius={48} />
+      <Skeleton width={140} height={16} radius={8} />
+      <Skeleton width={100} height={12} radius={6} />
+    </div>
+    {/* Sound toggle skeleton */}
+    <div className="ds-card" style={{ padding: "10px 16px" }}>
+      <Skeleton width="100%" height={24} radius={8} />
+    </div>
+    {/* Menu items skeleton */}
+    <div className="ds-card" style={{ padding: "8px 0" }}>
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px" }}>
+          <Skeleton width={20} height={20} radius={4} />
+          <Skeleton width={`${50 + i * 15}%`} height={14} radius={6} />
+        </div>
+      ))}
+    </div>
+    {/* Files preview skeleton */}
+    <div className="ds-card ds-files-card" style={{ padding: "14px 16px" }}>
+      <Skeleton width={120} height={14} radius={6} style={{ marginBottom: 10 }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Skeleton key={i} width="100%" height={0} radius={8} style={{ paddingBottom: "100%" }} />
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 // highlightMatches helper — parts array-dan JSX render edir
 const renderHighlight = (text, query) => {
   const parts = highlightMatches(text, query);
@@ -25,7 +67,6 @@ function DetailSidebar({
   sidebar,
   channel,
   search,
-  messages,
   onTogglePin,
   onToggleMute,
   onToggleHide,
@@ -125,7 +166,8 @@ function DetailSidebar({
         </div>
       </div>
 
-      {/* Scrollable body */}
+      {/* Scrollable body — loading zamanı skeleton göstər */}
+      {sidebar.sidebarDataLoading ? <SidebarSkeleton /> : (
       <div className="ds-body">
         {/* Profil kartı — vertikal: avatar → ad → position → create group → sound */}
         <div className="ds-card">
@@ -297,6 +339,7 @@ function DetailSidebar({
           )}
         </div>
       </div>
+      )}
 
       {/* ═══════ Overlay panellər ═══════ */}
 

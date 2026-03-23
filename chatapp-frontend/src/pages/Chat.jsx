@@ -385,6 +385,10 @@ function Chat() {
   // selectedChatRef-i həmişə aktual saxla — useChatSignalR ref-dən oxuyur
   selectedChatRef.current = selectedChat;
 
+  // Sidebar fayl handler ref — stale closure olmasın deyə ref istifadə olunur
+  const onNewFileMessageRef = useRef(null);
+  onNewFileMessageRef.current = sidebar.handleNewFileMessage;
+
   // useChatSignalR — real-time event-ləri dinlə (NewMessage, UserOnline, Typing, etc.)
   // Bu hook içəridə useEffect ilə SignalR event handler-larını qeydiyyata alır
   useChatSignalR(
@@ -402,6 +406,7 @@ function Chat() {
     messagesAreaRef, // Scroll container — reaction scroll compensation üçün
     showScrollDownRef, // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
     messageCacheRef, // Cache invalidasiya — yeni mesaj gəldikdə köhnə cache-i sil
+    onNewFileMessageRef, // Sidebar — fayl mesajı gəldikdə Files & Media panelini yeniləmək üçün
   );
 
   // ─── Network / Connection State Effect ──────────────────────────────────────
@@ -466,6 +471,7 @@ function Chat() {
       unsubscribe();
       if (capturedTimerId) clearTimeout(capturedTimerId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- MEMOIZED DATA (effects-dən əvvəl təyin olunmalıdır) ---
@@ -1463,6 +1469,7 @@ function Chat() {
         messages: cacheableMessages,
         pinnedMessages,
         favoriteMessages: sidebar.favoriteMessages,
+        previewFiles: sidebar.previewFiles,
         hasMore: hasMoreRef.current,
         hasMoreDown: hasMoreDownRef.current,
         timestamp: Date.now(),
@@ -1491,6 +1498,11 @@ function Chat() {
     setPinBarExpanded(false);
     setCurrentPinIndex(0);
     sidebar.resetSidebarPanels();
+    // Cache-dən sidebar data-nı bərpa et (favorites, previewFiles)
+    if (usableCache) {
+      if (cached.favoriteMessages) sidebar.setFavoriteMessages(cached.favoriteMessages);
+      if (cached.previewFiles) sidebar.setPreviewFiles(cached.previewFiles);
+    }
     sidebar.resetChatsWithUser();
     channel.resetChannelState();
     resetSelection();
@@ -1543,10 +1555,6 @@ function Chat() {
       const unread = chat.unreadCount || 0;
       allReadPatchRef.current = unread === 0;
       initialMsgIdsRef.current = new Set(cached.messages.map((m) => m.id));
-      // Favorites — cache-dən restore et
-      if (cached.favoriteMessages) {
-        sidebar.setFavoriteMessages(cached.favoriteMessages);
-      }
       // Online status / channel members — fire-and-forget
       if (chat.type === 0 && chat.otherUserId) {
         const conn = getConnection();
@@ -1593,18 +1601,15 @@ function Chat() {
       if (!msgBase) return;
       const pinEndpoint = `${msgBase}/pinned`;
 
-      const favEndpoint = `${msgBase}/favorites`;
-
       // Read later varsa around endpoint, yoxdursa normal endpoint
       const msgEndpoint = hasReadLater
         ? `${msgBase}/around/${chat.lastReadLaterMessageId}`
         : `${msgBase}?pageSize=${MESSAGE_PAGE_SIZE}`;
 
-      // Promise.all — API çağrılarını paralel icra et (favorites daxil)
+      // Promise.all — API çağrılarını paralel icra et
       const promises = [
         apiGet(msgEndpoint),
         apiGet(pinEndpoint).catch(() => []),
-        apiGet(favEndpoint).catch(() => []),
       ];
 
       // Read later varsa: həm də DELETE read-later çağır (icon-u conversation list-dən sil)
@@ -1627,7 +1632,7 @@ function Chat() {
         }
       }
 
-      const [msgData, pinData, favData, , latestForSeparator] =
+      const [msgData, pinData, , latestForSeparator] =
         await Promise.all(promises);
 
       // Stale response — istifadəçi artıq başqa conversation-a keçib
@@ -1638,12 +1643,6 @@ function Chat() {
         (a, b) => new Date(b.pinnedAtUtc) - new Date(a.pinnedAtUtc),
       );
       setPinnedMessages(sortedPins);
-
-      // Favori mesajları set et
-      const sortedFavs = (favData || []).sort(
-        (a, b) => new Date(b.favoritedAtUtc) - new Date(a.favoritedAtUtc),
-      );
-      sidebar.setFavoriteMessages(sortedFavs);
 
       // ─── Separator üçün əlavə səhifə yüklə ─────────────────────────────────
       // unread > ilk yüklənmiş mesaj sayı → separator sərhədi hələ yüklənməyib
@@ -1770,7 +1769,6 @@ function Chat() {
           ? finalMsgData.map((m) => (m.isRead ? m : { ...m, isRead: true }))
           : finalMsgData,
         pinnedMessages: sortedPins,
-        favoriteMessages: sortedFavs,
         hasMore: hasMoreRef.current,
         hasMoreDown: hasMoreDownRef.current,
         timestamp: Date.now(),
@@ -3572,7 +3570,6 @@ function Chat() {
               channelMembers={channelMembers}
               conversations={conversations}
               user={user}
-              messages={messages}
               inputRef={inputRef}
               sidebar={sidebar}
               channel={channel}
