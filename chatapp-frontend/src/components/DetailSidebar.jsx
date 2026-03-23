@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 // ─── DetailSidebar.jsx — Bitrix24 stilində sağ detail panel ────────────────
 // Chat.jsx-dən çıxarılmış sidebar JSX bloku.
 // Panellər: Profile, Favorites, Links, Search, ChatsWithUser, FilesMedia, Members
@@ -25,6 +25,7 @@ function DetailSidebar({
   sidebar,
   channel,
   search,
+  messages,
   onTogglePin,
   onToggleMute,
   onToggleHide,
@@ -38,6 +39,15 @@ function DetailSidebar({
   setSelectedChat,
   setMessageText,
 }) {
+  // Preview grid üçün memoized fayl siyahısı — hər render-də filter+sort çalışmasın
+  const previewFiles = useMemo(() => {
+    if (!messages?.length) return [];
+    return messages
+      .filter((m) => m.fileId && !m.isDeleted)
+      .sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc))
+      .slice(0, 6);
+  }, [messages]);
+
   return (
     <div className={`detail-sidebar${sidebar.sidebarClosing ? " closing" : ""}`}>
       {/* Header — X close + About chat + ... more */}
@@ -254,27 +264,30 @@ function DetailSidebar({
 
         {/* Files and media — klikləndikdə panel açılır */}
         <div className="ds-card ds-files-card">
-          <div className="ds-files-header" onClick={() => sidebar.setShowFilesMedia(true)}>
+          <div className="ds-files-header" onClick={() => { sidebar.setShowFilesMedia(true); sidebar.loadFileMessages(selectedChat, "media"); }}>
             <span className="ds-files-title">Files and media</span>
             <svg className="ds-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </div>
-          {/* Thumbnail preview grid — dola bildiyincə çox fayl göstər */}
-          {sidebar.fileMessages.length > 0 && (
-            <div className="ds-files-preview-grid" onClick={() => sidebar.setShowFilesMedia(true)}>
-              {sidebar.fileMessages.map((f) => (
-                <div key={f.id} className="ds-files-preview-item" title={f.fileName}>
-                  {f.isImage ? (
-                    <img src={getFileUrl(f.fileUrl)} alt={f.fileName} className="ds-files-preview-img" />
-                  ) : (
-                    <div className="ds-files-preview-file">
-                      <FileTypeIcon fileName={f.fileName} size={28} />
-                    </div>
-                  )}
-                  <span className="ds-files-preview-name">{f.fileName}</span>
-                </div>
-              ))}
+          {/* Thumbnail preview grid — memoized fayl siyahısı */}
+          {previewFiles.length > 0 && (
+            <div className="ds-files-preview-grid" onClick={() => { sidebar.setShowFilesMedia(true); sidebar.loadFileMessages(selectedChat, "media"); }}>
+              {previewFiles.map((f) => {
+                const isImage = f.fileContentType?.startsWith("image/");
+                return (
+                  <div key={f.id} className="ds-files-preview-item" title={f.fileName}>
+                    {isImage ? (
+                      <img src={getFileUrl(f.fileUrl)} alt={f.fileName} className="ds-files-preview-img" />
+                    ) : (
+                      <div className="ds-files-preview-file">
+                        <FileTypeIcon fileName={f.fileName} size={28} />
+                      </div>
+                    )}
+                    <span className="ds-files-preview-name">{f.fileName}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -834,31 +847,41 @@ function DetailSidebar({
           <div className="ds-fm-tabs">
             <button
               className={`ds-fm-tab${sidebar.filesMediaTab === "media" ? " active" : ""}`}
-              onClick={() => sidebar.setFilesMediaTab("media")}
+              onClick={() => { sidebar.setFilesMediaTab("media"); sidebar.loadFileMessages(selectedChat, "media"); }}
             >
               Media
             </button>
             <button
               className={`ds-fm-tab${sidebar.filesMediaTab === "files" ? " active" : ""}`}
-              onClick={() => sidebar.setFilesMediaTab("files")}
+              onClick={() => { sidebar.setFilesMediaTab("files"); sidebar.loadFileMessages(selectedChat, "files"); }}
             >
               Files
             </button>
           </div>
 
-          <div className="ds-favorites-list">
+          <div
+            className="ds-favorites-list"
+            onScroll={(e) => {
+              const el = e.target;
+              // Aşağıya 100px qaldıqda API-dən daha çox yüklə
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 100
+                  && sidebar.filesHasMore && !sidebar.filesLoading) {
+                const files = sidebar.fileMessages;
+                if (files.length > 0) {
+                  const lastDate = files[files.length - 1].createdAtUtc;
+                  sidebar.loadFileMessages(selectedChat, sidebar.filesMediaTab, files, lastDate);
+                }
+              }
+            }}
+          >
             {(() => {
               const query = sidebar.filesSearchText.trim().toLowerCase();
               const tab = sidebar.filesMediaTab;
 
-              // Tab-a görə filterlə
-              const tabFiltered = tab === "media"
-                ? sidebar.fileMessages.filter((f) => f.isImage)
-                : sidebar.fileMessages.filter((f) => !f.isImage);
-              // Axtarışa görə filterlə
+              // API artıq tab-a görə filterli data qaytarır, yalnız axtarış filtri lazımdır
               const filtered = query
-                ? tabFiltered.filter((f) => f.fileName?.toLowerCase().includes(query))
-                : tabFiltered;
+                ? sidebar.fileMessages.filter((f) => f.fileName?.toLowerCase().includes(query))
+                : sidebar.fileMessages;
 
               if (filtered.length === 0) {
                 return (
@@ -867,6 +890,7 @@ function DetailSidebar({
                   </div>
                 );
               }
+
 
               // Context menu render helper — media və files üçün ortaq
               const renderContextMenu = (f) => sidebar.filesMenuId === f.id && (
@@ -950,11 +974,16 @@ function DetailSidebar({
                     </div>
                   );
                 });
-                return <div className="ds-fm-media-grid">{elements}</div>;
+                return (
+                  <>
+                    <div className="ds-fm-media-grid">{elements}</div>
+                    {sidebar.filesLoading && <div className="ds-favorites-empty">Loading...</div>}
+                  </>
+                );
               }
 
               // Files tab — Bitrix24 stilində siyahı
-              return filtered.map((f, idx) => {
+              const fileElements = filtered.map((f, idx) => {
                 const msgDate = formatSectionDate(f.createdAtUtc);
                 const prevDate = idx > 0 ? formatSectionDate(filtered[idx - 1].createdAtUtc) : null;
                 const showDate = idx === 0 || msgDate !== prevDate;
@@ -1007,6 +1036,12 @@ function DetailSidebar({
                   </div>
                 );
               });
+              return (
+                <>
+                  {fileElements}
+                  {sidebar.filesLoading && <div className="ds-favorites-empty">Loading...</div>}
+                </>
+              );
             })()}
           </div>
         </div>

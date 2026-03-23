@@ -297,6 +297,48 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             return await MapResultsAsync(results, channelId, sanitizeContent: false, cancellationToken);
         }
 
+
+        /// <summary>
+        /// Channel-dakı fayl olan mesajları pagination ilə qaytarır (Files & Media panel üçün)
+        /// </summary>
+        public async Task<List<ChannelMessageDto>> GetChannelFilesAsync(
+            Guid channelId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            bool? isMedia = null,
+            DateTime? visibleFromUtc = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = BuildBaseQuery()
+                .Where(r => r.ChannelId == channelId
+                         && r.FileId != null
+                         && !r.IsDeleted);
+
+            // Media/file filterləmə
+            if (isMedia == true)
+                query = query.Where(r => r.FileContentType != null && r.FileContentType.StartsWith("image/"));
+            else if (isMedia == false)
+                query = query.Where(r => r.FileContentType == null || !r.FileContentType.StartsWith("image/"));
+
+            // Tarix görünürlüyü (private channel-da üzv olma tarixindən sonrakı mesajlar)
+            if (visibleFromUtc.HasValue)
+                query = query.Where(r => r.CreatedAtUtc >= visibleFromUtc.Value);
+
+            if (beforeUtc.HasValue)
+                query = query.Where(r => r.CreatedAtUtc < beforeUtc.Value);
+
+            var results = await query
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            if (results.Count == 0)
+                return new List<ChannelMessageDto>();
+
+            return await MapResultsAsync(results, channelId, sanitizeContent: false, cancellationToken);
+        }
+
+
         public async Task<int> GetUnreadCountAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)
         {
             // Verify user is a member of the channel

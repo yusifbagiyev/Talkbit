@@ -30,6 +30,15 @@ namespace ChatApp.Modules.DirectMessages.Application.Interfaces
             int limit = 100,
             CancellationToken cancellationToken = default);
         Task<List<DirectMessageDto>> GetPinnedMessagesAsync(Guid conversationId, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Gets messages with files in a conversation (for Files &amp; Media panel)
+        /// </summary>
+        Task<List<DirectMessageDto>> GetConversationFilesAsync(
+            Guid conversationId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            bool? isMedia = null,
+            CancellationToken cancellationToken = default);
         Task<int> GetUnreadCountAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default);
         Task<List<DirectMessage>> GetUnreadMessagesForUserAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default);
         Task<int> MarkAllAsReadAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default);

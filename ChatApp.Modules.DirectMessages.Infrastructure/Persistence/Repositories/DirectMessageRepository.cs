@@ -246,6 +246,39 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
         }
 
 
+        /// <summary>
+        /// Conversation-dakı fayl olan mesajları pagination ilə qaytarır (Files & Media panel üçün)
+        /// </summary>
+        public async Task<List<DirectMessageDto>> GetConversationFilesAsync(
+            Guid conversationId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            bool? isMedia = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = BuildBaseQuery()
+                .Where(r => r.ConversationId == conversationId
+                         && r.FileId != null
+                         && !r.IsDeleted);
+
+            // Media/file filterləmə
+            if (isMedia == true)
+                query = query.Where(r => r.FileContentType != null && r.FileContentType.StartsWith("image/"));
+            else if (isMedia == false)
+                query = query.Where(r => r.FileContentType == null || !r.FileContentType.StartsWith("image/"));
+
+            if (beforeUtc.HasValue)
+                query = query.Where(r => r.CreatedAtUtc < beforeUtc.Value);
+
+            var results = await query
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            return await MapResultsAsync(results, sanitizeContent: false, cancellationToken);
+        }
+
+
         #region Private Helper Methods
 
         /// <summary>

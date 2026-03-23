@@ -34,6 +34,16 @@ namespace ChatApp.Modules.Channels.Application.Interfaces
             DateTime? visibleFromUtc = null,
             CancellationToken cancellationToken = default);
         Task<List<ChannelMessageDto>> GetPinnedMessagesAsync(Guid channelId, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Gets messages with files in a channel (for Files &amp; Media panel)
+        /// </summary>
+        Task<List<ChannelMessageDto>> GetChannelFilesAsync(
+            Guid channelId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            bool? isMedia = null,
+            DateTime? visibleFromUtc = null,
+            CancellationToken cancellationToken = default);
         Task<int> GetUnreadCountAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default);
         Task<int> MarkAllAsReadAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default);
         Task<bool> HasMessagesAsync(Guid channelId, CancellationToken cancellationToken = default);

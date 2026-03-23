@@ -11,6 +11,7 @@ using ChatApp.Modules.Channels.Application.Queries.GetMessagesAfterDate;
 using ChatApp.Modules.Channels.Application.Queries.GetFavoriteMessages;
 using ChatApp.Modules.Channels.Application.Queries.GetPinnedMessages;
 using ChatApp.Modules.Channels.Application.Queries.GetUnreadCount;
+using ChatApp.Modules.Channels.Application.Queries.GetChannelFiles;
 using ChatApp.Shared.Infrastructure.Authorization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -222,6 +223,39 @@ namespace ChatApp.Modules.Channels.Api.Controllers
 
             return Ok(result.Value);
         }
+
+        /// <summary>
+        /// Gets messages with files in a channel (for Files & Media panel)
+        /// </summary>
+        [HttpGet("files")]
+        [RequirePermission("Messages.Read")]
+        [ProducesResponseType(typeof(List<ChannelMessageDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetFiles(
+            [FromRoute] Guid channelId,
+            [FromQuery] int pageSize = 30,
+            [FromQuery] DateTime? before = null,
+            [FromQuery] bool? isMedia = null,
+            CancellationToken cancellationToken = default)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            if (pageSize < 1 || pageSize > 50)
+                return BadRequest(new { error = "Page size must be between 1 and 50" });
+
+            var result = await _mediator.Send(
+                new GetChannelFilesQuery(channelId, userId, pageSize, before, isMedia),
+                cancellationToken);
+
+            if (result.IsFailure)
+                return BadRequest(new { error = result.Error });
+
+            return Ok(result.Value);
+        }
+
 
         /// <summary>
         /// Gets unread message count for the current user in this channel

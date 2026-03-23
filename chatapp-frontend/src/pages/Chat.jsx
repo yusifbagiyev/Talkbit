@@ -3570,6 +3570,7 @@ function Chat() {
               channelMembers={channelMembers}
               conversations={conversations}
               user={user}
+              messages={messages}
               inputRef={inputRef}
               sidebar={sidebar}
               channel={channel}

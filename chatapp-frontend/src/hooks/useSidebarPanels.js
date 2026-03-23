@@ -44,6 +44,10 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   const [filesMenuId, setFilesMenuId] = useState(null);
   const [filesSearchOpen, setFilesSearchOpen] = useState(false);
   const [filesSearchText, setFilesSearchText] = useState("");
+  // API-based file yükləmə state-ləri
+  const [fileMessages, setFileMessages] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesHasMore, setFilesHasMore] = useState(true);
 
   // ─── Members panel ────────────────────────────────────────────────────────
   const [showMembersPanel, setShowMembersPanel] = useState(false);
@@ -222,23 +226,55 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     return results.sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc));
   }, [messages]);
 
-  // fileMessages — mesajlardan fayl olan mesajları çıxarır
-  const fileMessages = useMemo(() => {
-    const results = [];
-    for (const msg of messages) {
-      if (!msg.fileId || msg.isDeleted) continue;
-      const isImage = msg.fileContentType?.startsWith("image/");
-      results.push({
+  // ─── loadFileMessages — API-dən faylları yüklə (pagination ilə) ────────────
+  // Race condition qoruması: requestId ilə köhnə sorğuların cavabını ignore et
+  const filesRequestIdRef = useRef(0);
+  const loadFileMessages = useCallback(async (chat, tab, existingFiles = [], beforeUtc = null) => {
+    if (!chat) return;
+    const isMedia = tab === "media";
+    const endpoint = getChatEndpoint(chat.id, chat.type, "/messages/files");
+    if (!endpoint) return;
+
+    // Tab dəyişdikdə köhnə datanı təmizlə (stale data görünməsin)
+    if (!beforeUtc) {
+      setFileMessages([]);
+      setFilesHasMore(true);
+    }
+
+    const requestId = ++filesRequestIdRef.current;
+
+    try {
+      setFilesLoading(true);
+      let url = `${endpoint}?pageSize=30&isMedia=${isMedia}`;
+      if (beforeUtc) url += `&before=${encodeURIComponent(beforeUtc)}`;
+
+      const data = await apiGet(url);
+
+      // Köhnə sorğunun cavabını ignore et (tab dəyişilibsə)
+      if (requestId !== filesRequestIdRef.current) return;
+
+      const mapped = (data || []).map((msg) => ({
         id: msg.id, fileId: msg.fileId, fileName: msg.fileName,
         fileContentType: msg.fileContentType, fileSizeInBytes: msg.fileSizeInBytes,
-        fileUrl: msg.fileUrl, isImage,
+        fileUrl: msg.fileUrl, isImage: msg.fileContentType?.startsWith("image/"),
         senderFullName: msg.senderFullName,
         senderAvatarUrl: msg.senderAvatarUrl,
         createdAtUtc: msg.createdAtUtc,
-      });
+      }));
+
+      // Əvvəlki fayllarla birləşdir (loadMore üçün)
+      const merged = beforeUtc ? [...existingFiles, ...mapped] : mapped;
+      setFileMessages(merged);
+      setFilesHasMore((data || []).length >= 30);
+    } catch (err) {
+      if (requestId !== filesRequestIdRef.current) return;
+      console.error("Failed to load files:", err);
+      if (!beforeUtc) setFileMessages([]);
+      setFilesHasMore(false);
+    } finally {
+      if (requestId === filesRequestIdRef.current) setFilesLoading(false);
     }
-    return results.sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc));
-  }, [messages]);
+  }, []);
 
   // ─── resetSidebarPanels — handleSelectChat-da çağırılır ────────────────────
   const resetSidebarPanels = useCallback(() => {
@@ -256,6 +292,9 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     setFilesMenuId(null);
     setFilesSearchOpen(false);
     setFilesSearchText("");
+    setFileMessages([]);
+    setFilesLoading(false);
+    setFilesHasMore(true);
     setShowMembersPanel(false);
     setMembersPanelDirect(false);
     setMemberMenuId(null);
@@ -319,6 +358,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     filesMediaTab, setFilesMediaTab,
     filesMenuId, setFilesMenuId,
     filesSearchOpen, setFilesSearchOpen, filesSearchText, setFilesSearchText,
+    fileMessages, setFileMessages, filesLoading, filesHasMore,
     // Members
     showMembersPanel, setShowMembersPanel,
     membersPanelDirect, setMembersPanelDirect,
@@ -328,9 +368,9 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     sidebarMenuRef, favMenuRef, linksMenuRef, filesMenuRef, memberMenuRef,
     // Functions
     loadFavoriteMessages, handleFavoriteMessage, handleRemoveFavorite,
-    handleOpenChatsWithUser, loadMembersPanelPage,
+    handleOpenChatsWithUser, loadMembersPanelPage, loadFileMessages,
     closeSidebar, resetSidebarPanels, resetChatsWithUser,
     // Memos
-    favoriteIds, linkMessages, fileMessages,
+    favoriteIds, linkMessages,
   };
 }

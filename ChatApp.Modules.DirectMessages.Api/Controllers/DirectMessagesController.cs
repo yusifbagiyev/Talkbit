@@ -163,6 +163,39 @@ namespace ChatApp.Modules.DirectMessages.Api.Controllers
 
 
         /// <summary>
+        /// Gets messages with files in a conversation (for Files & Media panel)
+        /// </summary>
+        [HttpGet("files")]
+        [RequirePermission("Messages.Read")]
+        [ProducesResponseType(typeof(List<DirectMessageDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetFiles(
+            [FromRoute] Guid conversationId,
+            [FromQuery] int pageSize = 30,
+            [FromQuery] DateTime? before = null,
+            [FromQuery] bool? isMedia = null,
+            CancellationToken cancellationToken = default)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty)
+                return Unauthorized();
+
+            if (pageSize < 1 || pageSize > 50)
+                return BadRequest(new { error = "Page size must be between 1 and 50" });
+
+            var result = await _mediator.Send(
+                new GetConversationFilesQuery(conversationId, userId, pageSize, before, isMedia),
+                cancellationToken);
+
+            if (result.IsFailure)
+                return BadRequest(new { error = result.Error });
+
+            return Ok(result.Value);
+        }
+
+
+        /// <summary>
         /// Gets unread message count for the current user in this conversation
         /// </summary>
         [HttpGet("unread-count")]
