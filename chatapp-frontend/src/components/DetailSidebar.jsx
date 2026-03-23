@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 // ─── DetailSidebar.jsx — Bitrix24 stilində sağ detail panel ────────────────
 // Chat.jsx-dən çıxarılmış sidebar JSX bloku.
 // Panellər: Profile, Favorites, Links, Search, ChatsWithUser, FilesMedia, Members
@@ -34,19 +34,24 @@ function DetailSidebar({
   onScrollToMessage,
   onDeleteMessage,
   onCloseSearch,
+  onOpenImageViewer,
   setPendingDeleteConv,
   setPendingLeaveChannel,
   setSelectedChat,
   setMessageText,
 }) {
-  // Preview grid üçün memoized fayl siyahısı — hər render-də filter+sort çalışmasın
-  const previewFiles = useMemo(() => {
-    if (!messages?.length) return [];
-    return messages
-      .filter((m) => m.fileId && !m.isDeleted)
-      .sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc))
-      .slice(0, 6);
-  }, [messages]);
+  // Preview grid — API-dən gələn son 6 fayl
+  const previewFiles = sidebar.previewFiles;
+
+  // Şəkil kliklənəndə lightbox aç, fayl kliklənəndə yüklə
+  const handleFileClick = (f, e) => {
+    e?.stopPropagation();
+    if (f.fileContentType?.startsWith("image/")) {
+      onOpenImageViewer(f.id);
+    } else {
+      downloadFileByUrl(f.fileUrl, f.fileName);
+    }
+  };
 
   return (
     <div className={`detail-sidebar${sidebar.sidebarClosing ? " closing" : ""}`}>
@@ -270,13 +275,13 @@ function DetailSidebar({
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </div>
-          {/* Thumbnail preview grid — memoized fayl siyahısı */}
+          {/* Thumbnail preview grid — API-dən gələn son 6 fayl */}
           {previewFiles.length > 0 && (
-            <div className="ds-files-preview-grid" onClick={() => { sidebar.setShowFilesMedia(true); sidebar.loadFileMessages(selectedChat, "media"); }}>
+            <div className="ds-files-preview-grid">
               {previewFiles.map((f) => {
                 const isImage = f.fileContentType?.startsWith("image/");
                 return (
-                  <div key={f.id} className="ds-files-preview-item" title={f.fileName}>
+                  <div key={f.id} className="ds-files-preview-item" title={f.fileName} onClick={(e) => handleFileClick(f, e)}>
                     {isImage ? (
                       <img src={getFileUrl(f.fileUrl)} alt={f.fileName} className="ds-files-preview-img" />
                     ) : (
@@ -932,8 +937,8 @@ function DetailSidebar({
                   }
                   elements.push(
                     <div key={f.id} className="ds-fm-media-item">
-                      {/* Şəkil + avatar inner container — overflow:hidden ilə clip olunur */}
-                      <div className="ds-fm-media-inner" onClick={() => onScrollToMessage(f.id)}>
+                      {/* Şəkil + avatar inner container — klik: şəkil→lightbox, fayl→yüklə */}
+                      <div className="ds-fm-media-inner" onClick={(e) => handleFileClick(f, e)}>
                         <img
                           src={getFileUrl(f.fileUrl)}
                           alt=""
@@ -992,7 +997,7 @@ function DetailSidebar({
                 return (
                   <div key={f.id}>
                     {showDate && <div className="ds-favorites-date"><span>{msgDate}</span></div>}
-                    <div className="ds-fm-file-item" onClick={() => onScrollToMessage(f.id)}>
+                    <div className="ds-fm-file-item" onClick={(e) => handleFileClick(f, e)}>
                       {/* Rəngli fayl tip ikonu */}
                       <div className="ds-fm-file-icon-wrap">
                         <FileTypeIcon fileName={f.fileName} size={40} />

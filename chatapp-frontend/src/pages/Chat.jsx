@@ -2831,9 +2831,11 @@ function Chat() {
   }), [chatLoading]);
 
   // imageMessages — yalnız şəkillər, xronoloji sıra (köhnə → yeni, thumbnail strip üçün)
+  // fileMessages boş olduqda previewFiles-dan da istifadə et (sidebar preview klik üçün)
   const imageMessages = useMemo(() => {
-    return sidebar.fileMessages.filter((f) => f.isImage).reverse();
-  }, [sidebar.fileMessages]);
+    const source = sidebar.fileMessages.length > 0 ? sidebar.fileMessages : sidebar.previewFiles;
+    return source.filter((f) => f.isImage || f.fileContentType?.startsWith("image/")).reverse();
+  }, [sidebar.fileMessages, sidebar.previewFiles]);
 
   // handleOpenImageViewer — MessageBubble-dan çağırılır, şəkil klikləndikdə
   // Ref pattern — imageMessages dəyişəndə renderFlatItem yenidən yaranmasın
@@ -3583,6 +3585,7 @@ function Chat() {
               onScrollToMessage={handleScrollToMessage}
               onDeleteMessage={handleDeleteMessage}
               onCloseSearch={handleCloseSearch}
+              onOpenImageViewer={handleOpenImageViewer}
               setPendingDeleteConv={setPendingDeleteConv}
               setPendingLeaveChannel={setPendingLeaveChannel}
               setSelectedChat={setSelectedChat}

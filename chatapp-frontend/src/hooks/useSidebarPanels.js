@@ -44,6 +44,8 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   const [filesMenuId, setFilesMenuId] = useState(null);
   const [filesSearchOpen, setFilesSearchOpen] = useState(false);
   const [filesSearchText, setFilesSearchText] = useState("");
+  // Preview grid — sidebar-da görünən son 6 fayl (API-dən)
+  const [previewFiles, setPreviewFiles] = useState([]);
   // API-based file yükləmə state-ləri
   const [fileMessages, setFileMessages] = useState([]);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -63,6 +65,31 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   const linksMenuRef = useRef(null);
   const filesMenuRef = useRef(null);
   const memberMenuRef = useRef(null);
+
+  // ─── loadPreviewFiles — sidebar-da son 6 faylı API-dən yüklə ──────────────
+  const loadPreviewFiles = useCallback(async (chat) => {
+    if (!chat) return;
+    const endpoint = getChatEndpoint(chat.id, chat.type, "/messages/files");
+    if (!endpoint) return;
+    try {
+      const data = await apiGet(`${endpoint}?pageSize=6`);
+      const mapped = (data || []).map((msg) => ({
+        id: msg.id, fileId: msg.fileId, fileName: msg.fileName,
+        fileContentType: msg.fileContentType, fileSizeInBytes: msg.fileSizeInBytes,
+        fileUrl: msg.fileUrl, createdAtUtc: msg.createdAtUtc,
+      }));
+      setPreviewFiles(mapped);
+    } catch {
+      // Preview yüklənməsə boş qalır
+    }
+  }, []);
+
+  // Sidebar açıldığında və ya chat dəyişdikdə preview faylları yüklə
+  useEffect(() => {
+    if (showSidebar && selectedChat) {
+      loadPreviewFiles(selectedChat);
+    }
+  }, [showSidebar, selectedChat, loadPreviewFiles]);
 
   // ─── loadFavoriteMessages ──────────────────────────────────────────────────
   const loadFavoriteMessages = useCallback(async (chat) => {
@@ -292,6 +319,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     setFilesMenuId(null);
     setFilesSearchOpen(false);
     setFilesSearchText("");
+    setPreviewFiles([]);
     setFileMessages([]);
     setFilesLoading(false);
     setFilesHasMore(true);
@@ -335,6 +363,42 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     }, 200);
   }, []);
 
+  // ─── Dropdown pozisiyası: sağda yer yoxdursa sola aç ──────────────────────
+  useEffect(() => {
+    if (!filesMenuId) return;
+    const wrap = filesMenuRef.current;
+    if (!wrap) return;
+    // requestAnimationFrame — dropdown DOM-a mount olana qədər gözlə
+    const raf = requestAnimationFrame(() => {
+      const dd = wrap.querySelector(".ds-dropdown");
+      if (!dd) return;
+
+      const btnRect = wrap.getBoundingClientRect();
+      const ddWidth = dd.offsetWidth || 160;
+      const ddHeight = dd.offsetHeight || 160;
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+
+      // Sağda kifayət qədər yer varsa — butonun solundan sağa doğru aç
+      // Yoxsa — butonun sağından sola doğru aç
+      if (btnRect.left + ddWidth <= viewportW) {
+        dd.style.left = btnRect.left + "px";
+        dd.style.right = "auto";
+      } else {
+        dd.style.left = "auto";
+        dd.style.right = (viewportW - btnRect.right) + "px";
+      }
+
+      // Aşağıda yer yoxdursa — yuxarıya aç
+      if (btnRect.bottom + 4 + ddHeight > viewportH) {
+        dd.style.top = (btnRect.top - ddHeight - 4) + "px";
+      } else {
+        dd.style.top = (btnRect.bottom + 4) + "px";
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [filesMenuId]);
+
   return {
     // Core
     showSidebar, setShowSidebar,
@@ -358,6 +422,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     filesMediaTab, setFilesMediaTab,
     filesMenuId, setFilesMenuId,
     filesSearchOpen, setFilesSearchOpen, filesSearchText, setFilesSearchText,
+    previewFiles, setPreviewFiles,
     fileMessages, setFileMessages, filesLoading, filesHasMore,
     // Members
     showMembersPanel, setShowMembersPanel,
@@ -368,7 +433,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     sidebarMenuRef, favMenuRef, linksMenuRef, filesMenuRef, memberMenuRef,
     // Functions
     loadFavoriteMessages, handleFavoriteMessage, handleRemoveFavorite,
-    handleOpenChatsWithUser, loadMembersPanelPage, loadFileMessages,
+    handleOpenChatsWithUser, loadMembersPanelPage, loadFileMessages, loadPreviewFiles,
     closeSidebar, resetSidebarPanels, resetChatsWithUser,
     // Memos
     favoriteIds, linkMessages,
