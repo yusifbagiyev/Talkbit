@@ -342,7 +342,6 @@ function Chat() {
   // useSidebarPanels — sidebar panel state + məntiq
   const sidebar = useSidebarPanels(
     selectedChat,
-    messages,
     channelMembers,
     setChannelMembers,
   );
@@ -1470,6 +1469,7 @@ function Chat() {
         pinnedMessages,
         favoriteMessages: sidebar.favoriteMessages,
         previewFiles: sidebar.previewFiles,
+        linkMessages: sidebar.linkMessages,
         hasMore: hasMoreRef.current,
         hasMoreDown: hasMoreDownRef.current,
         timestamp: Date.now(),
@@ -1498,10 +1498,11 @@ function Chat() {
     setPinBarExpanded(false);
     setCurrentPinIndex(0);
     sidebar.resetSidebarPanels();
-    // Cache-dən sidebar data-nı bərpa et (favorites, previewFiles)
+    // Cache-dən sidebar data-nı bərpa et (favorites, previewFiles, linkMessages)
     if (usableCache) {
       if (cached.favoriteMessages) sidebar.setFavoriteMessages(cached.favoriteMessages);
       if (cached.previewFiles) sidebar.setPreviewFiles(cached.previewFiles);
+      if (cached.linkMessages) sidebar.setLinkMessages(cached.linkMessages);
     }
     sidebar.resetChatsWithUser();
     channel.resetChannelState();

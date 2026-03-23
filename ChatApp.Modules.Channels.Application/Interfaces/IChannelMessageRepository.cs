@@ -44,6 +44,15 @@ namespace ChatApp.Modules.Channels.Application.Interfaces
             bool? isMedia = null,
             DateTime? visibleFromUtc = null,
             CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Gets messages containing links in a channel (for All Links panel)
+        /// </summary>
+        Task<List<ChannelMessageDto>> GetChannelLinksAsync(
+            Guid channelId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            DateTime? visibleFromUtc = null,
+            CancellationToken cancellationToken = default);
         Task<int> GetUnreadCountAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default);
         Task<int> MarkAllAsReadAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default);
         Task<bool> HasMessagesAsync(Guid channelId, CancellationToken cancellationToken = default);

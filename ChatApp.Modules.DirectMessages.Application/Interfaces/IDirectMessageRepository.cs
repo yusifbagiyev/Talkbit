@@ -39,6 +39,14 @@ namespace ChatApp.Modules.DirectMessages.Application.Interfaces
             DateTime? beforeUtc = null,
             bool? isMedia = null,
             CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Gets messages containing links in a conversation (for All Links panel)
+        /// </summary>
+        Task<List<DirectMessageDto>> GetConversationLinksAsync(
+            Guid conversationId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            CancellationToken cancellationToken = default);
         Task<int> GetUnreadCountAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default);
         Task<List<DirectMessage>> GetUnreadMessagesForUserAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default);
         Task<int> MarkAllAsReadAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default);

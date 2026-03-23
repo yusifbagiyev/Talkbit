@@ -278,6 +278,32 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
             return await MapResultsAsync(results, sanitizeContent: false, cancellationToken);
         }
 
+        /// <summary>
+        /// Link olan mesajları qaytarır (All Links panel üçün)
+        /// Content-də http:// və ya https:// olan mesajları filter edir
+        /// </summary>
+        public async Task<List<DirectMessageDto>> GetConversationLinksAsync(
+            Guid conversationId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = BuildBaseQuery()
+                .Where(r => r.ConversationId == conversationId
+                         && !r.IsDeleted
+                         && (r.Content.Contains("http://") || r.Content.Contains("https://")));
+
+            if (beforeUtc.HasValue)
+                query = query.Where(r => r.CreatedAtUtc < beforeUtc.Value);
+
+            var results = await query
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            return await MapResultsAsync(results, sanitizeContent: false, cancellationToken);
+        }
+
 
         #region Private Helper Methods
 

@@ -338,6 +338,39 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             return await MapResultsAsync(results, channelId, sanitizeContent: false, cancellationToken);
         }
 
+        /// <summary>
+        /// Link olan mesajları qaytarır (All Links panel üçün)
+        /// Content-də http:// və ya https:// olan mesajları filter edir
+        /// </summary>
+        public async Task<List<ChannelMessageDto>> GetChannelLinksAsync(
+            Guid channelId,
+            int pageSize = 30,
+            DateTime? beforeUtc = null,
+            DateTime? visibleFromUtc = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = BuildBaseQuery()
+                .Where(r => r.ChannelId == channelId
+                         && !r.IsDeleted
+                         && (r.Content.Contains("http://") || r.Content.Contains("https://")));
+
+            if (visibleFromUtc.HasValue)
+                query = query.Where(r => r.CreatedAtUtc >= visibleFromUtc.Value);
+
+            if (beforeUtc.HasValue)
+                query = query.Where(r => r.CreatedAtUtc < beforeUtc.Value);
+
+            var results = await query
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            if (results.Count == 0)
+                return new List<ChannelMessageDto>();
+
+            return await MapResultsAsync(results, channelId, sanitizeContent: false, cancellationToken);
+        }
+
 
         public async Task<int> GetUnreadCountAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)
         {

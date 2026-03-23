@@ -10,10 +10,9 @@ import { getChatEndpoint } from "../utils/chatUtils";
 
 // ─── useSidebarPanels ────────────────────────────────────────────────────────
 // selectedChat: hansı chat açıqdır
-// messages: mesajlar (linkMessages, fileMessages memo üçün)
 // channelMembers: channel üzvlərinin lookup map-i
 // setChannelMembers: channel üzvlərini yeniləmək üçün
-export default function useSidebarPanels(selectedChat, messages, channelMembers, setChannelMembers) {
+export default function useSidebarPanels(selectedChat, channelMembers, setChannelMembers) {
 
   // ─── Core sidebar state ───────────────────────────────────────────────────
   const [showSidebar, setShowSidebar] = useState(false);
@@ -34,6 +33,8 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
   const [linksMenuId, setLinksMenuId] = useState(null);
   const [linksSearchOpen, setLinksSearchOpen] = useState(false);
   const [linksSearchText, setLinksSearchText] = useState("");
+  const [linkMessages, setLinkMessages] = useState([]);
+  const [linksLoading, setLinksLoading] = useState(false);
 
   // ─── Chats with User panel ────────────────────────────────────────────────
   const [showChatsWithUser, setShowChatsWithUser] = useState(false);
@@ -106,19 +107,58 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     }
   }, []);
 
+  // ─── loadLinkMessages — API-dən link olan mesajları yüklə ────────────────────
+  const loadLinkMessages = useCallback(async (chat) => {
+    if (!chat) return;
+    const endpoint = getChatEndpoint(chat.id, chat.type, "/messages/links");
+    if (!endpoint) return;
+    try {
+      setLinksLoading(true);
+      const data = await apiGet(endpoint);
+      // Hər mesajdan URL-ləri çıxar
+      const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+      const results = [];
+      for (const msg of (data || [])) {
+        if (!msg.content) continue;
+        const urls = msg.content.match(urlRegex);
+        if (!urls) continue;
+        for (const url of urls) {
+          let domain = "";
+          try { domain = new URL(url).hostname; } catch { domain = url; }
+          results.push({
+            id: msg.id, url, domain,
+            senderFullName: msg.senderFullName,
+            senderAvatarUrl: msg.senderAvatarUrl,
+            createdAtUtc: msg.createdAtUtc,
+          });
+        }
+      }
+      setLinkMessages(results);
+    } catch (err) {
+      console.error("Failed to load link messages:", err);
+      setLinkMessages([]);
+    } finally {
+      setLinksLoading(false);
+    }
+  }, []);
+
   // ─── Sidebar açıldığında: data yoxdursa API-dən yüklə ──────────────────────
   // Cache bərpası handleSelectChat-da olur — burada yalnız boşdursa yüklə
   useEffect(() => {
     if (!showSidebar || !selectedChat) return;
     // Əgər favoriteMessages və previewFiles artıq cache-dən bərpa olunubsa, yenidən yükləmə
-    if (favoriteMessages.length > 0 || previewFiles.length > 0) {
+    const hasCachedData = favoriteMessages.length > 0 || previewFiles.length > 0;
+    if (hasCachedData) {
       setSidebarDataLoading(false);
+      // Links cache-dən bərpa olunmayıbsa, yüklə
+      if (linkMessages.length === 0) loadLinkMessages(selectedChat);
       return;
     }
     setSidebarDataLoading(true);
     Promise.all([
       loadPreviewFiles(selectedChat),
       loadFavoriteMessages(selectedChat),
+      loadLinkMessages(selectedChat),
     ]).finally(() => setSidebarDataLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSidebar, selectedChat?.id]);
@@ -246,28 +286,6 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     [favoriteMessages],
   );
 
-  // linkMessages — mesajlardan URL-ləri çıxarır
-  const linkMessages = useMemo(() => {
-    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
-    const results = [];
-    for (const msg of messages) {
-      if (!msg.content) continue;
-      const urls = msg.content.match(urlRegex);
-      if (!urls) continue;
-      for (const url of urls) {
-        let domain = "";
-        try { domain = new URL(url).hostname; } catch { domain = url; }
-        results.push({
-          id: msg.id, url, domain,
-          senderFullName: msg.senderFullName,
-          senderAvatarUrl: msg.senderAvatarUrl,
-          createdAtUtc: msg.createdAtUtc,
-        });
-      }
-    }
-    return results.sort((a, b) => new Date(b.createdAtUtc) - new Date(a.createdAtUtc));
-  }, [messages]);
-
   // ─── loadFileMessages — API-dən faylları yüklə (pagination ilə) ────────────
   // Race condition qoruması: requestId ilə köhnə sorğuların cavabını ignore et
   const filesRequestIdRef = useRef(0);
@@ -329,6 +347,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     setLinksMenuId(null);
     setLinksSearchOpen(false);
     setLinksSearchText("");
+    setLinkMessages([]);
     setShowFilesMedia(false);
     setFilesMediaTab("media");
     setFilesMenuId(null);
@@ -460,6 +479,7 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     showAllLinks, setShowAllLinks,
     linksMenuId, setLinksMenuId,
     linksSearchOpen, setLinksSearchOpen, linksSearchText, setLinksSearchText,
+    linkMessages, setLinkMessages, linksLoading,
     // Chats with User
     showChatsWithUser, setShowChatsWithUser,
     chatsWithUserData, setChatsWithUserData,
@@ -481,8 +501,8 @@ export default function useSidebarPanels(selectedChat, messages, channelMembers,
     // Functions
     loadFavoriteMessages, handleFavoriteMessage, handleRemoveFavorite,
     handleOpenChatsWithUser, loadMembersPanelPage, loadFileMessages, loadPreviewFiles,
-    handleNewFileMessage, closeSidebar, resetSidebarPanels, resetChatsWithUser,
+    handleNewFileMessage, loadLinkMessages, closeSidebar, resetSidebarPanels, resetChatsWithUser,
     // Memos
-    favoriteIds, linkMessages,
+    favoriteIds,
   };
 }
