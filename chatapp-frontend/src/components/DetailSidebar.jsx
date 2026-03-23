@@ -899,29 +899,32 @@ function DetailSidebar({
 
               // Context menu render helper — media və files üçün ortaq
               const renderContextMenu = (f) => sidebar.filesMenuId === f.id && (
-                <div className="ds-dropdown">
-                  <button className="ds-dropdown-item" onClick={() => { onScrollToMessage(f.id); sidebar.setFilesMenuId(null); }}>
-                    View context
-                  </button>
-                  <button className="ds-dropdown-item" onClick={() => {
-                    downloadFileByUrl(f.fileUrl, f.fileName);
-                    sidebar.setFilesMenuId(null);
-                  }}>
-                    Download file
-                  </button>
-                  <button className="ds-dropdown-item" onClick={() => {
-                    downloadFileByUrl(f.fileUrl, f.fileName);
-                    sidebar.setFilesMenuId(null);
-                  }}>
-                    Save to Drive
-                  </button>
-                  <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => {
-                    onDeleteMessage(f);
-                    sidebar.setFilesMenuId(null);
-                  }}>
-                    Delete file
-                  </button>
-                </div>
+                <>
+                  <div className="ds-fm-dropdown-overlay" onClick={() => sidebar.setFilesMenuId(null)} />
+                  <div className="ds-dropdown">
+                    <button className="ds-dropdown-item" onClick={() => { onScrollToMessage(f.id); sidebar.setFilesMenuId(null); }}>
+                      View context
+                    </button>
+                    <button className="ds-dropdown-item" onClick={() => {
+                      downloadFileByUrl(f.fileUrl, f.fileName);
+                      sidebar.setFilesMenuId(null);
+                    }}>
+                      Download file
+                    </button>
+                    <button className="ds-dropdown-item" onClick={() => {
+                      downloadFileByUrl(f.fileUrl, f.fileName);
+                      sidebar.setFilesMenuId(null);
+                    }}>
+                      Save to Drive
+                    </button>
+                    <button className="ds-dropdown-item ds-dropdown-danger" onClick={() => {
+                      onDeleteMessage(f);
+                      sidebar.setFilesMenuId(null);
+                    }}>
+                      Delete file
+                    </button>
+                  </div>
+                </>
               );
 
               if (tab === "media") {
@@ -937,15 +940,8 @@ function DetailSidebar({
                   }
                   elements.push(
                     <div key={f.id} className="ds-fm-media-item">
-                      {/* Şəkil + avatar inner container — klik: şəkil→lightbox, fayl→yüklə */}
-                      <div className="ds-fm-media-inner" onClick={(e) => handleFileClick(f, e)}>
-                        <img
-                          src={getFileUrl(f.fileUrl)}
-                          alt=""
-                          className="ds-fm-media-img"
-                          onError={(e) => { e.target.style.display = "none"; }}
-                        />
-                        {/* Göndərən avatar — şəklin üzərində sol alt */}
+                      {/* Yuxarı sıra — avatar (sol) + more butonu (sağ) */}
+                      <div className="ds-fm-media-topbar">
                         <div
                           className="ds-fm-media-sender"
                           style={{ background: f.senderAvatarUrl ? "transparent" : getAvatarColor(f.senderFullName) }}
@@ -957,24 +953,32 @@ function DetailSidebar({
                             getInitials(f.senderFullName)
                           )}
                         </div>
-                      </div>
-                      {/* More butonu — sağ üst, hover-da görünür, dropdown kəsilməsin deyə inner-dən kənarda */}
-                      <div
-                        className="ds-fm-media-more-wrap"
-                        ref={sidebar.filesMenuId === f.id ? sidebar.filesMenuRef : null}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          className="ds-fm-media-more-btn"
-                          onClick={(e) => { e.stopPropagation(); sidebar.setFilesMenuId(sidebar.filesMenuId === f.id ? null : f.id); }}
+                        <div
+                          className="ds-fm-media-more-wrap"
+                          ref={sidebar.filesMenuId === f.id ? sidebar.filesMenuRef : null}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <circle cx="5" cy="12" r="2" />
-                            <circle cx="12" cy="12" r="2" />
-                            <circle cx="19" cy="12" r="2" />
-                          </svg>
-                        </button>
-                        {renderContextMenu(f)}
+                          <button
+                            className="ds-fm-media-more-btn"
+                            onClick={(e) => { e.stopPropagation(); sidebar.setFilesMenuId(sidebar.filesMenuId === f.id ? null : f.id); }}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
+                          </button>
+                          {renderContextMenu(f)}
+                        </div>
+                      </div>
+                      {/* Şəkil — ayrıca, aşağıda */}
+                      <div className="ds-fm-media-inner" onClick={(e) => handleFileClick(f, e)}>
+                        <img
+                          src={getFileUrl(f.fileUrl)}
+                          alt=""
+                          className="ds-fm-media-img"
+                          onError={(e) => { e.target.style.display = "none"; }}
+                        />
                       </div>
                     </div>
                   );
@@ -998,15 +1002,17 @@ function DetailSidebar({
                   <div key={f.id}>
                     {showDate && <div className="ds-favorites-date"><span>{msgDate}</span></div>}
                     <div className="ds-fm-file-item" onClick={(e) => handleFileClick(f, e)}>
-                      {/* Rəngli fayl tip ikonu */}
+                      {/* Rəngli fayl tip ikonu — kiçik, çərçivəli */}
                       <div className="ds-fm-file-icon-wrap">
-                        <FileTypeIcon fileName={f.fileName} size={40} />
+                        <FileTypeIcon fileName={f.fileName} size={22} />
                       </div>
                       <div className="ds-fm-file-body">
-                        <span className="ds-fm-file-name">
-                          {renderHighlight(f.fileName, query)}
-                        </span>
-                        <span className="ds-fm-file-size">{sizeStr}</span>
+                        <div className="ds-fm-file-name-row">
+                          <span className="ds-fm-file-name">
+                            {renderHighlight(f.fileName, query)}
+                          </span>
+                          <span className="ds-fm-file-size">{sizeStr}</span>
+                        </div>
                         {/* Sender avatar + ad */}
                         <div className="ds-fm-file-sender">
                           <div

@@ -1158,15 +1158,79 @@
 
 .ds-fm-media-item {
   position: relative;
-  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
 }
 
-/* Inner container — şəkil + avatar burada clip olunur, dropdown kənarda qalır */
+/* Yuxarı sıra — avatar (sol) + more butonu (sağ), yarısı şəklin üzərinə düşür */
+.ds-fm-media-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+  margin-bottom: -6px;
+  position: relative;
+  z-index: 1;
+  min-height: 24px;
+}
+
+/* Göndərən avatar — yuxarı sol, yarısı şəklin üzərinə düşür */
+.ds-fm-media-sender {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.ds-fm-media-sender-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* More butonu — yuxarı sağ, hover-da görünür */
+.ds-fm-media-more-wrap {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+/* More butonu yalnız hover-da görünür, dropdown açıq olduqda həmişə göstərir */
+.ds-fm-media-item:hover .ds-fm-media-more-wrap,
+.ds-fm-media-more-wrap:has(.ds-dropdown) {
+  opacity: 1;
+  z-index: var(--z-modal);
+}
+
+.ds-fm-media-more-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--gray-500);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+/* Şəkil konteyneri — ayrıca, topbar-dan aşağıda */
 .ds-fm-media-inner {
   position: relative;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 1;
   border-radius: 8px;
   overflow: hidden;
   background: var(--gray-100);
@@ -1178,107 +1242,55 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform var(--transition-fast);
-}
-
-.ds-fm-media-inner:hover .ds-fm-media-img {
-  transform: scale(1.04);
-}
-
-/* Göndərən avatar — sol alt küncündə */
-.ds-fm-media-sender {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  color: #fff;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-}
-
-.ds-fm-media-sender-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-/* More butonu — sağ üst, yalnız hover zamanı görünür */
-.ds-fm-media-more-wrap {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-/* More butonu yalnız hover-da görünür, amma dropdown açıq olan item həmişə göstərir */
-.ds-fm-media-item:hover .ds-fm-media-more-wrap,
-.ds-fm-media-more-wrap:has(.ds-dropdown) {
-  opacity: 1;
-}
-
-.ds-fm-media-more-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition-fast);
 }
 
 .ds-fm-media-more-btn:hover {
-  background: rgba(0, 0, 0, 0.7);
+  color: var(--gray-700);
 }
 
-/* Media dropdown — scroll container-dən kəsilməməsi üçün fixed, pozisiya JS ilə hesablanır */
+/* Media dropdown — fixed, z-index yüksək, pozisiya JS ilə hesablanır */
 .ds-fm-media-more-wrap .ds-dropdown {
   position: fixed;
   margin-top: 0;
+  z-index: var(--z-modal);
 }
 
-/* Dropdown açıq olduqda digər media item-ların hover-ını blokla */
-.ds-fm-media-grid:has(.ds-dropdown) .ds-fm-media-item:not(:has(.ds-dropdown)) {
-  pointer-events: none;
+/* Dropdown overlay — arxanı bloklayır, dropdown önə çıxır */
+.ds-fm-dropdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) - 1);
+  background: transparent;
 }
 
-/* Files & Media Panel — Files List (Bitrix24 stil) */
+/* Dropdown açıq olduqda digər item-ların topbar-larını gizlət */
+.ds-fm-media-grid:has(.ds-dropdown) .ds-fm-media-item:not(:has(.ds-dropdown)) .ds-fm-media-topbar {
+  visibility: hidden;
+}
+
+/* Files & Media Panel — Files List */
 .ds-fm-file-item {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 7px 12px;
   cursor: pointer;
-  transition: background var(--transition-fast);
   border-radius: 8px;
   margin: 0 8px;
   position: relative;
 }
 
-.ds-fm-file-item:hover {
-  background: var(--gray-50);
-}
-
 .ds-fm-file-icon-wrap {
   flex-shrink: 0;
   width: 36px;
-  height: 42px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 4px;
 }
 
 .ds-fm-file-body {
@@ -1289,6 +1301,14 @@
   gap: 2px;
 }
 
+/* Ad + həcm eyni sətirdə */
+.ds-fm-file-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
 .ds-fm-file-name {
   font-size: 13px;
   font-weight: 500;
@@ -1296,6 +1316,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .ds-fm-file-name mark {
@@ -1306,8 +1327,10 @@
 }
 
 .ds-fm-file-size {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--gray-400);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Sender avatar + ad — fayl item-ın altında */
@@ -1351,6 +1374,17 @@
 .ds-fm-file-item:hover .ds-favorites-more-wrap,
 .ds-fm-file-item .ds-favorites-more-wrap:has(.ds-dropdown) {
   opacity: 1;
+}
+
+/* Files tab dropdown — fixed pozisiya, JS ilə hesablanır */
+.ds-fm-file-item .ds-favorites-more-wrap .ds-dropdown {
+  position: fixed;
+  margin-top: 0;
+  z-index: var(--z-modal);
+}
+
+.ds-fm-file-item .ds-favorites-more-wrap:has(.ds-dropdown) {
+  z-index: var(--z-modal);
 }
 
 /* Add chat members — floating popup */
