@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { getInitials, getAvatarColor } from "../utils/chatUtils";
 import { apiGet, apiPost, apiPut, apiDelete, apiUpload } from "../services/api";
+import { useToast } from "../context/ToastContext";
 import "./ChannelPanel.css";
 
 // ─── Hierarchy helpers ──────────────────────────────────────────────────────
@@ -54,16 +55,43 @@ function filterHierarchy(nodes, query) {
   const filtered = [];
   for (const node of nodes) {
     const nameMatch = node.name?.toLowerCase().includes(q);
-    // Child-ları da filter et
-    const filteredChildren = node.children?.length
-      ? filterHierarchy(node.children, query)
-      : [];
-    // Əgər node özü və ya child-ları uyğundursa — saxla
-    if (nameMatch || filteredChildren.length > 0) {
-      filtered.push({ ...node, children: filteredChildren });
+    if (nameMatch && (node.type === "Department" || node.type === "Company")) {
+      // Department/Company adı match edirsə — bütün uşaqları olduğu kimi saxla
+      filtered.push(node);
+    } else {
+      // Uşaqları rekursiv filter et
+      const filteredChildren = node.children?.length
+        ? filterHierarchy(node.children, query)
+        : [];
+      if (nameMatch || filteredChildren.length > 0) {
+        filtered.push({ ...node, children: filteredChildren.length > 0 ? filteredChildren : node.children });
+      }
     }
   }
   return filtered;
+}
+
+// Axtarış zamanı avtomatik expand olunacaq department ID-lərini tap
+function getAutoExpandIds(nodes, query) {
+  if (!query) return new Set();
+  const q = query.toLowerCase();
+  const ids = new Set();
+  for (const node of nodes) {
+    if (node.children?.length) {
+      // Uşaqlardan hər hansı biri match edirsə bu node-u expand et
+      const childMatch = node.children.some(
+        (c) => c.type === "User" && c.name?.toLowerCase().includes(q)
+      );
+      if (childMatch) ids.add(node.id);
+      // Rekursiv — alt department-lərdə də yoxla
+      const childExpands = getAutoExpandIds(node.children, query);
+      if (childExpands.size > 0) {
+        ids.add(node.id);
+        for (const id of childExpands) ids.add(id);
+      }
+    }
+  }
+  return ids;
 }
 
 // ─── HierarchyNode — recursive tree node render ────────────────────────────
@@ -383,6 +411,19 @@ function ChannelPanel({
     return filterHierarchy(hierarchy, searchText);
   }, [hierarchy, searchText]);
 
+  // Axtarış dəyişdikdə uyğun department-ləri avtomatik expand et
+  useEffect(() => {
+    if (!searchText.trim()) return;
+    const ids = getAutoExpandIds(hierarchy, searchText);
+    if (ids.size > 0) {
+      setExpandedDepts((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) next.add(id);
+        return next;
+      });
+    }
+  }, [searchText, hierarchy]);
+
   // Department expand/collapse toggle
   const handleToggleExpand = useCallback((deptId) => {
     setExpandedDepts((prev) => {
@@ -403,6 +444,9 @@ function ChannelPanel({
       const isAlreadySelected = members.some((m) => m.id === node.id);
 
       if (isAlreadySelected) {
+        // Owner (admin) unselect oluna bilməz
+        const memberToRemove = members.find((m) => m.id === node.id);
+        if (memberToRemove?.isAdmin) return;
         // Unselect — sil
         setMembers((prev) => prev.filter((m) => m.id !== node.id));
       } else {
@@ -433,7 +477,7 @@ function ChannelPanel({
 
   // CREATE CHAT state
   const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState(null);
+  const { showToast } = useToast();
 
   // ─── handleCreateChannel — CREATE CHAT butonu ─────────────────────────────
   // 1. Department member-ləri resolve edir (hierarchy-dən user ID-lər çıxarır)
@@ -442,7 +486,7 @@ function ChannelPanel({
   const handleCreateChannel = async () => {
     if (creating || !nameValid) return;
     setCreating(true);
-    setCreateError(null);
+
 
     try {
       // Members array-dan user ID-lərini topla
@@ -492,7 +536,7 @@ function ChannelPanel({
       // Backend channel DTO qaytarır — onChannelCreated callback ilə Chat.jsx-ə ötür
       if (onChannelCreated) onChannelCreated(result);
     } catch (err) {
-      setCreateError(err.message || "Failed to create channel");
+      showToast(err.message || "Failed to create channel", "error");
     } finally {
       setCreating(false);
     }
@@ -502,7 +546,7 @@ function ChannelPanel({
   const handleUpdateChannel = async () => {
     if (creating || !nameValid || !editMode || !channelData) return;
     setCreating(true);
-    setCreateError(null);
+
 
     try {
       // 1. Avatar upload (əgər dəyişibsə)
@@ -571,7 +615,7 @@ function ChannelPanel({
         });
       }
     } catch (err) {
-      setCreateError(err.message || "Failed to update channel");
+      showToast(err.message || "Failed to update channel", "error");
     } finally {
       setCreating(false);
     }
@@ -640,7 +684,7 @@ function ChannelPanel({
               (add a person or a department)
             </span>
           </div>
-          <div className="create-channel-members-card">
+          <div className="create-channel-members-card" ref={panelRef}>
             <div className="create-channel-members">
               {members.map((member) => (
                 <div
@@ -731,7 +775,7 @@ function ChannelPanel({
             </div>
             {/* Hierarchy panel — input-un altında açılır */}
             {addOpen && (
-                <div className="add-member-panel" ref={panelRef}>
+                <div className="add-member-panel">
                   {hierarchyLoading ? (
                     <div className="add-member-loading">Loading...</div>
                   ) : filteredHierarchy.length === 0 ? (
@@ -864,9 +908,6 @@ function ChannelPanel({
         <button className="create-channel-cancel-btn" onClick={onCancel}>
           CANCEL
         </button>
-        {createError && (
-          <div className="create-channel-create-error">{createError}</div>
-        )}
       </div>
     </div>
   );

@@ -1123,7 +1123,7 @@ function DetailSidebar({
             )}
             <span className="ds-favorites-title">
               Members: {selectedChat.memberCount || sidebar.membersPanelList.length}
-              <button className="ds-mp-add-btn" onClick={() => { sidebar.setShowMembersPanel(false); sidebar.setMemberMenuId(null); sidebar.setMembersPanelDirect(false); channel.setShowAddMember(true); }}>
+              <button className="ds-mp-add-btn" onClick={() => { sidebar.setMemberMenuId(null); channel.setShowAddMember(true); }}>
                 + Add
               </button>
             </span>

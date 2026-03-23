@@ -1518,7 +1518,24 @@
   white-space: nowrap;
 }
 
-.ds-am-chip svg {
+.ds-am-chip-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ds-am-chip-avatar-placeholder {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 600;
+  color: #fff;
   flex-shrink: 0;
 }
 
@@ -1574,12 +1591,12 @@
 .ds-am-checkbox:checked::after {
   content: "";
   position: absolute;
-  left: 4px;
+  left: 5px;
   top: 1px;
-  width: 6px;
-  height: 10px;
+  width: 5px;
+  height: 9px;
   border: solid #fff;
-  border-width: 0 2.5px 2.5px 0;
+  border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
@@ -1626,6 +1643,17 @@
   background: var(--gray-100);
   outline: 2px solid var(--selected-chat);
   outline-offset: -2px;
+}
+
+.ds-am-user.is-member {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ds-am-user.is-member .ds-am-user-role {
+  color: #e08600;
+  font-style: italic;
 }
 
 .ds-am-user-avatar {

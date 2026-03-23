@@ -2735,6 +2735,11 @@ function Chat() {
         next.delete(uid);
         return next;
       });
+      channel.setAddMemberSelectedInfo((prev) => {
+        const next = new Map(prev);
+        next.delete(uid);
+        return next;
+      });
     },
     [channel],
   );
@@ -2744,7 +2749,14 @@ function Chat() {
 
   // AddMember user select/toggle handler (loop daxilində)
   const handleToggleAddMemberUser = useCallback(
-    (userId) => {
+    (userId, userFullName, userAvatarUrl) => {
+      // Seçilən user-in məlumatlarını saxla (search təmizlənsə belə chip-lərdə görünsün)
+      channel.setAddMemberSelectedInfo((prev) => {
+        const next = new Map(prev);
+        if (next.has(userId)) next.delete(userId);
+        else next.set(userId, { name: userFullName || "User", avatarUrl: userAvatarUrl });
+        return next;
+      });
       channel.setAddMemberSelected((prev) => {
         const next = new Set(prev);
         if (next.has(userId)) next.delete(userId);
@@ -2768,12 +2780,12 @@ function Chat() {
       : new Set();
     if (query.length >= 2) {
       return channel.addMemberSearchResults
-        .filter((u) => !existingIds.has(u.id))
         .map((u) => ({
           id: u.id,
           fullName: u.fullName || `${u.firstName} ${u.lastName}`,
           avatarUrl: u.avatarUrl,
           position: u.position || "User",
+          isMember: existingIds.has(u.id),
         }));
     }
     return channel.addMemberUsers;
@@ -2790,17 +2802,22 @@ function Chat() {
   const addMemberChipMap = useMemo(() => {
     if (!channel.showAddMember || channel.addMemberSelected.size === 0)
       return new Map();
-    const map = new Map();
-    for (const u of channel.addMemberUsers)
-      map.set(u.id, u.fullName || u.name || "User");
+    // Əsas mənbə: selectedInfo — seçim zamanı saxlanılıb, həmişə mövcuddur
+    const map = new Map(channel.addMemberSelectedInfo);
+    // Əlavə mənbələr (selectedInfo-da olmayan user-lər üçün fallback)
+    for (const u of channel.addMemberUsers) {
+      if (!map.has(u.id))
+        map.set(u.id, { name: u.fullName || u.name || "User", avatarUrl: u.avatarUrl });
+    }
     for (const c of conversations) {
       if (c.otherUserId && !map.has(c.otherUserId))
-        map.set(c.otherUserId, c.name || "User");
+        map.set(c.otherUserId, { name: c.name || "User", avatarUrl: c.avatarUrl });
     }
     return map;
   }, [
     channel.showAddMember,
     channel.addMemberSelected.size,
+    channel.addMemberSelectedInfo,
     channel.addMemberUsers,
     conversations,
   ]);
@@ -3622,18 +3639,17 @@ function Chat() {
                   channel.addMemberSelected.size > 0 ? (
                     <div className="ds-am-search-box">
                       {[...channel.addMemberSelected].map((uid) => {
-                        const name = addMemberChipMap.get(uid) || "User";
+                        const info = addMemberChipMap.get(uid) || { name: "User" };
                         return (
                           <span key={uid} className="ds-am-chip">
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
-                            </svg>
-                            {name}
+                            {info.avatarUrl ? (
+                              <img src={info.avatarUrl} alt="" className="ds-am-chip-avatar" />
+                            ) : (
+                              <span className="ds-am-chip-avatar-placeholder" style={{ background: getAvatarColor(info.name) }}>
+                                {getInitials(info.name)}
+                              </span>
+                            )}
+                            {info.name}
                             <button
                               className="ds-am-chip-remove"
                               onClick={() => handleRemoveAddMemberChip(uid)}
@@ -3664,7 +3680,8 @@ function Chat() {
                             setAddMemberNavIndex((i) => (i <= 0 ? len - 1 : i - 1));
                           } else if (e.key === "Enter" && addMemberNavIndex >= 0) {
                             e.preventDefault();
-                            handleToggleAddMemberUser(addMemberFilteredUsers[addMemberNavIndex].id);
+                            const navUser = addMemberFilteredUsers[addMemberNavIndex];
+                            handleToggleAddMemberUser(navUser.id, navUser.fullName, navUser.avatarUrl);
                           }
                         }}
                         onBlur={() => {
@@ -3718,11 +3735,12 @@ function Chat() {
                     addMemberFilteredUsers.map((u, idx) => {
                       const isSelected = channel.addMemberSelected.has(u.id);
                       const isNav = idx === addMemberNavIndex;
+                      const isMember = u.isMember;
                       return (
                         <div
                           key={u.id}
-                          className={`ds-am-user${isSelected ? " selected" : ""}${isNav ? " nav-active" : ""}`}
-                          onClick={() => handleToggleAddMemberUser(u.id)}
+                          className={`ds-am-user${isSelected ? " selected" : ""}${isNav ? " nav-active" : ""}${isMember ? " is-member" : ""}`}
+                          onClick={() => !isMember && handleToggleAddMemberUser(u.id, u.fullName, u.avatarUrl)}
                         >
                           <div
                             className="ds-am-user-avatar"
@@ -3743,10 +3761,10 @@ function Chat() {
                               {u.fullName}
                             </span>
                             <span className="ds-am-user-role">
-                              {u.position}
+                              {isMember ? "Already a member" : u.position}
                             </span>
                           </div>
-                          {isSelected && (
+                          {isSelected && !isMember && (
                             <svg
                               className="ds-am-check"
                               width="20"

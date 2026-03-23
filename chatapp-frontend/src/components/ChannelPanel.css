@@ -490,14 +490,13 @@
 /* Hierarchy dropdown — members input-un altında açılır */
 .add-member-panel {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 0;
-  right: 0;
-  max-height: 320px;
+  width: 50%;
+  max-height: 340px;
   background: var(--white);
-  border-radius: 0 0 10px 10px;
+  border-radius: 10px;
   border: 1px solid #dde0e6;
-  border-top: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 4px 0;
   overflow-y: auto;

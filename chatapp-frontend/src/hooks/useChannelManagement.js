@@ -28,6 +28,8 @@ export default function useChannelManagement(selectedChat, conversations, channe
   const [addMemberInviting, setAddMemberInviting] = useState(false);
   const [addMemberSearchResults, setAddMemberSearchResults] = useState([]);
   const [addMemberShowHistory, setAddMemberShowHistory] = useState(true);
+  // Seçilən user-lərin məlumatları — search təmizlənsə belə chip-lərdə ad/avatar görünsün
+  const [addMemberSelectedInfo, setAddMemberSelectedInfo] = useState(new Map());
 
   // ─── Error feedback state — istifadəçiyə xəta göstərmək üçün ─────────────
   const [inviteError, setInviteError] = useState(null);
@@ -169,19 +171,20 @@ export default function useChannelManagement(selectedChat, conversations, channe
   }, [addMemberSearch]);
 
   // ─── addMemberUsers memo ───────────────────────────────────────────────────
-  // DM conversations-dan artıq channel üzvü olmayanları göstər
+  // DM conversations-dan istifadəçiləri göstər, üzv olanları isMember ilə işarələ
   const addMemberUsers = useMemo(() => {
     if (!showAddMember || !selectedChat) return [];
     const existingIds = channelMembers[selectedChat.id]
       ? new Set(Object.keys(channelMembers[selectedChat.id]))
       : new Set();
     return conversations
-      .filter((c) => c.type === 0 && !c.isNotes && c.otherUserId && !existingIds.has(c.otherUserId))
+      .filter((c) => c.type === 0 && !c.isNotes && c.otherUserId)
       .map((c) => ({
         id: c.otherUserId,
         fullName: c.name,
         avatarUrl: c.avatarUrl,
         position: c.otherUserPosition || "User",
+        isMember: existingIds.has(c.otherUserId),
       }));
   }, [showAddMember, selectedChat, conversations, channelMembers]);
 
@@ -191,6 +194,7 @@ export default function useChannelManagement(selectedChat, conversations, channe
     setAddMemberSearch("");
     setAddMemberSearchActive(false);
     setAddMemberSelected(new Set());
+    setAddMemberSelectedInfo(new Map());
     setInviteError(null);
     setActionError(null);
   }, []);
@@ -205,7 +209,7 @@ export default function useChannelManagement(selectedChat, conversations, channe
     addMemberSearchActive, setAddMemberSearchActive,
     addMemberSelected, setAddMemberSelected,
     addMemberInviting, addMemberShowHistory, setAddMemberShowHistory,
-    addMemberSearchResults, addMemberUsers,
+    addMemberSearchResults, addMemberUsers, addMemberSelectedInfo, setAddMemberSelectedInfo,
     addMemberRef,
     // Error feedback
     inviteError, setInviteError,
