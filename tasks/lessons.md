@@ -146,3 +146,10 @@
 - **Mövcud struktur**:
   - `Chat.css` → :root, animations, layout, chat-panel, messages-area (656 sətir)
   - Hər komponent öz CSS-i: Sidebar, ConversationList, ChatHeader, PinnedBar, MessageBubble, MessageActionMenu, ChatStatusBar, ReadersPanel, ChatInputArea, ForwardPanel, SelectToolbar, ChannelPanel, DetailSidebar, MentionPanel, FilePreviewPanel, ImageViewer
+
+### Lesson: CSS scroll problemlərini aşkar et — kompleks yox, sadə həll tap
+- **Date**: 2026-03-24
+- **Context**: DetailSidebar `.ds-body`-nin scroll-u işləmirdi. Onlarla CSS cəhdi etdim (flex min-height, max-height, position:absolute, inline style) — heç biri işləmədi. Son həll: `.detail-sidebar`-ı scroll container et, header-i wrapper div ilə xaricə çıxar.
+- **Mistake**: Eyni flex scroll fix-lərini (min-height:0, max-height calc, position absolute) dəfələrlə cəhd etdim. İşləmədikdə başqa yanaşmaya keçmək əvəzinə eyni yanaşmanı təkrarladım. CSS müasir olmayan scrollbar stili ucbatından test zamanı scrollbar görünmürdü.
+- **Rule**: CSS problemi 2 cəhddə həll olunmursa, DƏRHAL fərqli yanaşmaya keç. Flex scroll işləmirsə → scroll container-i dəyiş (parent-i scroll et). Dəyişiklikləri tez test et — scrollbar invisible ola bilər, `overflow-y: scroll` ilə məcburi göstər. Lazımsız debugging kodu (inline style, !important) yazmadan əvvəl strukturu dəyiş.
+- **Sadə həll pattern**: Nested scroll əvəzinə → parent container-i scroll et + header wrapper ilə ayır.

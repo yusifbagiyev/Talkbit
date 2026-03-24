@@ -351,6 +351,11 @@
   transition: opacity var(--transition-slow);
 }
 
+/* Şəkil+text — şəkil mərkəzdə görünsün (display:block elementini flex-də mərkəzlə) */
+.bubble-file-image:not(.image-only) img {
+  margin: 0 auto;
+}
+
 .bubble-file-image img.loaded {
   opacity: 1;
 }
@@ -498,6 +503,10 @@
 }
 
 /* Backend ölçüsü olan image-only şəkillər — container artıq düzgün ölçüdədir, img doldurar */
+/* Dar layoutda (sidebar açıq) inline width-dən max-width prioritet olur */
+.bubble-file-image.has-dimensions.image-only {
+  max-width: 100%;
+}
 .bubble-file-image.has-dimensions.image-only img {
   display: block;
   width: 100%;

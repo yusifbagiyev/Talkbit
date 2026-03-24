@@ -23,6 +23,9 @@
 - `MEMORY.md` → private per agent
 - `outputs/` → append-only, always new dated files
 
+## Language
+- All content written inside agent files (RULES.md, MEMORY.md, AGENT.md, outputs/, journal/entries/) must be in **English only**
+
 ## Key Principles
 - One skill per cycle
 - Every skill must serve at least one goal

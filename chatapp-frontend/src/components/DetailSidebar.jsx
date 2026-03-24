@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useRef, useEffect } from "react";
 // ─── DetailSidebar.jsx — Bitrix24 stilində sağ detail panel ────────────────
 // Chat.jsx-dən çıxarılmış sidebar JSX bloku.
 // Panellər: Profile, Favorites, Links, Search, ChatsWithUser, FilesMedia, Members
@@ -81,6 +81,17 @@ function DetailSidebar({
   setSelectedChat,
   setMessageText,
 }) {
+  const containerRef = useRef(null);
+
+  // Overlay panel açıldıqda scroll sıfırla ki, panel-in header-i görünsün
+  useEffect(() => {
+    if (sidebar.showFavorites || sidebar.showAllLinks || sidebar.showFilesMedia ||
+        sidebar.showSearchPanel || sidebar.showChatsWithUser || sidebar.showMembersPanel) {
+      if (containerRef.current) containerRef.current.scrollTop = 0;
+    }
+  }, [sidebar.showFavorites, sidebar.showAllLinks, sidebar.showFilesMedia,
+      sidebar.showSearchPanel, sidebar.showChatsWithUser, sidebar.showMembersPanel]);
+
   // Preview grid — API-dən gələn son 6 fayl
   const previewFiles = sidebar.previewFiles;
 
@@ -166,7 +177,9 @@ function DetailSidebar({
         </div>
       </div>
 
-      {/* Scrollable body — loading zamanı skeleton göstər */}
+      {/* Scrollable body wrapper — header-dən aşağı scroll */}
+      <div ref={containerRef} className="ds-scroll-body">
+      {/* Loading zamanı skeleton göstər */}
       {sidebar.sidebarDataLoading ? <SidebarSkeleton /> : (
       <div className="ds-body">
         {/* Profil kartı — vertikal: avatar → ad → position → create group → sound */}
@@ -340,6 +353,7 @@ function DetailSidebar({
         </div>
       </div>
       )}
+      </div>
 
       {/* ═══════ Overlay panellər ═══════ */}
 

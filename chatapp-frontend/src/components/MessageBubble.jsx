@@ -417,9 +417,9 @@ function MessageBubble({
     const maxW = 450;
     const maxH = 400;
     if (!msg.content) {
-      // Image-only: explicit width + height (container öz ölçüsünü bilmir)
+      // Image-only: width + aspectRatio (dar layoutda max-width: 100% CSS qaydası height-i proporsiyal azaldır)
       const scale = Math.min(maxW / msg.fileWidth, maxH / msg.fileHeight, 1);
-      return { width: Math.round(msg.fileWidth * scale), height: Math.round(msg.fileHeight * scale) };
+      return { width: Math.round(msg.fileWidth * scale), aspectRatio: `${msg.fileWidth} / ${msg.fileHeight}` };
     }
     // Image+text: container width CSS-dən gəlir, aspect-ratio ilə hündürlük avtomatik
     return { aspectRatio: `${msg.fileWidth} / ${msg.fileHeight}`, maxHeight: maxH };

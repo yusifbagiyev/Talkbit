@@ -1,18 +1,6 @@
----
-name: chatapp-frontend-ux
-description: >
-  ChatApp frontend UX patterns for Bitrix24-style UI components. Use this skill whenever working on
-  ChatApp sidebar panels, dropdown menus, member pickers, file/media grids, channel panels,
-  animation/transition additions, skeleton loaders, or any Bitrix24-style UI component in the
-  chatapp-frontend React project. Also trigger when fixing React hook order errors, implementing
-  stale-while-revalidate caching, or adding permission-based UI visibility. Trigger on any mention
-  of "sidebar", "ChannelPanel", "DetailSidebar", "member picker", "files and media", "dropdown
-  positioning", or "Bitrix24 style" in the ChatApp context.
----
-
 # ChatApp Frontend UX Patterns
 
-This skill captures proven patterns from the ChatApp React frontend (Bitrix24 style).
+Proven patterns from the ChatApp React frontend (Bitrix24 style).
 Follow these patterns to maintain consistency and avoid known pitfalls.
 
 ## Architecture Overview

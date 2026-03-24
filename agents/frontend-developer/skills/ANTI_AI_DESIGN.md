@@ -88,7 +88,7 @@ Rule of thumb: if you've seen it on 5+ AI demos, don't use it.
 
 **Avoid (overused by AI):**
 - Inter + anything
-- Space Grotesk + anything  
+- Space Grotesk + anything
 - Poppins + anything
 - DM Sans + DM Serif Display (this specific pairing is extremely common in AI output)
 
@@ -286,7 +286,7 @@ Flat white backgrounds are the biggest AI tell. Add depth:
 
 /* Gradient mesh (subtle, organic) */
 .mesh-bg {
-  background: 
+  background:
     radial-gradient(ellipse at 20% 80%, rgba(var(--accent-rgb), 0.08) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(var(--primary-rgb), 0.06) 0%, transparent 50%),
     var(--bg-base);

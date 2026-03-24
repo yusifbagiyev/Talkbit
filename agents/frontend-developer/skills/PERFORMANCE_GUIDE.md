@@ -252,45 +252,7 @@ items.forEach((el, i) => {
 }
 ```
 
-### 3.3 Virtual Scrolling for Large Lists
-
-When rendering 100+ items, use virtualization:
-
-```jsx
-// Instead of rendering all items
-{allItems.map(item => <Row key={item.id} {...item} />)}
-
-// Use a virtualizer — only renders visible items
-import { useVirtualizer } from '@tanstack/react-virtual';
-
-function VirtualList({ items }) {
-  const parentRef = useRef(null);
-  const virtualizer = useVirtualizer({
-    count: items.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 50,
-  });
-  
-  return (
-    <div ref={parentRef} style={{ overflow: 'auto', height: '400px' }}>
-      <div style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map(vItem => (
-          <div key={vItem.key} style={{
-            position: 'absolute',
-            top: vItem.start,
-            height: vItem.size,
-            width: '100%',
-          }}>
-            <Row {...items[vItem.index]} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-### 3.4 Debouncing & Throttling
+### 3.3 Debouncing & Throttling
 
 ```javascript
 // Debounce — wait until user stops typing
@@ -367,7 +329,7 @@ function PrefetchLink({ href, children }) {
     link.href = href;
     document.head.appendChild(link);
   };
-  
+
   return (
     <a href={href} onMouseEnter={prefetch}>
       {children}
@@ -459,7 +421,7 @@ function App() {
 <picture>
   <source srcset="photo.avif" type="image/avif" />
   <source srcset="photo.webp" type="image/webp" />
-  <img src="photo.jpg" 
+  <img src="photo.jpg"
        alt="Description"
        loading="lazy"
        decoding="async"
@@ -512,14 +474,14 @@ function UserCard({ userId }) {
 // GOOD — single request for all users
 function UserList({ userIds }) {
   const [users, setUsers] = useState([]);
-  
+
   useEffect(() => {
     fetch('/api/users/batch', {
       method: 'POST',
       body: JSON.stringify({ ids: userIds }),
     }).then(r => r.json()).then(setUsers);
   }, [userIds]);
-  
+
   return users.map(user => <UserCard key={user.id} user={user} />);
 }
 
@@ -528,23 +490,7 @@ function UserCard({ user }) {
 }
 ```
 
-### 7.2 GraphQL N+1
-
-```graphql
-# BAD — resolving author per-post individually
-query {
-  posts {
-    title
-    author {    # <-- triggers individual DB query per post
-      name
-    }
-  }
-}
-```
-
-Fix: Use DataLoader pattern on the backend, or restructure the query to fetch all authors in one pass.
-
-### 7.3 Detection Checklist
+### 7.2 Detection Checklist
 
 Search for these patterns in the codebase:
 1. `useEffect` + `fetch` inside a component that's rendered in a `.map()`
@@ -552,7 +498,7 @@ Search for these patterns in the codebase:
 3. Any API call where the URL includes a dynamic ID and the component is in a list
 4. Multiple identical requests visible in the Network tab when loading a page with a list
 
-### 7.4 Batch Request Patterns
+### 7.3 Batch Request Pattern
 
 When the backend doesn't support batch endpoints, implement client-side batching:
 
@@ -564,7 +510,7 @@ class RequestBatcher {
     this.fetchFn = fetchFn;
     this.timer = null;
   }
-  
+
   add(id) {
     return new Promise((resolve, reject) => {
       this.queue.push({ id, resolve, reject });
@@ -573,12 +519,12 @@ class RequestBatcher {
       }
     });
   }
-  
+
   async flush() {
     const batch = [...this.queue];
     this.queue = [];
     this.timer = null;
-    
+
     try {
       const ids = batch.map(item => item.id);
       const results = await this.fetchFn(ids);
@@ -589,5 +535,3 @@ class RequestBatcher {
   }
 }
 ```
-
-This batches multiple individual requests into a single batch call, resolving the N+1 problem at the client level even when the server endpoint doesn't natively support batching.
