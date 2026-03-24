@@ -27,8 +27,8 @@ function Sidebar({ onLogout }) {
         {/* Messages — aktiv (active class var) */}
         <button className="nav-item active" title="Messages" aria-label="Messages">
           <svg
-            width="22"
-            height="22"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -41,8 +41,8 @@ function Sidebar({ onLogout }) {
         {/* Contacts — TODO: onClick əlavə et, panel aç */}
         <button className="nav-item" title="Contacts" aria-label="Contacts">
           <svg
-            width="22"
-            height="22"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -58,8 +58,8 @@ function Sidebar({ onLogout }) {
         {/* Channels — TODO: onClick əlavə et, panel aç */}
         <button className="nav-item" title="Channels" aria-label="Channels">
           <svg
-            width="22"
-            height="22"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -74,8 +74,8 @@ function Sidebar({ onLogout }) {
         {/* Settings — TODO: onClick əlavə et, panel aç */}
         <button className="nav-item" title="Settings" aria-label="Settings">
           <svg
-            width="22"
-            height="22"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -93,8 +93,8 @@ function Sidebar({ onLogout }) {
         {/* AuthContext.logout() çağırır → backend POST /api/auth/logout, state sıfırlanır */}
         <button className="nav-item" title="Logout" aria-label="Logout" onClick={onLogout}>
           <svg
-            width="22"
-            height="22"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

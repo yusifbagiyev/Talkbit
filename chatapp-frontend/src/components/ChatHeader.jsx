@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState, useRef } from "react";
 // Utility funksiyaları import et
 import { getInitials, getAvatarColor, getLastSeenText } from "../utils/chatUtils";
 import { getFileUrl } from "../services/api";
@@ -14,15 +14,64 @@ import "./ChatHeader.css";
 //   onToggleSidebar   — sağ sidebar panelini aç/bağla
 //   onOpenSearch      — search panelini aç
 //   searchOpen        — search paneli açıqdır? (active class üçün)
-function ChatHeader({ selectedChat, onlineUsers, onOpenAddMember, addMemberOpen, onToggleSidebar, sidebarOpen, onOpenSearch, searchOpen }) {
+//   canEdit           — channel admin/owner-i? (inline ad/avatar edit üçün)
+//   onSaveChannelName — yeni ad göndər (async)
+//   onSaveChannelAvatar — yeni avatar faylı göndər (async)
+function ChatHeader({
+  selectedChat,
+  onlineUsers,
+  onOpenAddMember,
+  addMemberOpen,
+  onToggleSidebar,
+  sidebarOpen,
+  onOpenSearch,
+  searchOpen,
+  canEdit,
+  onSaveChannelName,
+  onSaveChannelAvatar,
+}) {
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
+
+  // Ad save — boşdursa və ya dəyişməyibsə ləğv et; xəta olduqda edit açıq qalır
+  async function handleSaveName() {
+    const trimmed = nameValue.trim();
+    if (!trimmed || trimmed === selectedChat.name) {
+      setEditingName(false);
+      return;
+    }
+    const success = await onSaveChannelName?.(trimmed);
+    if (success !== false) setEditingName(false);
+  }
+
+  // Avatar fayl seçim → yüklə
+  async function handleAvatarFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setAvatarUploading(true);
+    try {
+      await onSaveChannelAvatar?.(file);
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
+  const isChannel = selectedChat?.type === 1;
+  const canEditChannel = canEdit && isChannel;
+
   return (
     <div className="chat-header">
       {/* Sol tərəf: avatar + ad + status */}
       <div className="chat-header-left">
-        {/* Avatar — Notes üçün bookmark icon, digərləri üçün initials */}
+        {/* Avatar — channel üçün klik → fayl yüklə (admin/owner), digərləri read-only */}
         <div
-          className="chat-header-avatar"
+          className={`chat-header-avatar${canEditChannel ? " chat-header-avatar-editable" : ""}`}
           style={{ background: selectedChat.isNotes ? "#2FC6F6" : selectedChat.avatarUrl ? "transparent" : getAvatarColor(selectedChat.name) }}
+          onClick={canEditChannel ? () => avatarInputRef.current?.click() : undefined}
+          title={canEditChannel ? "Change avatar" : undefined}
         >
           {selectedChat.isNotes ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
@@ -38,14 +87,75 @@ function ChatHeader({ selectedChat, onlineUsers, onOpenAddMember, addMemberOpen,
           ) : (
             getInitials(selectedChat.name)
           )}
+          {/* Kamera overlay — upload zamanı göstər */}
+          {canEditChannel && (
+            <div className={`chat-header-avatar-overlay${avatarUploading ? " loading" : ""}`}>
+              {avatarUploading ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.3" />
+                  <path d="M12 2a10 10 0 0 1 10 10" strokeOpacity="1" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Gizli fayl input — avatar yükləmək üçün */}
+        {canEditChannel && (
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleAvatarFileChange}
+          />
+        )}
+
         <div className="chat-header-info">
-          {/* Birinci sıra: ad + real-time status (typing / online / last seen) */}
-          <div className="chat-header-name-row">
-            <span className="chat-header-name">
-              {selectedChat.name}
-            </span>
+          {/* Birinci sıra: ad + edit butonu (hover) + real-time status */}
+          <div className={`chat-header-name-row${canEditChannel ? " editable" : ""}`}>
+            {editingName ? (
+              <span className="chat-header-name-edit-wrap">
+                {/* Mirror span — input genişliyini mətn uzunluğuna görə müəyyən edir */}
+                <span className="chat-header-name-mirror" aria-hidden="true">
+                  {nameValue || "\u00a0"}
+                </span>
+                <input
+                  className="chat-header-name-input"
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveName();
+                    if (e.key === "Escape") setEditingName(false);
+                  }}
+                  onBlur={handleSaveName}
+                  onFocus={(e) => e.target.select()}
+                  autoFocus
+                  maxLength={100}
+                />
+              </span>
+            ) : (
+              <span className="chat-header-name">{selectedChat.name}</span>
+            )}
+
+            {/* Pencil edit butonu — həmişə DOM-da, CSS hover ilə görünür (layout shift olmur) */}
+            {canEditChannel && !editingName && (
+              <button
+                className="chat-header-edit-btn"
+                title="Edit channel name"
+                onClick={() => { setNameValue(selectedChat.name); setEditingName(true); }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+            )}
 
             {/* Mute icon — conversation muted olduqda adın yanında göstər */}
             {selectedChat.isMuted && (
@@ -65,9 +175,7 @@ function ChatHeader({ selectedChat, onlineUsers, onOpenAddMember, addMemberOpen,
                 <span className="status-online">Online</span>
               ) : (
                 <span className="status-offline">
-                  {getLastSeenText(
-                    selectedChat.otherUserLastSeenAtUtc,
-                  )}
+                  {getLastSeenText(selectedChat.otherUserLastSeenAtUtc)}
                 </span>
               ))}
           </div>
@@ -77,14 +185,9 @@ function ChatHeader({ selectedChat, onlineUsers, onOpenAddMember, addMemberOpen,
             {selectedChat.isNotes
               ? "Your personal notes"
               : selectedChat.type === 0
-                // DM — digər istifadəçinin vəzifəsi
-                ? selectedChat.otherUserPosition ||
-                  selectedChat.otherUserRole ||
-                  "User"
+                ? selectedChat.otherUserPosition || selectedChat.otherUserRole || "User"
                 : selectedChat.type === 1
-                  // Channel — üzv sayı
                   ? `${selectedChat.memberCount || 0} members`
-                  // DepartmentUser (type=2) — vəzifə adı
                   : selectedChat.positionName || "User"}
           </span>
         </div>

@@ -3,25 +3,7 @@
 > This file is private to the frontend-developer agent. Updated after weekly reviews with confirmed patterns.
 
 ## What Works
-<!-- Proven patterns with evidence -->
-
-### Avatar Circle Smoothing — `mask-image radial-gradient` (2026-03-24)
-- Global rule in `index.css` on `[class*="avatar-img"]` fades outer 4% of circle → JPEG artifacts hidden
-- See `CHATAPP_FRONTEND_UX.md` Pattern 7 for full code
-
-### Avatar Upload — Two-Step (2026-03-24)
-- Upload endpoint stores file only; must follow with `apiPut(endpoint, { avatarUrl })` to persist in DB
-- See `CHATAPP_FRONTEND_UX.md` Pattern 8
-
-### Destructive Action Confirm — `actionConfirm` state + `actionLoading` (2026-03-24)
-- `useState(null | "admin" | "deactivate")` drives which confirm modal is open
-- ConfirmDialog accepts `loading` prop → YES button shows spinner
-- See `CHATAPP_FRONTEND_UX.md` Pattern 9
-
-### Ribbon Arrow Shape — `clip-path polygon` (2026-03-24)
-- `clip-path: polygon(0 0, calc(100%-7px) 0, 100% 50%, calc(100%-7px) 100%, 0 100%)`
-- `margin-left: -[card-padding]px` flushes badge to card left edge
-- See `CHATAPP_FRONTEND_UX.md` Pattern 10
+<!-- Proven patterns with evidence — all ChatApp-specific patterns live in CHATAPP_FRONTEND_UX.md -->
 
 ## Available Skills
 

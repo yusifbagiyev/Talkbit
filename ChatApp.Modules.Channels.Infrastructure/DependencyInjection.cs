@@ -54,6 +54,7 @@ namespace ChatApp.Modules.Channels.Infrastructure
 
             // Register event handlers
             services.AddScoped<MemberRemovedEventHandler>();
+            services.AddScoped<ChannelUpdatedEventHandler>();
 
             return services;
         }

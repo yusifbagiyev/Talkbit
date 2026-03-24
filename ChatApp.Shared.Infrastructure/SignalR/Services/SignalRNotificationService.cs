@@ -198,6 +198,19 @@ namespace ChatApp.Shared.Infrastructure.SignalR.Services
             }
         }
 
+        // ─── Channel Updates ──────────────────────────────────────────────────────
+
+        public async Task NotifyChannelUpdatedToMembersAsync(Guid channelId, List<Guid> memberUserIds, string name, string? avatarUrl)
+        {
+            var allConnections = await CollectMemberConnectionsAsync(memberUserIds);
+            if (allConnections.Count > 0)
+            {
+                await _hubContext.Clients
+                    .Clients(allConnections)
+                    .SendAsync("ChannelUpdated", new { channelId, name, avatarUrl });
+            }
+        }
+
         // ─── Typing Indicators ────────────────────────────────────────────────────
 
         public async Task NotifyUserTypingInChannelToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid typingUserId, string fullName, bool isTyping)

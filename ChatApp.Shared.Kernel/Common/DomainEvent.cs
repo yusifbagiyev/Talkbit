@@ -3,12 +3,12 @@
     public abstract record DomainEvent
     {
         public Guid EventId { get; }
-        public DateTime occurredAtUtc { get; }
+        public DateTime OccurredAtUtc { get; }
 
         protected DomainEvent()
         {
             EventId= Guid.NewGuid();
-            occurredAtUtc= DateTime.UtcNow;
+            OccurredAtUtc= DateTime.UtcNow;
         }
     }
 }

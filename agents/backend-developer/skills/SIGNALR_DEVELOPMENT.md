@@ -35,3 +35,30 @@ Build and maintain real-time messaging features using SignalR hubs.
 - No messages >1MB
 - Connection management uses existing infrastructure services
 - Auth token passed via query string for WebSocket handshake
+
+## Adding a New SignalR Broadcast (Established Pattern)
+
+When a new server→client event is needed, follow these 6 steps:
+
+```
+1. Domain/Events/XxxEvent.cs              — DomainEvent record
+2. Application/Events/XxxEventHandler.cs  — inject ISignalRNotificationService + IChannelMemberCache
+3. ISignalRNotificationService            — add method signature
+4. SignalRNotificationService             — implement (CollectMemberConnectionsAsync + SendAsync)
+5. Infrastructure/DependencyInjection.cs  — services.AddScoped<XxxEventHandler>()
+6. ChatApp.Api/Program.cs                 — add eventBus.Subscribe<XxxEvent>() block
+```
+
+**Injecting IEventBus into a Command Handler** — publish after SaveChangesAsync:
+```csharp
+await _unitOfWork.SaveChangesAsync(cancellationToken);
+await _eventBus.PublishAsync(new XxxEvent(channelId, channel.Name, channel.AvatarUrl), cancellationToken);
+```
+
+**Event payload** — send as anonymous object:
+```csharp
+await _hubContext.Clients.Clients(allConnections)
+    .SendAsync("ChannelUpdated", new { channelId, name, avatarUrl });
+```
+
+**ChannelMemberCache**: Use `IChannelMemberCache.GetChannelMemberIdsAsync(channelId)` in handlers — fetches member IDs from in-memory cache, not DB. Always prefer this over `UnitOfWork.ChannelMembers` in event handlers.

@@ -281,12 +281,11 @@ Sound toggle in sidebar uses `--primary-color` (#2fc6f6) for active state.
 
 ## Pattern 7: Avatar Circle Smoothing (JPEG Artifact Fix)
 
-`clip-path: circle(50%)` creates a clean geometric cut but exposes JPEG compression artifacts at the boundary — jagged/rough edges appear.
+`border-radius: 50%` + `overflow: hidden` on the parent creates a hard circular clip.
 
-**Fix**: Apply globally in `src/index.css` — fades the outermost 4% of the circle to hide JPEG noise:
+**Global fix** in `src/index.css` — sub-pixel fade to smooth anti-aliasing at the clip edge:
 
 ```css
-/* index.css — bütün avatar şəkillərinə qlobal tətbiq et */
 [class*="avatar-img"],
 [class*="avatar"] > img {
   -webkit-mask-image: radial-gradient(circle closest-side at 50% 50%, black 96%, transparent 100%);
@@ -295,16 +294,25 @@ Sound toggle in sidebar uses `--primary-color` (#2fc6f6) for active state.
 }
 ```
 
-This is Bitrix24's own technique. Do NOT try `border-radius + overflow: hidden` alone — JPEG artifacts still show.
+**CRITICAL: Do NOT increase fade beyond 96%** (e.g. 90%, 92%). On small avatars (32px), a 10% fade zone = 1.6px of actual image content becomes semi-transparent. If the photo has warm/colorful pixels near the edge, these create a visible colored halo over the white background. `96%` = 0.64px (sub-pixel, invisible, no halo).
+
+**Avatar img must have explicit size** — if `width: 100%; height: 100%` is missing, the img renders at natural resolution (e.g. 500px). The mask gradient then places the fade at 500px × 96% = 480px, far from the visible 32px clip boundary → no effect. Always add a CSS rule with `width: 100%; height: 100%; object-fit: cover; border-radius: 50%;` for every avatar img class.
+
+**Parent background must be transparent when img is shown** — if parent always has `background: getAvatarColor(name)`, the transparent mask edge reveals that color as a ring. Fix: `background: avatarUrl ? "transparent" : getAvatarColor(name)`.
+
+**Checklist when adding a new avatar component:**
+- [ ] Parent div: `border-radius: 50%; overflow: hidden;` with conditional background
+- [ ] Img: CSS rule with `width: 100%; height: 100%; object-fit: cover; border-radius: 50%;`
+- [ ] Img class contains "avatar-img" OR parent class contains "avatar" (global mask auto-applies)
 
 ## Pattern 8: Avatar Upload — Two-Step Pattern
 
 `POST /api/files/upload/profile-picture` stores the file but does NOT update `users.avatar_url`. Always follow up with a user update call:
 
 ```javascript
-// 1) Faylı yüklə
+// 1) Upload the file
 const result = await apiUpload("/api/files/upload/profile-picture", formData, onProgress);
-// 2) avatarUrl-i user record-una yaz
+// 2) Persist avatarUrl on the user record
 const endpoint = isOwn ? "/api/users/me" : `/api/users/${userId}`;
 await apiPut(endpoint, { avatarUrl: result.downloadUrl });
 ```
@@ -379,17 +387,35 @@ const handleSave = async () => {
 
 **Rule**: Never use `setTimeout` simulation as placeholder for real API calls. Identify the correct endpoint(s) and wire them up immediately.
 
-## Pattern 12: Date Input → Backend DateTime UTC
+## Pattern 13: useChatSignalR — Adding a New SignalR Event
 
-Frontend `<input type="date">` sends `YYYY-MM-DD` string. .NET parses it as `DateTime` with `Kind=Unspecified`. PostgreSQL `timestamp with time zone` rejects `Kind=Unspecified`.
+`useChatSignalR.js` accepts positional parameters. Four steps to add a new event:
 
-**Backend fix** (in Command Handler):
-```csharp
-if (request.HiringDate.HasValue)
-    employee.UpdateHiringDate(DateTime.SpecifyKind(request.HiringDate.Value, DateTimeKind.Utc));
-```
-
-**Frontend** — pass date as string, no special handling needed:
 ```javascript
-await apiPut(endpoint, { hiringDate: editData.hiringDate }); // "2023-05-15"
+// 1. Add ref as the last parameter
+export default function useChatSignalR(..., onNewFileMessageRef, onChannelUpdatedRef) {
+
+// 2. Write the handler
+function handleChannelUpdated(data) {
+  setConversations((prev) =>
+    prev.map((c) => c.id === data.channelId ? { ...c, name: data.name, avatarUrl: data.avatarUrl ?? c.avatarUrl } : c)
+  );
+  onChannelUpdatedRef?.current?.(data); // callback for complex state like selectedChat
+}
+
+// 3. Register in eventHandlers array
+["ChannelUpdated", handleChannelUpdated],
+
+// 4. Create ref in Chat.jsx (updated every render, no stale closure)
+const onChannelUpdatedRef = useRef(null);
+onChannelUpdatedRef.current = (data) => {
+  if (selectedChatRef.current?.id === data.channelId) {
+    setSelectedChat((prev) => ({ ...prev, name: data.name, avatarUrl: data.avatarUrl ?? prev.avatarUrl }));
+  }
+};
 ```
+
+**Local update**: `handleChannelUpdated({ id, name, avatarUrl })` already exists in `Chat.jsx` — route your own changes through it too.
+
+**Channel avatar endpoint**: Use `POST /api/files/upload/channel-avatar/{channelId}`, not `profile-picture`. Response: `{ downloadUrl }`.
+

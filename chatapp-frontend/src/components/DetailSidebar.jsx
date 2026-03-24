@@ -240,10 +240,10 @@ function DetailSidebar({
           {/* Sound toggle — Notes üçün görünmür */}
           {!selectedChat.isNotes && (
             <div className="ds-toggle-row">
-                <svg className="ds-toggle-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5">
+                <svg className="ds-toggle-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 </svg>
                 <span className="ds-toggle-label">Sound</span>
                 <label className="ds-switch">
@@ -1168,7 +1168,7 @@ function DetailSidebar({
                 return (
                   <div key={uid} className="ds-mp-member" ref={sidebar.memberMenuId === uid ? sidebar.memberMenuRef : null}>
                     <div className="ds-mp-avatar-wrap">
-                      <div className="ds-mp-avatar" style={{ background: getAvatarColor(m.fullName) }}>
+                      <div className="ds-mp-avatar" style={{ background: m.avatarUrl ? "transparent" : getAvatarColor(m.fullName) }}>
                         {m.avatarUrl ? (
                           <img src={m.avatarUrl} alt="" className="ds-mp-avatar-img" />
                         ) : (

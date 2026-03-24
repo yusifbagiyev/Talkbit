@@ -36,7 +36,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
 // API servis — HTTP metodları (GET, POST, PUT, DELETE)
-import { apiGet, apiPost, apiPut, apiDelete, getFileUrl } from "../services/api";
+import { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl } from "../services/api";
 
 // UI komponentlər — hər biri ayrı bir visual blok
 import Sidebar from "../components/Sidebar"; // sol nav bar
@@ -194,6 +194,12 @@ function Chat() {
   // profileUserId — görüntülənəcək profil (null = panel bağlı)
   const [profileUserId, setProfileUserId] = useState(null);
 
+  // avatarMenu — mesaj avatarına klik menyu: { userId, fullName, rect } | null
+  const [avatarMenu, setAvatarMenu] = useState(null);
+  // removeConfirm — "Remove from chat" confirm: { userId, name } | null
+  const [removeConfirm, setRemoveConfirm] = useState(null);
+  const [removeLoading, setRemoveLoading] = useState(false);
+
   // forwardMessage — yönləndirilən mesaj (null = forward panel bağlı)
   const [forwardMessage, setForwardMessage] = useState(null);
 
@@ -232,6 +238,8 @@ function Chat() {
 
   // inputRef — textarea element-i (focus vermək üçün)
   const inputRef = useRef(null);
+  // avatarMenuRef — avatar popup menu DOM referansı (click-outside üçün)
+  const avatarMenuRef = useRef(null);
 
   // lastReadTimestamp — DM: mesajın oxunma vaxtı (SignalR event-dən capture edilir)
   const [lastReadTimestamp, setLastReadTimestamp] = useState({});
@@ -392,6 +400,18 @@ function Chat() {
   const onNewFileMessageRef = useRef(null);
   onNewFileMessageRef.current = sidebar.handleNewFileMessage;
 
+  // ChannelUpdated SignalR handler ref — selectedChat-ı stale closure olmadan yeniləyir
+  const onChannelUpdatedRef = useRef(null);
+  onChannelUpdatedRef.current = (data) => {
+    if (selectedChatRef.current?.id === data.channelId) {
+      setSelectedChat((prev) => ({
+        ...prev,
+        name: data.name,
+        avatarUrl: data.avatarUrl ?? prev.avatarUrl,
+      }));
+    }
+  };
+
   // useChatSignalR — real-time event-ləri dinlə (NewMessage, UserOnline, Typing, etc.)
   // Bu hook içəridə useEffect ilə SignalR event handler-larını qeydiyyata alır
   useChatSignalR(
@@ -410,6 +430,7 @@ function Chat() {
     showScrollDownRef, // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
     messageCacheRef, // Cache invalidasiya — yeni mesaj gəldikdə köhnə cache-i sil
     onNewFileMessageRef, // Sidebar — fayl mesajı gəldikdə Files & Media panelini yeniləmək üçün
+    onChannelUpdatedRef, // Channel adı/avatarı dəyişdikdə selectedChat-ı yenilə
   );
 
   // ─── Network / Connection State Effect ──────────────────────────────────────
@@ -1408,6 +1429,36 @@ function Chat() {
       }));
     }
     channel.refreshChannelMembers(updatedData.id);
+  }
+
+  // handleSaveChannelName — ChatHeader-dan inline ad redaktəsi zamanı çağırılır
+  // false qaytarırsa — xəta var, ChatHeader edit modunu açıq saxlayır
+  async function handleSaveChannelName(name) {
+    if (!selectedChat) return false;
+    try {
+      await apiPut(`/api/channels/${selectedChat.id}`, { name });
+      handleChannelUpdated({ id: selectedChat.id, name, avatarUrl: selectedChat.avatarUrl });
+      return true;
+    } catch (err) {
+      showToast(err.message || "Failed to update channel name", "error");
+      return false;
+    }
+  }
+
+  // handleSaveChannelAvatar — ChatHeader-dan avatar klik → fayl seçim → yükləmə
+  async function handleSaveChannelAvatar(file) {
+    if (!selectedChat) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await apiUpload(`/api/files/upload/channel-avatar/${selectedChat.id}`, formData);
+      if (!result?.downloadUrl) return;
+      const res = await apiPut(`/api/channels/${selectedChat.id}`, { avatarUrl: result.downloadUrl });
+      if (res?.error) return;
+      handleChannelUpdated({ id: selectedChat.id, name: selectedChat.name, avatarUrl: result.downloadUrl });
+    } catch (err) {
+      console.error("Failed to update channel avatar:", err);
+    }
   }
 
   // handleOpenChatsWithUser → useSidebarPanels hook-una çıxarılıb
@@ -2445,7 +2496,8 @@ function Chat() {
       sidebar.linksMenuId ||
       sidebar.filesMenuId ||
       sidebar.memberMenuId ||
-      channel.showAddMember;
+      channel.showAddMember ||
+      avatarMenu;
     if (!anyOpen) return;
 
     function handleClickOutside(e) {
@@ -2509,6 +2561,10 @@ function Chat() {
         channel.setAddMemberSearchActive(false);
         channel.setAddMemberSelected(new Set());
       }
+      // Avatar menyu
+      if (avatarMenu && avatarMenuRef.current && !avatarMenuRef.current.contains(e.target)) {
+        setAvatarMenu(null);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -2521,6 +2577,7 @@ function Chat() {
     sidebar.filesMenuId,
     sidebar.memberMenuId,
     channel.showAddMember,
+    avatarMenu,
   ]);
 
   // Add member effects → useChannelManagement hook-una çıxarılıb
@@ -3210,6 +3267,12 @@ function Chat() {
                   sidebarOpen={sidebar.showSidebar}
                   onOpenSearch={handleOpenSearch}
                   searchOpen={search.showSearchPanel}
+                  canEdit={(() => {
+                    const r = channelMembers[selectedChat?.id]?.[user.id]?.role;
+                    return selectedChat?.type === 1 && (r === 3 || r === "Owner" || r === 2 || r === "Admin");
+                  })()}
+                  onSaveChannelName={handleSaveChannelName}
+                  onSaveChannelAvatar={handleSaveChannelAvatar}
                 />
 
                 {/* PinnedBar — pinlənmiş mesajlar varsa compact bar göstər */}
@@ -3379,6 +3442,14 @@ function Chat() {
                                 className="sender-group-avatar"
                                 style={{
                                   background: senderAvatarUrl ? "transparent" : getAvatarColor(senderFullName),
+                                  cursor: "pointer",
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setAvatarMenu(prev =>
+                                    prev?.userId === msg.senderId ? null : { userId: msg.senderId, fullName: senderFullName, rect }
+                                  );
                                 }}
                               >
                                 {senderAvatarUrl ? (
@@ -3512,6 +3583,78 @@ function Chat() {
                     onReorderFiles={fileUpload.handleReorderFiles}
                     onClearFiles={fileUpload.handleClearFiles}
                     onSendFiles={handleSendFiles}
+                  />
+                )}
+
+                {/* Avatar menyu — mesajda avatar klikləndikdə açılır */}
+                {avatarMenu && (() => {
+                  const myRole = channelMembers[selectedChat?.id]?.[user.id]?.role;
+                  const viewerCanRemove = myRole === 3 || myRole === "Owner" || myRole === 2 || myRole === "Admin";
+                  const targetRole = channelMembers[selectedChat?.id]?.[avatarMenu.userId]?.role;
+                  const targetIsOwner = targetRole === 3 || targetRole === "Owner";
+                  const showRemove = selectedChat?.type === 1 && viewerCanRemove && !targetIsOwner;
+                  const MENU_HEIGHT = showRemove ? 164 : 124;
+                  const posStyle = avatarMenu.rect.top >= MENU_HEIGHT
+                    ? { bottom: window.innerHeight - avatarMenu.rect.top + 4, left: avatarMenu.rect.left }
+                    : { top: avatarMenu.rect.bottom + 4, left: avatarMenu.rect.left };
+                  return (
+                    <div
+                      ref={avatarMenuRef}
+                      className="avatar-ctx-menu"
+                      style={posStyle}
+                    >
+                      <button className="avatar-ctx-item" onClick={() => {
+                        const textarea = inputRef.current;
+                        const caretPos = textarea ? textarea.selectionStart : messageText.length;
+                        const before = messageText.substring(0, caretPos);
+                        const after = messageText.substring(caretPos);
+                        const mentionText = avatarMenu.fullName + " ";
+                        setMessageText(before + mentionText + after);
+                        mention.activeMentionsRef.current.push({ userId: avatarMenu.userId, userFullName: avatarMenu.fullName, isAllMention: false });
+                        requestAnimationFrame(() => {
+                          if (inputRef.current) {
+                            const pos = before.length + mentionText.length;
+                            inputRef.current.setSelectionRange(pos, pos);
+                            inputRef.current.focus();
+                          }
+                        });
+                        setAvatarMenu(null);
+                      }}>Mention</button>
+                      <button className="avatar-ctx-item" onClick={async () => {
+                        const uid = avatarMenu.userId;
+                        setAvatarMenu(null);
+                        const existing = conversations.find(c => c.type === 0 && c.otherUserId === uid);
+                        if (existing) { handleSelectChat(existing); return; }
+                        try {
+                          const result = await apiPost("/api/conversations", { otherUserId: uid });
+                          handleSelectChat({ id: result.conversationId, type: 0, otherUserId: uid, name: "", unreadCount: 0, lastMessage: null, lastMessageAtUtc: null });
+                        } catch (err) { console.error("Failed to open DM:", err); }
+                      }}>Send private message</button>
+                      <button className="avatar-ctx-item" onClick={() => {
+                        setProfileUserId(avatarMenu.userId);
+                        setAvatarMenu(null);
+                      }}>View profile</button>
+                      {showRemove && (
+                        <button className="avatar-ctx-item avatar-ctx-danger" onClick={() => {
+                          setRemoveConfirm({ userId: avatarMenu.userId, name: avatarMenu.fullName });
+                          setAvatarMenu(null);
+                        }}>Remove from chat</button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {removeConfirm && (
+                  <ConfirmDialog
+                    message="Are you sure you want to remove this user from the chat?"
+                    confirmText={removeLoading ? "…" : "REMOVE"}
+                    onConfirm={async () => {
+                      setRemoveLoading(true);
+                      await channel.handleRemoveFromChat(removeConfirm.userId);
+                      setRemoveLoading(false);
+                      setRemoveConfirm(null);
+                    }}
+                    onCancel={() => setRemoveConfirm(null)}
                   />
                 )}
 
@@ -3750,7 +3893,7 @@ function Chat() {
                         >
                           <div
                             className="ds-am-user-avatar"
-                            style={{ background: getAvatarColor(u.fullName) }}
+                            style={{ background: u.avatarUrl ? "transparent" : getAvatarColor(u.fullName) }}
                           >
                             {u.avatarUrl ? (
                               <img

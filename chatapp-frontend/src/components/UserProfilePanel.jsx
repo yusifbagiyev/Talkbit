@@ -714,6 +714,29 @@ function UserProfilePanel({ userId, currentUserId, isAdmin, onClose, onStartChat
           </div>
         </div>
 
+        {/* ─── Drive & Feed — Coming Soon ──────────────── */}
+        {(activeTab === "Drive" || activeTab === "Feed") && (
+          <div className="upp-coming-soon">
+            <div className="upp-coming-soon-icon-wrap">
+              {activeTab === "Drive" ? (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 17H2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9l2 3h9a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2z" />
+                  <line x1="12" y1="12" x2="12" y2="16" />
+                  <line x1="10" y1="14" x2="14" y2="14" />
+                </svg>
+              ) : (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 2H3v16h5l3 3 3-3h7V2z" />
+                  <line x1="8" y1="8" x2="16" y2="8" />
+                  <line x1="8" y1="12" x2="14" y2="12" />
+                </svg>
+              )}
+            </div>
+            <p className="upp-coming-soon-title">{activeTab}</p>
+            <p className="upp-coming-soon-text">We will implement soon</p>
+          </div>
+        )}
+
         {/* ─── Security Tab ─────────────────────────────── */}
         {activeTab === "Security" && (isOwn || isAdmin) && (
           <div className={`upp-security-body${isAdmin && !isOwn ? " compact" : ""}`}>

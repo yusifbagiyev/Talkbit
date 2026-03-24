@@ -1,8 +1,10 @@
 ﻿using ChatApp.Modules.Channels.Application.Interfaces;
 using ChatApp.Modules.Channels.Domain.Enums;
+using ChatApp.Modules.Channels.Domain.Events;
 using ChatApp.Modules.Channels.Domain.ValueObjects;
 using ChatApp.Shared.Kernel.Common;
 using ChatApp.Shared.Kernel.Exceptions;
+using ChatApp.Shared.Kernel.Interfaces;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -55,13 +57,16 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
     public class UpdateChannelCommandHandler : IRequestHandler<UpdateChannelCommand, Result>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IEventBus _eventBus;
         private readonly ILogger<UpdateChannelCommandHandler> _logger;
 
         public UpdateChannelCommandHandler(
             IUnitOfWork unitOfWork,
+            IEventBus eventBus,
             ILogger<UpdateChannelCommandHandler> logger)
         {
             _unitOfWork = unitOfWork;
+            _eventBus = eventBus;
             _logger = logger;
         }
 
@@ -126,6 +131,10 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
 
                 await _unitOfWork.Channels.UpdateAsync(channel, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                await _eventBus.PublishAsync(
+                    new ChannelUpdatedEvent(request.ChannelId, channel.Name, channel.AvatarUrl),
+                    cancellationToken);
 
                 _logger?.LogInformation("Channel {ChannelId} updated successfully", request.ChannelId);
 

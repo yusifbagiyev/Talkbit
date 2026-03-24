@@ -29,6 +29,7 @@ export default function useChatSignalR(
   showScrollDownRef,      // Scroll-to-bottom buton görünürmü — compensation yalnız aşağıdaysa
   messageCacheRef,        // Message cache ref — yeni mesaj gəldikdə cache-i invalidasiya etmək üçün
   onNewFileMessageRef,    // Sidebar — fayl mesajı gəldikdə Files & Media panelini yeniləmək üçün
+  onChannelUpdatedRef,    // Channel adı/avatarı dəyişdikdə selectedChat-ı yeniləmək üçün (ref)
 ) {
   // useEffect — komponentin mount olduğunda 1 dəfə işləyir
   // [userId] — dependency array: yalnız userId dəyişəndə yenidən işləyir
@@ -424,6 +425,20 @@ export default function useChatSignalR(
       );
     }
 
+    // ─── handleChannelUpdated ─────────────────────────────────────────────────
+    // Channel adı və ya avatarı dəyişdikdə — conversation list + selectedChat yenilə
+    // data: { channelId, name, avatarUrl }
+    function handleChannelUpdated(data) {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === data.channelId
+            ? { ...c, name: data.name, avatarUrl: data.avatarUrl ?? c.avatarUrl }
+            : c,
+        ),
+      );
+      onChannelUpdatedRef?.current?.(data);
+    }
+
     // ─── handleAddedToChannel ─────────────────────────────────────────────────
     // Server "AddedToChannel" event-i göndərir — user bir channel-a əlavə olunanda.
     // channelData: backend-dən gələn channel DTO (id, name, type, avatarUrl, memberCount, ...)
@@ -480,6 +495,7 @@ export default function useChatSignalR(
       ["DirectMessageReactionToggled", handleReactionsUpdated],
       ["ChannelMessagesRead", handleChannelMessagesRead],
       ["AddedToChannel", handleAddedToChannel],
+      ["ChannelUpdated", handleChannelUpdated],
     ];
 
     startConnection()

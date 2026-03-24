@@ -321,6 +321,14 @@ using (var scope = app.Services.CreateScope())
             await handler.HandleAsync(@event);
         });
 
+        // Subscribe ChannelUpdatedEvent to notify channel members via SignalR
+        eventBus.Subscribe<ChannelUpdatedEvent>(async (@event) =>
+        {
+            using var handlerScope = app.Services.CreateScope();
+            var handler = handlerScope.ServiceProvider.GetRequiredService<ChannelUpdatedEventHandler>();
+            await handler.HandleAsync(@event);
+        });
+
         logger.LogInformation("Event subscriptions registered successfully");
     }
     catch (Exception ex)

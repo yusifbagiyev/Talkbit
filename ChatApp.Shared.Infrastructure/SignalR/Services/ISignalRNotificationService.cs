@@ -28,6 +28,9 @@
         Task NotifyMemberAddedToChannelAsync(Guid userId, object channelDto);
         Task NotifyMemberLeftChannelToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid leftUserId, string leftUserFullName);
 
+        // ─── Channel Updates ───
+        Task NotifyChannelUpdatedToMembersAsync(Guid channelId, List<Guid> memberUserIds, string name, string? avatarUrl);
+
         // ─── Typing Indicators ───
         Task NotifyUserTypingInChannelToMembersAsync(Guid channelId, List<Guid> memberUserIds, Guid typingUserId, string fullName, bool isTyping);
         Task NotifyUserTypingInConversationToMembersAsync(Guid conversationId, List<Guid> memberUserIds, Guid typingUserId, bool isTyping);

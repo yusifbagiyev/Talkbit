@@ -6,15 +6,9 @@
 <!-- Proven schema patterns with evidence -->
 
 ### PostgreSQL `timestamptz` — Requires `DateTimeKind.Utc` (2026-03-24)
-- PostgreSQL `timestamp with time zone` column maps to .NET `DateTime` in EF Core
 - EF Core / Npgsql rejects `DateTime` with `Kind=Unspecified` at runtime
-- Root cause: frontend date inputs (`YYYY-MM-DD`) → .NET parses as `Kind=Unspecified`
-- **Rule**: Any `DateTime` value going into a `timestamptz` column MUST be `Kind=Utc` or `Kind=Local`
-- **Fix location**: Command Handler (application layer), not in domain entity or DB migration
-  ```csharp
-  DateTime.SpecifyKind(value, DateTimeKind.Utc)
-  ```
-- All date-only fields from HTTP requests are affected: `DateOfBirth`, `HiringDate`, etc.
+- **Schema rule**: `timestamp with time zone` columns require application to provide `Kind=Utc` — note this in schema design for backend dev
+- Affected fields: `DateOfBirth`, `HiringDate`, and any date-only field from HTTP requests
 
 ## What Doesn't Work
 <!-- Anti-patterns to avoid with evidence -->
