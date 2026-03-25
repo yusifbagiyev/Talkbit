@@ -5,23 +5,24 @@ using ChatApp.Shared.Kernel.Common;
 namespace ChatApp.Modules.Identity.Domain.Entities
 {
     /// <summary>
-    /// User entity - Represents system users with organizational hierarchy.
+    /// User entity — sistem istifadəçilərini təmsil edir.
+    /// Hər istifadəçi bir şirkətə aiddir (SuperAdmin istisna — CompanyId null ola bilər).
     /// </summary>
     public class User : Entity
     {
         // Required fields (NOT NULL)
         public string FirstName { get; private set; } = null!;
         public string LastName { get; private set; } = null!;
-        public string Email { get; private set; } = null!; // Unique, used for login
+        public string Email { get; private set; } = null!;
         public string PasswordHash { get; private set; } = null!;
         public bool IsActive { get; private set; } = true;
 
-        // Role (User or Administrator)
+        // 3 səviyyəli rol sistemi: User, Admin, SuperAdmin
         public Role Role { get; private set; } = Role.User;
 
-        // Super Admin - only the System Administrator has this flag
-        // Bypasses ALL permission checks, cannot be deleted or deactivated by others
-        public bool IsSuperAdmin { get; private set; }
+        // Şirkət əlaqəsi — SuperAdmin üçün nullable
+        public Guid? CompanyId { get; private set; }
+        public Company? Company { get; private set; }
 
         // Optional fields (NULLABLE)
         public string? AvatarUrl { get; private set; }
@@ -38,16 +39,14 @@ namespace ChatApp.Modules.Identity.Domain.Entities
         public IReadOnlyCollection<Department> ManagedDepartments => _managedDepartments.AsReadOnly();
         public IReadOnlyCollection<UserPermission> UserPermissions => _userPermissions.AsReadOnly();
 
-        // Computed properties
         public string FullName => $"{FirstName} {LastName}";
-        public bool IsAdmin => Role == Role.Administrator;
 
         // Private constructor for EF Core
         private User() : base() { }
 
         /// <summary>
-        /// Creates a user with basic authentication and profile information
-        /// Employee record should be created separately
+        /// Creates a user with basic authentication and profile information.
+        /// Employee record should be created separately.
         /// </summary>
         public User(
             string firstName,
@@ -55,7 +54,8 @@ namespace ChatApp.Modules.Identity.Domain.Entities
             string email,
             string passwordHash,
             Role role = Role.User,
-            string? avatarUrl = null) : base()
+            string? avatarUrl = null,
+            Guid? companyId = null) : base()
         {
             if (string.IsNullOrWhiteSpace(firstName))
                 throw new ArgumentException("First name cannot be empty", nameof(firstName));
@@ -75,6 +75,7 @@ namespace ChatApp.Modules.Identity.Domain.Entities
             PasswordHash = passwordHash;
             Role = role;
             AvatarUrl = avatarUrl;
+            CompanyId = companyId;
             IsActive = true;
 
             // Auto-assign default permissions based on role
@@ -146,6 +147,21 @@ namespace ChatApp.Modules.Identity.Domain.Entities
             UpdateTimestamp();
         }
 
+        public void AssignToCompany(Guid companyId)
+        {
+            if (companyId == Guid.Empty)
+                throw new ArgumentException("Company ID cannot be empty", nameof(companyId));
+
+            CompanyId = companyId;
+            UpdateTimestamp();
+        }
+
+        public void RemoveFromCompany()
+        {
+            CompanyId = null;
+            UpdateTimestamp();
+        }
+
         #endregion
 
         #region Role and Permission Management
@@ -153,16 +169,6 @@ namespace ChatApp.Modules.Identity.Domain.Entities
         public void ChangeRole(Role newRole)
         {
             Role = newRole;
-            UpdateTimestamp();
-        }
-
-        /// <summary>
-        /// Promotes user to Super Admin. Should only be called during seeding.
-        /// </summary>
-        public void SetSuperAdmin()
-        {
-            IsSuperAdmin = true;
-            Role = Role.Administrator;
             UpdateTimestamp();
         }
 

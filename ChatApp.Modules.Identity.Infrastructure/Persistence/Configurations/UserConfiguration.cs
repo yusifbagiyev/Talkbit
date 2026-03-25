@@ -48,10 +48,8 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence.Configurations
                 .HasConversion<int>() // Store enum as integer
                 .HasDefaultValue(Role.User);
 
-            builder.Property(u => u.IsSuperAdmin)
-                .IsRequired()
-                .HasColumnName("is_super_admin")
-                .HasDefaultValue(false);
+            builder.Property(u => u.CompanyId)
+                .HasColumnName("company_id");
 
             // Optional fields
             builder.Property(u => u.AvatarUrl)
@@ -77,9 +75,8 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence.Configurations
                 .HasColumnName("updated_at_utc")
                 .HasColumnType("timestamp with time zone");
 
-            // Computed properties (not stored in database)
+            // Computed property (not stored in database)
             builder.Ignore(u => u.FullName);
-            builder.Ignore(u => u.IsAdmin);
 
             // Indexes
             builder.HasIndex(u => u.Email)
@@ -88,6 +85,9 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(u => u.IsActive)
                 .HasDatabaseName("ix_users_is_active");
+
+            builder.HasIndex(u => u.CompanyId)
+                .HasDatabaseName("ix_users_company_id");
 
             // Relationships
 

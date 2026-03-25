@@ -22,6 +22,8 @@ namespace ChatApp.Modules.Identity.Infrastructure.Services
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
+            // JWT-də yalnız lazımi claim-lər: role + companyId
+            // isAdmin/isSuperAdmin role-dan derive olunur (frontend və backend-də)
             var claims = new List<Claim>
             {
                 new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -31,8 +33,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Services
                 new(JwtRegisteredClaimNames.Name, user.FullName),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new("role", user.Role.ToString()),
-                new("isAdmin", user.IsAdmin.ToString()),
-                new("isSuperAdmin", user.IsSuperAdmin.ToString())
+                new("companyId", user.CompanyId?.ToString() ?? "")
             };
 
             if (permissions is not null)

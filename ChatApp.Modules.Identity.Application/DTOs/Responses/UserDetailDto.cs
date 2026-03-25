@@ -4,6 +4,9 @@ namespace ChatApp.Modules.Identity.Application.DTOs.Responses
     /// Complete user information for detail views and profile pages
     /// Includes all user data, organizational structure, and permissions
     /// </summary>
+    /// <summary>
+    /// İstifadəçi detalları. Role field-indən isAdmin/isSuperAdmin derive olunur.
+    /// </summary>
     public record UserDetailDto(
         Guid Id,
         string FirstName,
@@ -29,7 +32,6 @@ namespace ChatApp.Modules.Identity.Application.DTOs.Responses
         string? HeadOfDepartmentName,
         List<SubordinateDto> Subordinates,
         List<string> Permissions,
-        bool IsSuperAdmin,
         DateTime CreatedAtUtc,
         DateTime UpdatedAtUtc,
         DateTime? PasswordChangedAt)

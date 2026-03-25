@@ -4,8 +4,7 @@ using ChatApp.Modules.Identity.Domain.Enums;
 namespace ChatApp.Modules.Identity.Domain.Constants
 {
     /// <summary>
-    /// Static permission constants for the application.
-    /// Permissions are hardcoded and should not be created dynamically.
+    /// Statik permission konstantları. 3 səviyyəli rol sistemi üzrə paylanır.
     /// </summary>
     public static class Permissions
     {
@@ -36,6 +35,12 @@ namespace ChatApp.Modules.Identity.Domain.Constants
         public const string ChannelsRead = "Channels.Read";
         public const string ChannelsDelete = "Channels.Delete";
 
+        // Companies Module (SuperAdmin only)
+        public const string CompaniesCreate = "Companies.Create";
+        public const string CompaniesRead = "Companies.Read";
+        public const string CompaniesUpdate = "Companies.Update";
+        public const string CompaniesDelete = "Companies.Delete";
+
         /// <summary>
         /// Gets all available permissions in the system
         /// </summary>
@@ -49,18 +54,27 @@ namespace ChatApp.Modules.Identity.Domain.Constants
         }
 
         /// <summary>
-        /// Gets default permissions for a specific role.
-        /// Administrator gets all permissions, User gets basic permissions.
+        /// 3 səviyyəli rol sisteminə uyğun default permissionlar.
+        /// SuperAdmin: bütün permissionlar (Companies.* daxil).
+        /// Admin: Companies.* xaric bütün permissionlar (öz şirkəti daxilində idarə edir).
+        /// User: əsas mesajlaşma/fayl/kanal permissionları.
         /// </summary>
         public static IEnumerable<string> GetDefaultForRole(Role role)
         {
             return role switch
             {
-                Role.Administrator => GetAll(),
-                Role.User =>
+                Role.SuperAdmin => GetAll(),
+                Role.Admin =>
                 [
-                    // Basic user permissions
+                    // User management
+                    UsersCreate,
                     UsersRead,
+                    UsersUpdate,
+                    UsersDelete,
+                    // Permission management
+                    PermissionsRead,
+                    PermissionsAssign,
+                    PermissionsRevoke,
                     // Messaging permissions
                     MessagesSend,
                     MessagesRead,
@@ -68,9 +82,23 @@ namespace ChatApp.Modules.Identity.Domain.Constants
                     MessagesDelete,
                     // File permissions
                     FilesUpload,
+                    FilesDownload,
+                    FilesDelete,
+                    // Channel permissions
+                    ChannelsCreate,
+                    ChannelsRead,
+                    ChannelsDelete
+                ],
+                Role.User =>
+                [
+                    UsersRead,
+                    MessagesSend,
+                    MessagesRead,
+                    MessagesEdit,
+                    MessagesDelete,
+                    FilesUpload,
                     FilesDelete,
                     FilesDownload,
-                    // Channel permissions
                     ChannelsCreate,
                     ChannelsRead
                 ],

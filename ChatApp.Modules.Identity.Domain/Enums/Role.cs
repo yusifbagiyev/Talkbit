@@ -1,8 +1,7 @@
 namespace ChatApp.Modules.Identity.Domain.Enums
 {
     /// <summary>
-    /// User role enumeration.
-    /// Only two roles exist in the system: User (default) and Administrator.
+    /// 3 səviyyəli rol sistemi: User (adi istifadəçi), Admin (şirkət administratoru), SuperAdmin (sistem administratoru).
     /// </summary>
     public enum Role
     {
@@ -13,9 +12,13 @@ namespace ChatApp.Modules.Identity.Domain.Enums
         User = 0,
 
         /// <summary>
-        /// Administrator with all permissions.
-        /// Has access to all system features.
+        /// Company administrator — manages users, departments, channels within own company.
         /// </summary>
-        Administrator = 1
+        Admin = 1,
+
+        /// <summary>
+        /// System-wide super administrator — manages all companies, bypasses company scope.
+        /// </summary>
+        SuperAdmin = 2
     }
 }

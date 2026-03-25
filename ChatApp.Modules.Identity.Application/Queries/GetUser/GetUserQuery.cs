@@ -91,7 +91,6 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetUser
                 user.Employee?.Department?.HeadOfDepartment?.FullName,
                 subordinates,
                 permissions,
-                user.IsSuperAdmin,
                 user.CreatedAtUtc,
                 user.UpdatedAtUtc,
                 user.PasswordChangedAt);

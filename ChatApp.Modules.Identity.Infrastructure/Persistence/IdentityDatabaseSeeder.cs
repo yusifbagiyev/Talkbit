@@ -327,7 +327,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 0. Aqil Zeynalov - Head of Company ==========
             var headOfCompanyId = Guid.Parse("00000000-0000-0000-0000-000000000100");
             var headOfCompanyUser = new User("Aqil", "Zeynalov", "aqil.zeynalov@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.Administrator, null) { Id = headOfCompanyId };
+                passwordHasher.Hash("Password123!"), Role.Admin, null, company.Id) { Id = headOfCompanyId };
             await context.Users.AddAsync(headOfCompanyUser);
             var headOfCompanyEmp = new Employee(headOfCompanyId, new DateTime(1980, 1, 15), "+994501000000",
                 "Head of Company - 166 Logistics", DateTime.UtcNow.AddYears(-15));
@@ -337,7 +337,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 1. Leyla Məmmədova - CFO ==========
             var user1Id = Guid.Parse("00000000-0000-0000-0000-000000000001");
             var user1 = new User("Leyla", "Məmmədova", "leyla.mammadova@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.Administrator, null) { Id = user1Id };
+                passwordHasher.Hash("Password123!"), Role.Admin, null, company.Id) { Id = user1Id };
             await context.Users.AddAsync(user1);
             var emp1 = new Employee(user1Id, new DateTime(1985, 3, 15), "+994501234567",
                 "Chief Financial Officer overseeing all financial operations", DateTime.UtcNow.AddYears(-8));
@@ -349,7 +349,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 2. Rəşad Əliyev - Engineering Head ==========
             var user2Id = Guid.Parse("00000000-0000-0000-0000-000000000002");
             var user2 = new User("Rəşad", "Əliyev", "reshad.aliyev@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user2Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user2Id };
             await context.Users.AddAsync(user2);
             var emp2 = new Employee(user2Id, new DateTime(1990, 7, 22), "+994502345678",
                 "Engineering Department Head specializing in .NET and cloud architecture", DateTime.UtcNow.AddYears(-5));
@@ -360,7 +360,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 3. Aysel Həsənova - Frontend Development Head ==========
             var user3Id = Guid.Parse("00000000-0000-0000-0000-000000000003");
             var user3 = new User("Aysel", "Həsənova", "aysel.hasanova@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user3Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user3Id };
             await context.Users.AddAsync(user3);
             var emp3 = new Employee(user3Id, new DateTime(1992, 11, 8), "+994503456789",
                 "Frontend Development Head expert in React and modern web technologies", DateTime.UtcNow.AddYears(-4));
@@ -372,7 +372,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 4. Elvin Quliyev - Backend Developer ==========
             var user4Id = Guid.Parse("00000000-0000-0000-0000-000000000004");
             var user4 = new User("Elvin", "Quliyev", "elvin.guliyev@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user4Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user4Id };
             await context.Users.AddAsync(user4);
             var emp4 = new Employee(user4Id, new DateTime(1995, 5, 18), "+994504567890",
                 "Backend Developer working on microservices and APIs", DateTime.UtcNow.AddYears(-2));
@@ -383,7 +383,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 5. Günel İbrahimova - Frontend Developer ==========
             var user5Id = Guid.Parse("00000000-0000-0000-0000-000000000005");
             var user5 = new User("Günel", "İbrahimova", "gunel.ibrahimova@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user5Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user5Id };
             await context.Users.AddAsync(user5);
             var emp5 = new Employee(user5Id, new DateTime(1994, 9, 25), "+994505678901",
                 "Frontend Developer focused on UI/UX and responsive design", DateTime.UtcNow.AddYears(-3));
@@ -394,7 +394,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 6. Fərid Musayev - Sales & Marketing Head ==========
             var user6Id = Guid.Parse("00000000-0000-0000-0000-000000000006");
             var user6 = new User("Fərid", "Musayev", "farid.musayev@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user6Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user6Id };
             await context.Users.AddAsync(user6);
             var emp6 = new Employee(user6Id, new DateTime(1988, 2, 14), "+994506789012",
                 "Sales & Marketing Department Head leading the sales team and driving revenue growth", DateTime.UtcNow.AddYears(-6));
@@ -407,7 +407,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 7. Nigar Əhmədova - Sales Representative ==========
             var user7Id = Guid.Parse("00000000-0000-0000-0000-000000000007");
             var user7 = new User("Nigar", "Əhmədova", "nigar.ahmadova@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user7Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user7Id };
             await context.Users.AddAsync(user7);
             var emp7 = new Employee(user7Id, new DateTime(1993, 6, 30), "+994507890123",
                 "Sales Representative handling enterprise client relationships", DateTime.UtcNow.AddYears(-2));
@@ -418,7 +418,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 8. Kamran Abdullayev - Financial Analyst ==========
             var user8Id = Guid.Parse("00000000-0000-0000-0000-000000000008");
             var user8 = new User("Kamran", "Abdullayev", "kamran.abdullayev@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user8Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user8Id };
             await context.Users.AddAsync(user8);
             var emp8 = new Employee(user8Id, new DateTime(1991, 12, 5), "+994508901234",
                 "Financial Analyst providing detailed financial reports and analysis", DateTime.UtcNow.AddYears(-4));
@@ -429,7 +429,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 9. Sevda Əsgərova - HR Manager ==========
             var user9Id = Guid.Parse("00000000-0000-0000-0000-000000000009");
             var user9 = new User("Sevda", "Əsgərova", "sevda.asgarova@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user9Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user9Id };
             await context.Users.AddAsync(user9);
             var emp9 = new Employee(user9Id, new DateTime(1987, 4, 20), "+994509012345",
                 "HR Manager overseeing recruitment, employee relations, and HR policies", DateTime.UtcNow.AddYears(-7));
@@ -441,7 +441,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             // ========== 10. Tural Məhəmmədov - HR Specialist ==========
             var user10Id = Guid.Parse("00000000-0000-0000-0000-000000000010");
             var user10 = new User("Tural", "Məhəmmədov", "tural.mahammadov@chatapp.com",
-                passwordHasher.Hash("Password123!"), Role.User, null) { Id = user10Id };
+                passwordHasher.Hash("Password123!"), Role.User, null, company.Id) { Id = user10Id };
             await context.Users.AddAsync(user10);
             var emp10 = new Employee(user10Id, new DateTime(1996, 8, 12), "+994510123456",
                 "HR Specialist handling recruitment and onboarding processes", DateTime.UtcNow.AddYears(-1));
@@ -450,12 +450,11 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             await context.Employees.AddAsync(emp10);
 
 
-            // ========== 11. System Administrator ==========
+            // ========== 11. System Administrator (SuperAdmin — qlobal, şirkətə aid deyil) ==========
             var user11Id = Guid.Parse("00000000-0000-0000-0000-000000000011");
             var user11 = new User("System", "Administrator", "admin@chatapp.com",
-                passwordHasher.Hash("Yusif2000+"), Role.Administrator, null)
+                passwordHasher.Hash("Yusif2000+"), Role.SuperAdmin)
             { Id = user11Id };
-            user11.SetSuperAdmin(); // System Administrator is the Super Admin
             await context.Users.AddAsync(user11);
             var emp11 = new Employee(user11Id, new DateTime(2000, 6, 23), "++994708074624",
                 "System Administration", DateTime.UtcNow.AddYears(-4));
@@ -476,7 +475,7 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
                 DateTime? dob = null, string? phone = null, string? about = null, int yearsAgo = 1, Role role = Role.User)
             {
                 var id = Guid.Parse($"00000000-0000-0000-0000-0000000000{idx:D2}");
-                var user = new User(first, last, email, pwd, role, null) { Id = id };
+                var user = new User(first, last, email, pwd, role, null, company.Id) { Id = id };
                 await context.Users.AddAsync(user);
                 var emp = new Employee(id, dob ?? new DateTime(1990 + (idx % 10), (idx % 12) + 1, (idx % 28) + 1),
                     phone ?? $"+99450{idx:D7}", about ?? $"{pos} at {dept}", DateTime.UtcNow.AddYears(-yearsAgo));

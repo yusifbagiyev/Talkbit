@@ -29,6 +29,14 @@
 ## What Doesn't Work
 <!-- Anti-patterns to avoid with evidence -->
 
+### Computed Property Shortcut-lar Entity-də YASAQDIR (2026-03-25)
+- `bool IsAdmin => Role == Role.Admin` kimi shortcut property-lər Entity-yə əlavə etmə
+- Çaşqınlıq yaradır: DB sütunudur yoxsa computed-dır? JWT claim-dir yoxsa entity property-dir?
+- EF Core `builder.Ignore()` tələb edir — əlavə konfiqurasiya yükü
+- **Doğru yanaşma**: Birbaşa `user.Role == Role.Admin` yaz. Hər yerdə eyni qaydada, aydın və açıq.
+- Eyni qaydada JWT-də dublikat claim-lər saxlama — `role` claim-indən derive et
+- **Qayda**: Əgər bir dəyər başqa field-dən derive olunursa, onu ayrıca saxlama — nə entity-də, nə JWT-də, nə DTO-da
+
 ## Patterns Noticed
 <!-- Emerging signals needing more data -->
 

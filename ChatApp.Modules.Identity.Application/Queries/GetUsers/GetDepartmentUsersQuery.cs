@@ -1,5 +1,6 @@
 using ChatApp.Modules.Identity.Application.DTOs.Responses;
 using ChatApp.Modules.Identity.Application.Interfaces;
+using ChatApp.Modules.Identity.Domain.Enums;
 using ChatApp.Shared.Kernel.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +69,12 @@ public class GetDepartmentUsersQueryHandler(
             var usersQuery = unitOfWork.Users
                 .Where(u => u.IsActive && u.Id != query.CurrentUserId);
 
+            // COMPANY SCOPING — SuperAdmin bütün şirkətləri görür, digərləri yalnız öz şirkətlərini
+            if (currentUser.Role != Role.SuperAdmin && currentUser.CompanyId.HasValue)
+            {
+                usersQuery = usersQuery.Where(u => u.CompanyId == currentUser.CompanyId);
+            }
+
             // Exclude users who already have conversations
             if (query.ExcludeUserIds is { Count: > 0 })
             {
@@ -77,10 +84,10 @@ public class GetDepartmentUsersQueryHandler(
             // DEPARTMENT AUTHORIZATION LOGIC
             var departmentId = currentUser.Employee?.DepartmentId;
 
-            // If user has no department (like CEO) OR is Admin/SuperAdmin → see all users
-            if (departmentId == null || currentUser.IsAdmin || currentUser.IsSuperAdmin)
+            // If user has no department (like CEO) OR is Admin/SuperAdmin → see all users in company
+            if (departmentId == null || currentUser.Role >= Role.Admin)
             {
-                // No department filter - see everyone
+                // No department filter - see everyone (within company scope)
             }
             else
             {

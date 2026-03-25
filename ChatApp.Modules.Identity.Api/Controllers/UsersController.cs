@@ -97,7 +97,11 @@ namespace ChatApp.Modules.Identity.Api.Controllers
                 return Ok(new List<UserSearchResultDto>());
             }
 
-            var result = await _mediator.Send(new SearchUsersQuery(searchTerm), cancellationToken);
+            var isSuperAdmin = GetClaimValue("role") == "SuperAdmin";
+            var companyId = Guid.TryParse(GetClaimValue("companyId"), out var cid) ? cid : (Guid?)null;
+
+            var result = await _mediator.Send(
+                new SearchUsersQuery(searchTerm, companyId, isSuperAdmin), cancellationToken);
 
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
@@ -321,8 +325,11 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (pageNumber < 1 || pageSize < 1 || pageSize > 100)
                 return BadRequest(new { error = "Invalid pagination parameters. PageNumber must be >= 1 and PageSize must be between 1 and 100" });
 
+            var isSuperAdmin = GetClaimValue("role") == "SuperAdmin";
+            var companyId = Guid.TryParse(GetClaimValue("companyId"), out var cid) ? cid : (Guid?)null;
+
             var result = await _mediator.Send(
-                new GetUsersQuery(pageNumber, pageSize),
+                new GetUsersQuery(pageNumber, pageSize, companyId, isSuperAdmin),
                 cancellationToken);
 
             if (result.IsFailure)
@@ -614,19 +621,15 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
 
 
-        /// <summary>
-        /// Helper method to extract the current user's ID from the JWT token claims
-        /// </summary>
         private Guid GetCurrentUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
             if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            {
                 return Guid.Empty;
-            }
-
             return userId;
         }
+
+        private string? GetClaimValue(string claimType) =>
+            User.FindFirst(claimType)?.Value;
     }
 }

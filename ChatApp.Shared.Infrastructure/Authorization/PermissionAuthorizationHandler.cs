@@ -26,10 +26,9 @@ namespace ChatApp.Shared.Infrastructure.Authorization
             // Get user ID for logging purposes
             var userId=context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value??"Unknown";
 
-            // Only Super Admin bypasses all permission checks
-            // Regular admins are subject to their assigned permissions
-            var isSuperAdminClaim=context.User.FindFirst("isSuperAdmin")?.Value;
-            if(bool.TryParse(isSuperAdminClaim,out var isSuperAdmin) && isSuperAdmin)
+            // SuperAdmin bütün permission yoxlamalarını bypass edir
+            var roleClaim = context.User.FindFirst("role")?.Value;
+            if (roleClaim == "SuperAdmin")
             {
                 context.Succeed(requirement);
                 return Task.CompletedTask;

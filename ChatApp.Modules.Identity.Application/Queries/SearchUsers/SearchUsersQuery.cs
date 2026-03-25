@@ -7,7 +7,14 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.SearchUsers;
 
-public record SearchUsersQuery(string SearchTerm) : IRequest<Result<List<UserSearchResultDto>>>;
+/// <summary>
+/// İstifadəçi axtarışı — company scoped.
+/// </summary>
+public record SearchUsersQuery(
+    string SearchTerm,
+    Guid? CompanyId = null,
+    bool IsSuperAdmin = false
+) : IRequest<Result<List<UserSearchResultDto>>>;
 
 public class SearchUsersQueryHandler(
     IUnitOfWork unitOfWork,
@@ -28,11 +35,16 @@ public class SearchUsersQueryHandler(
 
             var searchTerm = query.SearchTerm.ToLower();
 
-            // Search only by FirstName and LastName (FullName)
-            var users = await unitOfWork.Users
-                .Where(u => u.IsActive &&
-                    (EF.Functions.Like(u.FirstName.ToLower(), $"%{searchTerm}%") ||
-                     EF.Functions.Like(u.LastName.ToLower(), $"%{searchTerm}%")))
+            var usersQuery = unitOfWork.Users.Where(u => u.IsActive);
+
+            // Company scoping
+            if (!query.IsSuperAdmin && query.CompanyId.HasValue)
+                usersQuery = usersQuery.Where(u => u.CompanyId == query.CompanyId);
+
+            var users = await usersQuery
+                .Where(u =>
+                    EF.Functions.Like(u.FirstName.ToLower(), $"%{searchTerm}%") ||
+                    EF.Functions.Like(u.LastName.ToLower(), $"%{searchTerm}%"))
                 .Select(u => new UserSearchResultDto(
                     u.Id,
                     u.FirstName,

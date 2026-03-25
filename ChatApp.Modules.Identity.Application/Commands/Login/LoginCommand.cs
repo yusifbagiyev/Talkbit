@@ -110,13 +110,13 @@ namespace ChatApp.Modules.Identity.Application.Commands.Login
             User user,
             CancellationToken cancellationToken)
         {
-            // Administrators have ALL permissions
-            if (user.Role == Role.Administrator)
+            // SuperAdmin və Admin — bütün permissionları alır (Admin öz şirkəti daxilində)
+            if (user.Role == Role.Admin || user.Role == Role.SuperAdmin)
             {
-                return Task.FromResult(Permissions.GetAll().ToList());
+                return Task.FromResult(Permissions.GetDefaultForRole(user.Role).ToList());
             }
 
-            // Regular users have only their individual permissions
+            // Adi istifadəçilər yalnız fərdi permissionlarını alır
             return Task.FromResult(user.UserPermissions
                 .Select(up => up.PermissionName)
                 .ToList());

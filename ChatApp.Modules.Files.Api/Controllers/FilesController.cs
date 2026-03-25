@@ -114,9 +114,9 @@ namespace ChatApp.Modules.Files.Api.Controllers
             // If uploading for another user, verify admin permission
             if (targetUserId.HasValue && targetUserId.Value != currentUserId)
             {
-                // Only admins can upload for other users
-                var isAdminClaim = User.FindFirst("isAdmin")?.Value; // Note: camelCase, matches JwtTokenGenerator
-                var isAdmin = isAdminClaim?.Equals("True", StringComparison.OrdinalIgnoreCase) == true;
+                // Yalnız Admin/SuperAdmin başqa istifadəçilər üçün yükləyə bilər
+                var roleClaim = User.FindFirst("role")?.Value;
+                var isAdmin = roleClaim == "Admin" || roleClaim == "SuperAdmin";
 
                 if (!isAdmin)
                 {

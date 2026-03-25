@@ -23,6 +23,19 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence.Configurations
             builder.Property(c => c.HeadOfCompanyId)
                 .HasColumnName("head_of_company_id");
 
+            builder.Property(c => c.LogoUrl)
+                .HasColumnName("logo_url")
+                .HasMaxLength(500);
+
+            builder.Property(c => c.Description)
+                .HasColumnName("description")
+                .HasMaxLength(1000);
+
+            builder.Property(c => c.IsActive)
+                .IsRequired()
+                .HasColumnName("is_active")
+                .HasDefaultValue(true);
+
             builder.Property(c => c.CreatedAtUtc)
                 .IsRequired()
                 .HasColumnName("created_at_utc")
@@ -40,11 +53,19 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence.Configurations
             builder.HasIndex(c => c.HeadOfCompanyId)
                 .HasDatabaseName("ix_companies_head_of_company_id");
 
+            builder.HasIndex(c => c.IsActive)
+                .HasDatabaseName("ix_companies_is_active");
+
             // Relationships
             builder.HasMany(c => c.Departments)
                 .WithOne(d => d.Company)
                 .HasForeignKey(d => d.CompanyId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(c => c.Users)
+                .WithOne(u => u.Company)
+                .HasForeignKey(u => u.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

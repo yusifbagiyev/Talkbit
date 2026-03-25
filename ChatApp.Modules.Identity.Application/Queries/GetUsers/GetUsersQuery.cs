@@ -7,7 +7,16 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.GetUsers
 {
-    public record GetUsersQuery(int PageNumber, int PageSize) : IRequest<Result<List<UserListItemDto>>>;
+    /// <summary>
+    /// Səhifələnmiş istifadəçi siyahısı — company scoped.
+    /// SuperAdmin bütün şirkətləri görür, Admin/User yalnız öz şirkətlərini.
+    /// </summary>
+    public record GetUsersQuery(
+        int PageNumber,
+        int PageSize,
+        Guid? CompanyId = null,
+        bool IsSuperAdmin = false
+    ) : IRequest<Result<List<UserListItemDto>>>;
 
     public class GetUsersQueryHandler(
         IUnitOfWork unitOfWork,
@@ -24,7 +33,13 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetUsers
                 var pageSize = Math.Min(query.PageSize, MaxPageSize);
                 var skip = (query.PageNumber - 1) * pageSize;
 
-                var users = await unitOfWork.Users
+                var usersQuery = unitOfWork.Users.AsQueryable();
+
+                // Company scoping — SuperAdmin bütün şirkətləri görür
+                if (!query.IsSuperAdmin && query.CompanyId.HasValue)
+                    usersQuery = usersQuery.Where(u => u.CompanyId == query.CompanyId);
+
+                var users = await usersQuery
                     .OrderByDescending(u => u.CreatedAtUtc)
                     .Skip(skip)
                     .Take(pageSize)

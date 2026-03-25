@@ -7,7 +7,14 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.Organization
 {
-    public record GetOrganizationHierarchyQuery : IRequest<Result<List<OrganizationHierarchyNodeDto>>>;
+    /// <summary>
+    /// Təşkilat iyerarxiyası — company scoped.
+    /// SuperAdmin hər hansı CompanyId göndərə bilər. Admin/User yalnız öz şirkətini görür.
+    /// </summary>
+    public record GetOrganizationHierarchyQuery(
+        Guid? CompanyId = null,
+        bool IsSuperAdmin = false
+    ) : IRequest<Result<List<OrganizationHierarchyNodeDto>>>;
 
     public class GetOrganizationHierarchyQueryHandler(
         IUnitOfWork unitOfWork,
@@ -20,25 +27,41 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
         {
             try
             {
-                // Get all companies
-                var companies = await unitOfWork.Companies
+                // Company scoping
+                var companiesQuery = unitOfWork.Companies
                     .Include(c => c.HeadOfCompany)
                     .AsNoTracking()
-                    .ToListAsync(cancellationToken);
+                    .AsQueryable();
 
-                // Get all departments
-                var departments = await unitOfWork.Departments
+                var departmentsQuery = unitOfWork.Departments
                     .Include(d => d.ParentDepartment)
                     .Include(d => d.HeadOfDepartment)
                     .AsNoTracking()
-                    .ToListAsync(cancellationToken);
+                    .AsQueryable();
 
-                // Get all users with their employee data
-                var users = await unitOfWork.Users
+                // SuperAdmin: bütün şirkətləri və ya spesifik bir şirkəti görür
+                // Admin/User: yalnız öz şirkətini
+                if (query.CompanyId.HasValue)
+                {
+                    companiesQuery = companiesQuery.Where(c => c.Id == query.CompanyId.Value);
+                    departmentsQuery = departmentsQuery.Where(d => d.CompanyId == query.CompanyId.Value);
+                }
+
+                var companies = await companiesQuery.ToListAsync(cancellationToken);
+
+                var departments = await departmentsQuery.ToListAsync(cancellationToken);
+
+                // Get users with company scoping
+                var usersQuery = unitOfWork.Users
                     .Include(u => u.Employee)
                         .ThenInclude(e => e!.Position)
                     .AsNoTracking()
-                    .ToListAsync(cancellationToken);
+                    .AsQueryable();
+
+                if (query.CompanyId.HasValue)
+                    usersQuery = usersQuery.Where(u => u.CompanyId == query.CompanyId.Value);
+
+                var users = await usersQuery.ToListAsync(cancellationToken);
 
                 // Count users per department
                 var departmentUserCounts = users
