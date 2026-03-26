@@ -102,6 +102,10 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 if (!request.IsSuperAdmin && user.CompanyId != request.CallerCompanyId)
                     return Result.Failure("Access denied");
 
+                // Admin yalnız User rolu verə bilər
+                if (request.Role.HasValue && !request.IsSuperAdmin && request.Role.Value != Role.User)
+                    return Result.Failure("Admins can only assign the User role");
+
                 if (user.Employee is null)
                     throw new NotFoundException($"Employee record not found for User {request.UserId}");
 

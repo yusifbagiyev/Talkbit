@@ -50,7 +50,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (creatorId == Guid.Empty)
                 return Unauthorized();
 
-            var (callerCompanyId, _) = GetCompanyClaims();
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
 
             var command = new CreateUserCommand(
                 request.FirstName,
@@ -65,7 +65,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
                 request.DateOfBirth,
                 request.WorkPhone,
                 request.HiringDate,
-                CallerCompanyId: callerCompanyId);
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await _mediator.Send(command, cancellationToken);
 

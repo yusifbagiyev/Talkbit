@@ -25,7 +25,8 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         DateTime? DateOfBirth,
         string? WorkPhone,
         DateTime? HiringDate,
-        Guid? CallerCompanyId = null
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result<Guid>>;
 
     public class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
@@ -113,6 +114,10 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                     if (deptCompanyId != command.CallerCompanyId)
                         return Result.Failure<Guid>("Department does not belong to your company");
                 }
+
+                // Admin yalnız User rolu verə bilər
+                if (!command.IsSuperAdmin && command.Role != Role.User)
+                    return Result.Failure<Guid>("Admins can only create users with the User role");
 
                 var passwordHash = passwordHasher.Hash(command.Password);
 
