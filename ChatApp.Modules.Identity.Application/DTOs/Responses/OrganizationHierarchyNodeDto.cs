@@ -37,6 +37,7 @@ namespace ChatApp.Modules.Identity.Application.DTOs.Responses
         // Supervisor & Subordinate info
         int SubordinateCount = 0,
         string? SupervisorName = null,
-        bool IsDepartmentHead = false
+        bool IsDepartmentHead = false,
+        Guid? CompanyId = null
     );
 }

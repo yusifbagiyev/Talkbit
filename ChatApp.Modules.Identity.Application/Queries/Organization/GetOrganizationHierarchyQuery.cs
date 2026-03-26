@@ -51,10 +51,11 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
 
                 var departments = await departmentsQuery.ToListAsync(cancellationToken);
 
-                // Get users with company scoping
+                // Get users with company scoping — şirkətsiz istifadəçilər (SuperAdmin) çıxarılır
                 var usersQuery = unitOfWork.Users
                     .Include(u => u.Employee)
                         .ThenInclude(e => e!.Position)
+                    .Where(u => u.CompanyId.HasValue)
                     .AsNoTracking()
                     .AsQueryable();
 
@@ -106,7 +107,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                     PositionName: u.Employee?.Position?.Name,
                     DepartmentId: u.Employee?.DepartmentId,
                     CreatedAtUtc: u.CreatedAtUtc,
-                    Children: new List<OrganizationHierarchyNodeDto>()
+                    Children: new List<OrganizationHierarchyNodeDto>(),
+                    CompanyId: u.CompanyId
                 )).ToList();
 
                 // Build hierarchy: Company → Departments → Sub-departments → Users
@@ -150,6 +152,12 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                 .GroupBy(d => d.ParentDepartmentId!.Value)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
+            // Departamentsiz userləri şirkətə görə qruplaşdır; şirkətsizlər (SuperAdmin) çıxarılır
+            var noDeptUsersByCompany = userNodes
+                .Where(u => !u.DepartmentId.HasValue && u.CompanyId.HasValue)
+                .GroupBy(u => u.CompanyId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             var result = new List<OrganizationHierarchyNodeDto>();
 
             foreach (var company in companies)
@@ -177,6 +185,13 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                         childDepartmentsByParent, usersByDepartment, deptHeadNames));
                 }
 
+                // Departamentsiz userləri şirkətin altına əlavə et
+                if (noDeptUsersByCompany.TryGetValue(company.Id, out var noDeptUsers))
+                {
+                    foreach (var u in noDeptUsers.OrderBy(u => u.Name))
+                        companyChildren.Add(u with { Level = 1 });
+                }
+
                 var companyNode = new OrganizationHierarchyNodeDto(
                     Type: NodeType.Company,
                     Id: company.Id,
@@ -199,13 +214,6 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
 
                 result.Add(companyNode);
             }
-
-            // Add users with no department to root
-            var usersWithoutDepartment = userNodes
-                .Where(u => !u.DepartmentId.HasValue)
-                .Select(u => u with { Level = 0 })
-                .ToList();
-            result.AddRange(usersWithoutDepartment);
 
             return result;
         }
