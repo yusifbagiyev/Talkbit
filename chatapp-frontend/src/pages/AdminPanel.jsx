@@ -2,7 +2,7 @@ import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import CompanyManagement from "../components/admin/CompanyManagement";
-import UserManagement from "../components/admin/UserManagement";
+import HierarchyView from "../components/admin/HierarchyView";
 import DepartmentManagement from "../components/admin/DepartmentManagement";
 import PositionManagement from "../components/admin/PositionManagement";
 import "./AdminPanel.css";
@@ -33,6 +33,7 @@ function AdminPanel() {
       <div className="ap-body">
         {/* Sol navigasiya */}
         <nav className="ap-nav">
+          {/* SuperAdmin only */}
           {isSuperAdmin && (
             <button
               className={`ap-nav-item${activeSection === "companies" ? " active" : ""}`}
@@ -45,19 +46,23 @@ function AdminPanel() {
               Companies
             </button>
           )}
+
+          {/* Hər iki rol */}
+          <button
+            className={`ap-nav-item${activeSection === "users" ? " active" : ""}`}
+            onClick={() => setActiveSection("users")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Users
+          </button>
+
+          {/* Admin only */}
           {!isSuperAdmin && (
             <>
-              <button
-                className={`ap-nav-item${activeSection === "users" ? " active" : ""}`}
-                onClick={() => setActiveSection("users")}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-                Users
-              </button>
               <button
                 className={`ap-nav-item${activeSection === "departments" ? " active" : ""}`}
                 onClick={() => setActiveSection("departments")}
@@ -87,7 +92,7 @@ function AdminPanel() {
         {/* Content */}
         <main className="ap-content">
           {activeSection === "companies" && isSuperAdmin && <CompanyManagement />}
-          {activeSection === "users" && !isSuperAdmin && <UserManagement isSuperAdmin={isSuperAdmin} />}
+          {activeSection === "users" && <HierarchyView isSuperAdmin={isSuperAdmin} />}
           {activeSection === "departments" && !isSuperAdmin && <DepartmentManagement />}
           {activeSection === "positions" && !isSuperAdmin && <PositionManagement />}
         </main>

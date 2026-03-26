@@ -389,6 +389,12 @@ function getSupervisors(userId) { return apiGet(`/api/users/${userId}/supervisor
 function addSupervisor(userId, supervisorId) { return apiPost(`/api/users/${userId}/supervisors`, { supervisorId }); }
 function removeSupervisor(userId, supervisorId) { return apiDelete(`/api/users/${userId}/supervisors/${supervisorId}`); }
 
+// ─── Organization Hierarchy API ───────────────────────────────────────────────
+function getOrganizationHierarchy(companyId = null) {
+  const query = companyId ? `?companyId=${companyId}` : "";
+  return apiGet(`/api/identity/organization/hierarchy${query}`);
+}
+
 // ─── Department Management API ────────────────────────────────────────────────
 function createDepartment(data) { return apiPost("/api/identity/departments", data); }
 function updateDepartment(id, data) { return apiPut(`/api/identity/departments/${id}`, data); }
@@ -403,4 +409,4 @@ function updatePosition(id, data) { return apiPut(`/api/identity/positions/${id}
 function deletePosition(id) { return apiDelete(`/api/identity/positions/${id}`); }
 
 // Named exports — başqa fayllar bunları import edə bilsin
-export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, assignCompanyAdmin, getUsers, createUser, updateUser, deleteUser, getSupervisors, addSupervisor, removeSupervisor, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition };
+export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, assignCompanyAdmin, getUsers, createUser, updateUser, deleteUser, getSupervisors, addSupervisor, removeSupervisor, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy };
