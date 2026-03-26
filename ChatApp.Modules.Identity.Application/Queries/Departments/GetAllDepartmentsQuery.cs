@@ -7,7 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.Departments
 {
-    public record GetAllDepartmentsQuery : IRequest<Result<IEnumerable<DepartmentDto>>>;
+    public record GetAllDepartmentsQuery(
+        Guid? CompanyId,
+        bool IsSuperAdmin) : IRequest<Result<IEnumerable<DepartmentDto>>>;
 
     public class GetAllDepartmentsQueryHandler(
         IUnitOfWork unitOfWork,
@@ -20,6 +22,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.Departments
             try
             {
                 var departments = await unitOfWork.Departments
+                    .Where(d => query.IsSuperAdmin || d.CompanyId == query.CompanyId)
                     .Select(d => new DepartmentDto(
                         d.Id,
                         d.Name,

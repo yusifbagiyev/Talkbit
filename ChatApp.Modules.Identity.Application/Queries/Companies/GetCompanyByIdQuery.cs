@@ -7,10 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.Companies
 {
-    /// <summary>
-    /// Şirkət detallarını əldə etmək — SuperAdmin və ya öz şirkətinin Admin-i.
-    /// </summary>
-    public record GetCompanyByIdQuery(Guid CompanyId) : IRequest<Result<CompanyDetailDto>>;
+    public record GetCompanyByIdQuery(
+        Guid CompanyId,
+        Guid? CallerCompanyId,
+        bool IsSuperAdmin) : IRequest<Result<CompanyDetailDto>>;
 
     public class GetCompanyByIdQueryHandler(
         IUnitOfWork unitOfWork,
@@ -31,13 +31,15 @@ namespace ChatApp.Modules.Identity.Application.Queries.Companies
                 if (company is null)
                     return Result.Failure<CompanyDetailDto>("Company not found");
 
+                if (!query.IsSuperAdmin && company.Id != query.CallerCompanyId)
+                    return Result.Failure<CompanyDetailDto>("Access denied");
+
                 var userCount = await unitOfWork.Users
                     .CountAsync(u => u.CompanyId == company.Id && u.IsActive, cancellationToken);
-
                 var departmentCount = await unitOfWork.Departments
                     .CountAsync(d => d.CompanyId == company.Id, cancellationToken);
 
-                var dto = new CompanyDetailDto(
+                return Result.Success(new CompanyDetailDto(
                     company.Id,
                     company.Name,
                     company.LogoUrl,
@@ -48,9 +50,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.Companies
                     userCount,
                     departmentCount,
                     company.CreatedAtUtc,
-                    company.UpdatedAtUtc);
-
-                return Result.Success(dto);
+                    company.UpdatedAtUtc));
             }
             catch (Exception ex)
             {

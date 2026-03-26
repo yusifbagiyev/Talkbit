@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Commands.Departments
 {
-    public record DeleteDepartmentCommand(Guid DepartmentId) : IRequest<Result>;
+    public record DeleteDepartmentCommand(
+        Guid DepartmentId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false) : IRequest<Result>;
 
     public class DeleteDepartmentCommandHandler(
         IUnitOfWork unitOfWork,
@@ -27,15 +30,15 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
                 if (department == null)
                     return Result.Failure("Department not found");
 
-                // Check if department has subdepartments
+                if (!command.IsSuperAdmin && department.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 if (department.Subdepartments.Any())
                     return Result.Failure($"Cannot delete department. It has {department.Subdepartments.Count} subdepartment(s)");
 
-                // Check if department has positions
                 if (department.Positions.Any())
                     return Result.Failure($"Cannot delete department. It has {department.Positions.Count} position(s)");
 
-                // Check if department has employees
                 if (department.Employees.Any())
                     return Result.Failure($"Cannot delete department. It has {department.Employees.Count} employee(s) assigned");
 
@@ -43,7 +46,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation("Department {DepartmentId} deleted successfully", command.DepartmentId);
-
                 return Result.Success();
             }
             catch (Exception ex)

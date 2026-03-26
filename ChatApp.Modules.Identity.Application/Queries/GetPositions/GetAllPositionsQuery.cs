@@ -7,7 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.GetPositions
 {
-    public record GetAllPositionsQuery : IRequest<Result<List<PositionDto>>>;
+    public record GetAllPositionsQuery(
+        Guid? CompanyId,
+        bool IsSuperAdmin) : IRequest<Result<List<PositionDto>>>;
 
     public class GetAllPositionsQueryHandler(
         IUnitOfWork unitOfWork,
@@ -20,6 +22,9 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetPositions
             try
             {
                 var positions = await unitOfWork.Positions
+                    .Where(p => query.IsSuperAdmin
+                        || p.Department == null
+                        || p.Department.CompanyId == query.CompanyId)
                     .OrderBy(p => p.Name)
                     .Select(p => new PositionDto(
                         p.Id,

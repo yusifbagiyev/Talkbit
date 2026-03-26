@@ -7,7 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.Departments
 {
-    public record GetDepartmentByIdQuery(Guid DepartmentId) : IRequest<Result<DepartmentDto>>;
+    public record GetDepartmentByIdQuery(
+        Guid DepartmentId,
+        Guid? CallerCompanyId,
+        bool IsSuperAdmin) : IRequest<Result<DepartmentDto>>;
 
     public class GetDepartmentByIdQueryHandler(
         IUnitOfWork unitOfWork,
@@ -20,7 +23,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.Departments
             try
             {
                 var department = await unitOfWork.Departments
-                    .Where(d => d.Id == query.DepartmentId)
+                    .Where(d => d.Id == query.DepartmentId
+                        && (query.IsSuperAdmin || d.CompanyId == query.CallerCompanyId))
                     .Select(d => new DepartmentDto(
                         d.Id,
                         d.Name,

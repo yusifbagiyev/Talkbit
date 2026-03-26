@@ -10,7 +10,7 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
 {
     public record CreateDepartmentCommand(
         string Name,
-        Guid CompanyId,
+        Guid? CallerCompanyId,
         Guid? ParentDepartmentId
     ) : IRequest<Result<Guid>>;
 
@@ -21,6 +21,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Department name is required")
                 .MaximumLength(150).WithMessage("Department name must not exceed 150 characters");
+
+            RuleFor(x => x.CallerCompanyId)
+                .NotEmpty().WithMessage("Company ID is required");
         }
     }
 
@@ -34,40 +37,33 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
         {
             try
             {
-                // Validate parent department exists if provided
-                if (command.ParentDepartmentId.HasValue)
-                {
-                    var parentExists = await unitOfWork.Departments
-                        .AnyAsync(d => d.Id == command.ParentDepartmentId.Value, cancellationToken);
+                if (!command.CallerCompanyId.HasValue)
+                    return Result.Failure<Guid>("Company ID is required");
 
-                    if (!parentExists)
-                        return Result.Failure<Guid>("Parent department not found");
-                }
-
-                // Check for duplicate department name
-                var isDuplicate = await unitOfWork.Departments
-                    .AnyAsync(d => d.Name == command.Name, cancellationToken);
-
-                if (isDuplicate)
-                    return Result.Failure<Guid>("A department with this name already exists");
-
-                // Validate company exists
                 var companyExists = await unitOfWork.Companies
-                    .AnyAsync(c => c.Id == command.CompanyId, cancellationToken);
+                    .AnyAsync(c => c.Id == command.CallerCompanyId.Value, cancellationToken);
                 if (!companyExists)
                     return Result.Failure<Guid>("Company not found");
 
-                Department department;
                 if (command.ParentDepartmentId.HasValue)
                 {
-                    // Subdepartment
-                    department = new Department(command.Name, command.CompanyId, command.ParentDepartmentId.Value);
+                    var parent = await unitOfWork.Departments
+                        .FirstOrDefaultAsync(d => d.Id == command.ParentDepartmentId.Value, cancellationToken);
+                    if (parent == null)
+                        return Result.Failure<Guid>("Parent department not found");
+                    if (parent.CompanyId != command.CallerCompanyId.Value)
+                        return Result.Failure<Guid>("Parent department does not belong to your company");
                 }
-                else
-                {
-                    // Top-level department
-                    department = new Department(command.Name, command.CompanyId);
-                }
+
+                // Eyni şirkət daxilində ad tekrarını yoxla
+                var isDuplicate = await unitOfWork.Departments
+                    .AnyAsync(d => d.Name == command.Name && d.CompanyId == command.CallerCompanyId.Value, cancellationToken);
+                if (isDuplicate)
+                    return Result.Failure<Guid>("A department with this name already exists in your company");
+
+                var department = command.ParentDepartmentId.HasValue
+                    ? new Department(command.Name, command.CallerCompanyId.Value, command.ParentDepartmentId.Value)
+                    : new Department(command.Name, command.CallerCompanyId.Value);
 
                 await unitOfWork.Departments.AddAsync(department, cancellationToken);
                 await unitOfWork.SaveChangesAsync(cancellationToken);

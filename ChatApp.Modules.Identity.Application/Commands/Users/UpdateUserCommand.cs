@@ -21,7 +21,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         string? AboutMe,
         DateTime? DateOfBirth,
         string? WorkPhone,
-        DateTime? HiringDate
+        DateTime? HiringDate,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
@@ -90,22 +92,18 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
             {
                 logger?.LogInformation("Updating user {UserId}", request.UserId);
 
-                // Load User with Employee
                 var user = await unitOfWork.Users
                     .Include(u => u.Employee)
                     .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
                 if (user is null)
-                {
-                    logger?.LogWarning("User {UserId} not found", request.UserId);
                     throw new NotFoundException($"User with ID {request.UserId} not found");
-                }
+
+                if (!request.IsSuperAdmin && user.CompanyId != request.CallerCompanyId)
+                    return Result.Failure("Access denied");
 
                 if (user.Employee is null)
-                {
-                    logger?.LogError("Employee record not found for User {UserId}", request.UserId);
                     throw new NotFoundException($"Employee record not found for User {request.UserId}");
-                }
 
                 await ValidateAndUpdateEmailAsync(user, request.Email, request.UserId, cancellationToken);
                 UpdateUserFields(user, user.Employee, request);
@@ -140,32 +138,19 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 cancellationToken);
 
             if (emailExists)
-            {
-                logger.LogWarning("Email {Email} is already taken by another user", newEmail);
                 throw new InvalidOperationException($"Email {newEmail} is already in use");
-            }
 
             user.UpdateEmail(newEmail);
         }
 
-        private static void UpdateUserFields(
-            User user,
-            Employee employee,
-            UpdateUserCommand request)
+        private static void UpdateUserFields(User user, Employee employee, UpdateUserCommand request)
         {
-            // Update User fields (Authentication & Basic Profile)
             if (!string.IsNullOrWhiteSpace(request.FirstName) && !string.IsNullOrWhiteSpace(request.LastName))
-            {
                 user.UpdateName(request.FirstName, request.LastName);
-            }
             else if (!string.IsNullOrWhiteSpace(request.FirstName))
-            {
                 user.UpdateName(request.FirstName, user.LastName);
-            }
             else if (!string.IsNullOrWhiteSpace(request.LastName))
-            {
                 user.UpdateName(user.FirstName, request.LastName);
-            }
 
             if (request.Role.HasValue)
                 user.ChangeRole(request.Role.Value);
@@ -173,7 +158,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
             if (request.AvatarUrl is not null)
                 user.UpdateAvatarUrl(string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl);
 
-            // Update Employee fields (Organizational & Sensitive Data)
             if (request.PositionId.HasValue)
                 employee.AssignToPosition(request.PositionId == Guid.Empty ? null : request.PositionId);
 

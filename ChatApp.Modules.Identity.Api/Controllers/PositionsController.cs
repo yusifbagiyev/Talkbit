@@ -21,7 +21,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetAllPositions(CancellationToken cancellationToken)
         {
-            var query = new GetAllPositionsQuery();
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
+
+            var query = new GetAllPositionsQuery(companyId, isSuperAdmin);
             var result = await mediator.Send(query, cancellationToken);
 
             if (result.IsFailure)
@@ -41,7 +43,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid departmentId,
             CancellationToken cancellationToken)
         {
-            var query = new GetPositionsByDepartmentQuery(departmentId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var query = new GetPositionsByDepartmentQuery(departmentId, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(query, cancellationToken);
 
             if (result.IsFailure)
@@ -61,10 +65,14 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] CreatePositionRequest request,
             CancellationToken cancellationToken)
         {
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
             var command = new CreatePositionCommand(
                 request.Name,
                 request.DepartmentId,
-                request.Description);
+                request.Description,
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await mediator.Send(command, cancellationToken);
 
@@ -90,11 +98,15 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] UpdatePositionRequest request,
             CancellationToken cancellationToken)
         {
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
             var command = new UpdatePositionCommand(
                 positionId,
                 request.Name,
                 request.DepartmentId,
-                request.Description);
+                request.Description,
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await mediator.Send(command, cancellationToken);
 
@@ -116,13 +128,22 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid positionId,
             CancellationToken cancellationToken)
         {
-            var command = new DeletePositionCommand(positionId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new DeletePositionCommand(positionId, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
 
             return Ok(new { message = "Position deleted successfully" });
+        }
+
+        private (Guid? companyId, bool isSuperAdmin) GetCompanyClaims()
+        {
+            var companyId = Guid.TryParse(User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+            var isSuperAdmin = User.FindFirst("role")?.Value == "SuperAdmin";
+            return (companyId, isSuperAdmin);
         }
     }
 }

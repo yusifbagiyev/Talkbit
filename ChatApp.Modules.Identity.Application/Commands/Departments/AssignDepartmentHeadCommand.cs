@@ -9,7 +9,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
 {
     public record AssignDepartmentHeadCommand(
         Guid DepartmentId,
-        Guid UserId
+        Guid UserId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class AssignDepartmentHeadCommandValidator : AbstractValidator<AssignDepartmentHeadCommand>
@@ -34,19 +36,23 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
         {
             try
             {
-                // Validate department exists
                 var department = await unitOfWork.Departments
                     .FirstOrDefaultAsync(d => d.Id == command.DepartmentId, cancellationToken);
 
                 if (department == null)
                     return Result.Failure("Department not found");
 
-                // Validate user exists and is active
+                if (!command.IsSuperAdmin && department.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 var user = await unitOfWork.Users
                     .FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
 
                 if (user == null)
                     return Result.Failure("User not found");
+
+                if (!command.IsSuperAdmin && user.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("User does not belong to your company");
 
                 if (!user.IsActive)
                     return Result.Failure("Cannot assign inactive user as department head");

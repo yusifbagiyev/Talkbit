@@ -24,7 +24,8 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         string? AboutMe,
         DateTime? DateOfBirth,
         string? WorkPhone,
-        DateTime? HiringDate
+        DateTime? HiringDate,
+        Guid? CallerCompanyId = null
     ) : IRequest<Result<Guid>>;
 
     public class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
@@ -95,28 +96,37 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 logger?.LogInformation("Creating user: {FirstName} {LastName} ({Email})",
                     command.FirstName, command.LastName, command.Email);
 
-                // Check if email already exists
                 if (await unitOfWork.Users.AnyAsync(u => u.Email == command.Email, cancellationToken))
-                {
-                    logger?.LogWarning("Email {Email} already exists", command.Email);
                     return Result.Failure<Guid>("Email already exists");
+
+                // DepartmentId-nin caller-in şirkətinə aid olduğunu yoxla
+                if (command.CallerCompanyId.HasValue)
+                {
+                    var deptCompanyId = await unitOfWork.Departments
+                        .Where(d => d.Id == command.DepartmentId)
+                        .Select(d => (Guid?)d.CompanyId)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (deptCompanyId == null)
+                        return Result.Failure<Guid>("Department not found");
+
+                    if (deptCompanyId != command.CallerCompanyId)
+                        return Result.Failure<Guid>("Department does not belong to your company");
                 }
 
                 var passwordHash = passwordHasher.Hash(command.Password);
 
-                // Create User (Authentication & Basic Profile)
                 var user = new User(
                     command.FirstName,
                     command.LastName,
                     command.Email,
                     passwordHash,
                     command.Role,
-                    command.AvatarUrl);
+                    command.AvatarUrl,
+                    command.CallerCompanyId);
 
                 await unitOfWork.Users.AddAsync(user, cancellationToken);
 
-                // Create Employee (Organizational & Sensitive Data)
-                // Every user must have an employee record (1:1 mandatory)
                 var employee = new Employee(
                     user.Id,
                     command.DateOfBirth,
@@ -124,24 +134,15 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                     command.AboutMe,
                     command.HiringDate);
 
-                // Assign to department (required)
                 employee.AssignToDepartment(command.DepartmentId);
 
-                // Assign to position (optional)
                 if (command.PositionId.HasValue)
-                {
                     employee.AssignToPosition(command.PositionId.Value);
-                }
 
                 await unitOfWork.Employees.AddAsync(employee, cancellationToken);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
-                // Publish event
-                await eventBus.PublishAsync(new UserCreatedEvent(
-                    user.Id,
-                    user.FullName,
-                    user.Email,
-                    user.Id)); // CreatedBy = self for now
+                await eventBus.PublishAsync(new UserCreatedEvent(user.Id, user.FullName, user.Email, user.Id));
 
                 logger?.LogInformation("User {Email} created successfully with ID {UserId}", command.Email, user.Id);
                 return Result.Success(user.Id);

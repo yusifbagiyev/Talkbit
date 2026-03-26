@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Commands.Positions
 {
-    public record DeletePositionCommand(Guid PositionId) : IRequest<Result>;
+    public record DeletePositionCommand(
+        Guid PositionId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false) : IRequest<Result>;
 
     public class DeletePositionCommandHandler(
         IUnitOfWork unitOfWork,
@@ -20,12 +23,15 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
             {
                 var position = await unitOfWork.Positions
                     .Include(p => p.Employees)
+                    .Include(p => p.Department)
                     .FirstOrDefaultAsync(p => p.Id == command.PositionId, cancellationToken);
 
                 if (position == null)
                     return Result.Failure("Position not found");
 
-                // Check if any employees are assigned to this position
+                if (!command.IsSuperAdmin && position.Department?.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 if (position.Employees.Any())
                     return Result.Failure($"Cannot delete position. {position.Employees.Count} employee(s) are currently assigned to this position");
 
@@ -33,7 +39,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation("Position {PositionId} deleted successfully", command.PositionId);
-
                 return Result.Success();
             }
             catch (Exception ex)

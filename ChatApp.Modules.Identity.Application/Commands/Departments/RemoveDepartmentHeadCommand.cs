@@ -7,7 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Commands.Departments
 {
-    public record RemoveDepartmentHeadCommand(Guid DepartmentId) : IRequest<Result>;
+    public record RemoveDepartmentHeadCommand(
+        Guid DepartmentId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false) : IRequest<Result>;
 
     public class RemoveDepartmentHeadCommandValidator : AbstractValidator<RemoveDepartmentHeadCommand>
     {
@@ -33,6 +36,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
 
                 if (department == null)
                     return Result.Failure("Department not found");
+
+                if (!command.IsSuperAdmin && department.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
 
                 if (department.HeadOfDepartmentId == null)
                     return Result.Failure("Department does not have a head assigned");

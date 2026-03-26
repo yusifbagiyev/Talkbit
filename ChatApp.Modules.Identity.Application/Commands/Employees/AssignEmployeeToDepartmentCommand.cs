@@ -11,7 +11,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
         Guid UserId,
         Guid DepartmentId,
         Guid? SupervisorId = null,
-        Guid? HeadOfDepartmentId = null
+        Guid? HeadOfDepartmentId = null,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class AssignEmployeeToDepartmentCommandValidator : AbstractValidator<AssignEmployeeToDepartmentCommand>
@@ -44,15 +46,20 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
                 if (user == null)
                     return Result.Failure("User not found");
 
+                if (!command.IsSuperAdmin && user.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 if (user.Employee == null)
                     return Result.Failure("User does not have an employee record");
 
-                // Validate department exists
                 var department = await unitOfWork.Departments
                     .FirstOrDefaultAsync(d => d.Id == command.DepartmentId, cancellationToken);
 
                 if (department == null)
                     return Result.Failure("Department not found");
+
+                if (!command.IsSuperAdmin && department.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Department does not belong to your company");
 
                 // Validate head of department if provided
                 if (command.HeadOfDepartmentId.HasValue)

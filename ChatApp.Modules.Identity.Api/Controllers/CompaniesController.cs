@@ -47,7 +47,10 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetCompanyById(Guid id, CancellationToken cancellationToken)
         {
-            var query = new GetCompanyByIdQuery(id);
+            var callerCompanyId = Guid.TryParse(User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+            var isSuperAdmin = User.FindFirst("role")?.Value == "SuperAdmin";
+
+            var query = new GetCompanyByIdQuery(id, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(query, cancellationToken);
 
             if (result.IsFailure)

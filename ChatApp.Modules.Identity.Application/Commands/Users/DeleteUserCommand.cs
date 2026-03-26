@@ -1,4 +1,4 @@
-﻿using ChatApp.Modules.Identity.Application.Interfaces;
+using ChatApp.Modules.Identity.Application.Interfaces;
 using ChatApp.Modules.Identity.Domain.Events;
 using ChatApp.Shared.Kernel.Common;
 using ChatApp.Shared.Kernel.Exceptions;
@@ -11,9 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace ChatApp.Modules.Identity.Application.Commands.Users
 {
     public record DeleteUserCommand(
-        Guid UserId
+        Guid UserId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
-
 
     public class DeleteUserCommandValidator : AbstractValidator<DeleteUserCommand>
     {
@@ -24,12 +25,10 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         }
     }
 
-
-
     public class DeleteUserCommandHandler(
         IUnitOfWork unitOfWork,
         IEventBus eventBus,
-        ILogger<DeleteUserCommand> logger) : IRequestHandler<DeleteUserCommand,Result>
+        ILogger<DeleteUserCommand> logger) : IRequestHandler<DeleteUserCommand, Result>
     {
         public async Task<Result> Handle(
             DeleteUserCommand request,
@@ -40,8 +39,11 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 logger?.LogInformation("Deleting user {UserId}", request.UserId);
 
                 var user = await unitOfWork.Users
-                    .FirstOrDefaultAsync(r=>r.Id==request.UserId, cancellationToken) 
+                    .FirstOrDefaultAsync(r => r.Id == request.UserId, cancellationToken)
                         ?? throw new NotFoundException($"User with ID {request.UserId} not found");
+
+                if (!request.IsSuperAdmin && user.CompanyId != request.CallerCompanyId)
+                    return Result.Failure("Access denied");
 
                 unitOfWork.Users.Remove(user);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -49,7 +51,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 await eventBus.PublishAsync(new UserDeletedEvent(user.Id, user.Email), cancellationToken);
 
                 logger?.LogInformation("User {Email} deleted successfully", user.Email);
-
                 return Result.Success();
             }
             catch (Exception ex)

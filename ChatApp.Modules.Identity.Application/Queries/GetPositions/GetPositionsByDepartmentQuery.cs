@@ -7,7 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.GetPositions
 {
-    public record GetPositionsByDepartmentQuery(Guid DepartmentId) : IRequest<Result<List<PositionDto>>>;
+    public record GetPositionsByDepartmentQuery(
+        Guid DepartmentId,
+        Guid? CallerCompanyId,
+        bool IsSuperAdmin) : IRequest<Result<List<PositionDto>>>;
 
     public class GetPositionsByDepartmentQueryHandler(
         IUnitOfWork unitOfWork,
@@ -19,6 +22,17 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetPositions
         {
             try
             {
+                var deptCompanyId = await unitOfWork.Departments
+                    .Where(d => d.Id == query.DepartmentId)
+                    .Select(d => (Guid?)d.CompanyId)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (deptCompanyId == null)
+                    return Result.Failure<List<PositionDto>>("Department not found");
+
+                if (!query.IsSuperAdmin && deptCompanyId != query.CallerCompanyId)
+                    return Result.Failure<List<PositionDto>>("Access denied");
+
                 var positions = await unitOfWork.Positions
                     .Where(p => p.DepartmentId == query.DepartmentId)
                     .OrderBy(p => p.Name)

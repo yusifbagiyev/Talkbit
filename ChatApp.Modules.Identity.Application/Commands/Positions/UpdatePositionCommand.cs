@@ -11,7 +11,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
         Guid PositionId,
         string? Name,
         Guid? DepartmentId,
-        string? Description
+        string? Description,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class UpdatePositionCommandValidator : AbstractValidator<UpdatePositionCommand>
@@ -46,35 +48,37 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
             try
             {
                 var position = await unitOfWork.Positions
+                    .Include(p => p.Department)
                     .FirstOrDefaultAsync(p => p.Id == command.PositionId, cancellationToken);
 
                 if (position == null)
                     return Result.Failure("Position not found");
 
-                // Validate department exists if DepartmentId is being updated
+                // Mövcut departmentin şirkəti ilə caller-in şirkətini müqayisə et
+                if (!command.IsSuperAdmin && position.Department?.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 if (command.DepartmentId.HasValue)
                 {
-                    var departmentExists = await unitOfWork.Departments
-                        .AnyAsync(d => d.Id == command.DepartmentId.Value, cancellationToken);
-
-                    if (!departmentExists)
+                    var dept = await unitOfWork.Departments
+                        .FirstOrDefaultAsync(d => d.Id == command.DepartmentId.Value, cancellationToken);
+                    if (dept == null)
                         return Result.Failure("Department not found");
+                    if (!command.IsSuperAdmin && dept.CompanyId != command.CallerCompanyId)
+                        return Result.Failure("Department does not belong to your company");
                 }
 
-                // Check for duplicate name in the same department
                 if (!string.IsNullOrWhiteSpace(command.Name))
                 {
                     var newDepartmentId = command.DepartmentId ?? position.DepartmentId;
                     var isDuplicate = await unitOfWork.Positions
-                        .AnyAsync(p => p.Id != command.PositionId &&
-                                      p.Name == command.Name &&
-                                      p.DepartmentId == newDepartmentId, cancellationToken);
-
+                        .AnyAsync(p => p.Id != command.PositionId
+                                      && p.Name == command.Name
+                                      && p.DepartmentId == newDepartmentId, cancellationToken);
                     if (isDuplicate)
                         return Result.Failure("A position with this name already exists in this department");
                 }
 
-                // Update position
                 position.UpdateDetails(
                     command.Name ?? position.Name,
                     command.DepartmentId.HasValue ? command.DepartmentId : position.DepartmentId,
@@ -83,7 +87,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation("Position {PositionId} updated successfully", command.PositionId);
-
                 return Result.Success();
             }
             catch (Exception ex)

@@ -7,7 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Commands.Employees
 {
-    public record RemoveEmployeeFromDepartmentCommand(Guid UserId) : IRequest<Result>;
+    public record RemoveEmployeeFromDepartmentCommand(
+        Guid UserId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false) : IRequest<Result>;
 
     public class RemoveEmployeeFromDepartmentCommandValidator : AbstractValidator<RemoveEmployeeFromDepartmentCommand>
     {
@@ -35,6 +38,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
 
                 if (user == null)
                     return Result.Failure("User not found");
+
+                if (!command.IsSuperAdmin && user.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
 
                 if (user.Employee == null)
                     return Result.Failure("User does not have an employee record");

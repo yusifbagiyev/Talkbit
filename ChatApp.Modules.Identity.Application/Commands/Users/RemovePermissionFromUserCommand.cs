@@ -10,7 +10,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
 {
     public record RemovePermissionFromUserCommand(
         Guid UserId,
-        string PermissionName
+        string PermissionName,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class RemovePermissionFromUserCommandValidator : AbstractValidator<RemovePermissionFromUserCommand>
@@ -22,12 +24,7 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
 
             RuleFor(x => x.PermissionName)
                 .NotEmpty().WithMessage("Permission name is required")
-                .Must(BeValidPermission).WithMessage("Invalid permission name");
-        }
-
-        private bool BeValidPermission(string permissionName)
-        {
-            return Permissions.GetAll().Contains(permissionName);
+                .Must(name => Permissions.GetAll().Contains(name)).WithMessage("Invalid permission name");
         }
     }
 
@@ -41,39 +38,33 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         {
             try
             {
-                // Validate user exists
                 var user = await unitOfWork.Users
-                    .Include(u => u.UserPermissions)
                     .FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
 
                 if (user == null)
                     return Result.Failure("User not found");
 
-                // Find the permission
+                if (!command.IsSuperAdmin && user.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 var permission = await unitOfWork.UserPermissions
                     .FirstOrDefaultAsync(up => up.UserId == command.UserId && up.PermissionName == command.PermissionName, cancellationToken);
 
                 if (permission == null)
                     return Result.Failure($"User does not have the permission '{command.PermissionName}'");
 
-                // Remove permission directly via DbSet
                 unitOfWork.UserPermissions.Remove(permission);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
-                logger.LogInformation(
-                    "Permission {PermissionName} removed from user {UserId}",
-                    command.PermissionName,
-                    command.UserId);
+                logger.LogInformation("Permission {PermissionName} removed from user {UserId}",
+                    command.PermissionName, command.UserId);
 
                 return Result.Success();
             }
             catch (Exception ex)
             {
-                logger.LogError(
-                    ex,
-                    "Error removing permission {PermissionName} from user {UserId}",
-                    command.PermissionName,
-                    command.UserId);
+                logger.LogError(ex, "Error removing permission {PermissionName} from user {UserId}",
+                    command.PermissionName, command.UserId);
                 return Result.Failure("An error occurred while removing permission");
             }
         }

@@ -8,7 +8,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Identity.Application.Queries.GetUser
 {
-    public record GetUserQuery(Guid UserId) : IRequest<Result<UserDetailDto?>>;
+    public record GetUserQuery(
+        Guid UserId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false) : IRequest<Result<UserDetailDto?>>;
 
     public class GetUserQueryHandler(
         IUnitOfWork unitOfWork,
@@ -46,6 +49,9 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetUser
                     logger?.LogWarning("User {UserId} not found", query.UserId);
                     return Result.Success<UserDetailDto?>(null);
                 }
+
+                if (!query.IsSuperAdmin && query.CallerCompanyId.HasValue && user.CompanyId != query.CallerCompanyId)
+                    return Result.Success<UserDetailDto?>(null); // Başqa şirkətin istifadəçisi görünmür
 
                 return Result.Success<UserDetailDto?>(MapToDetailDto(user));
             }

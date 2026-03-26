@@ -9,7 +9,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
 {
     public record RemoveSupervisorFromEmployeeCommand(
         Guid UserId,
-        Guid SupervisorId
+        Guid SupervisorId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class RemoveSupervisorFromEmployeeCommandValidator : AbstractValidator<RemoveSupervisorFromEmployeeCommand>
@@ -40,6 +42,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
 
                 if (user == null)
                     return Result.Failure("User not found");
+
+                if (!command.IsSuperAdmin && user.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
 
                 if (user.Employee == null)
                     return Result.Failure("User does not have an employee record");

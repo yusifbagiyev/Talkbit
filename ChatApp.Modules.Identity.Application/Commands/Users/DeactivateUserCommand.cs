@@ -1,4 +1,4 @@
-﻿using ChatApp.Modules.Identity.Application.Interfaces;
+using ChatApp.Modules.Identity.Application.Interfaces;
 using ChatApp.Shared.Kernel.Common;
 using FluentValidation;
 using MediatR;
@@ -8,9 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace ChatApp.Modules.Identity.Application.Commands.Users
 {
     public record DeactivateUserCommand(
-        Guid UserId
-    ):IRequest<Result>;
-
+        Guid UserId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
+    ) : IRequest<Result>;
 
     public class DeactivateUserCommandValidator : AbstractValidator<DeactivateUserCommand>
     {
@@ -20,7 +21,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 .NotEmpty().WithMessage("User ID is required");
         }
     }
-
 
     public class DeactivateUserCommandHandler(
         IUnitOfWork unitOfWork,
@@ -32,28 +32,27 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         {
             try
             {
-                var existingUser = await unitOfWork.Users
-                    .FirstOrDefaultAsync(r=>r.Id==request.UserId,cancellationToken);
+                var user = await unitOfWork.Users
+                    .FirstOrDefaultAsync(r => r.Id == request.UserId, cancellationToken);
 
-                if(existingUser == null)
-                {
+                if (user == null)
                     return Result.Failure($"User with this ID {request.UserId} not found");
-                }
 
-                if (!existingUser.IsActive)
-                {
-                    return Result.Success("User already is deactived");
-                }
-                existingUser.Deactivate();
+                if (!request.IsSuperAdmin && user.CompanyId != request.CallerCompanyId)
+                    return Result.Failure("Access denied");
 
-                unitOfWork.Users.Update(existingUser);
+                if (!user.IsActive)
+                    return Result.Success("User already is deactivated");
+
+                user.Deactivate();
+                unitOfWork.Users.Update(user);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 return Result.Success();
             }
             catch (Exception ex)
             {
-                logger?.LogError($"Error occurred while deactivating user . Error is : {ex.Message}");
+                logger?.LogError(ex, "Error deactivating user {UserId}", request.UserId);
                 return Result.Failure(ex.Message);
             }
         }

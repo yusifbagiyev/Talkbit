@@ -10,7 +10,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
     public record UpdateDepartmentCommand(
         Guid DepartmentId,
         string? Name,
-        Guid? ParentDepartmentId
+        Guid? ParentDepartmentId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class UpdateDepartmentCommandValidator : AbstractValidator<UpdateDepartmentCommand>
@@ -44,46 +46,39 @@ namespace ChatApp.Modules.Identity.Application.Commands.Departments
                 if (department == null)
                     return Result.Failure("Department not found");
 
-                // Validate parent department exists if being updated
+                if (!command.IsSuperAdmin && department.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 if (command.ParentDepartmentId.HasValue)
                 {
-                    // Cannot set parent to itself
                     if (command.ParentDepartmentId.Value == command.DepartmentId)
                         return Result.Failure("A department cannot be its own parent");
 
                     var parentExists = await unitOfWork.Departments
                         .AnyAsync(d => d.Id == command.ParentDepartmentId.Value, cancellationToken);
-
                     if (!parentExists)
                         return Result.Failure("Parent department not found");
                 }
 
-                // Check for duplicate name (excluding current department)
                 if (!string.IsNullOrWhiteSpace(command.Name))
                 {
+                    // Eyni şirkət daxilində ad tekrarını yoxla
                     var isDuplicate = await unitOfWork.Departments
-                        .AnyAsync(d => d.Id != command.DepartmentId && d.Name == command.Name, cancellationToken);
-
+                        .AnyAsync(d => d.Id != command.DepartmentId
+                            && d.Name == command.Name
+                            && d.CompanyId == department.CompanyId, cancellationToken);
                     if (isDuplicate)
-                        return Result.Failure("A department with this name already exists");
-                }
+                        return Result.Failure("A department with this name already exists in this company");
 
-                // Update department name if provided
-                if (!string.IsNullOrWhiteSpace(command.Name))
-                {
                     department.UpdateName(command.Name);
                 }
 
-                // Update parent department if provided
                 if (command.ParentDepartmentId.HasValue)
-                {
                     department.ChangeParentDepartment(command.ParentDepartmentId.Value);
-                }
 
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation("Department {DepartmentId} updated successfully", command.DepartmentId);
-
                 return Result.Success();
             }
             catch (Exception ex)

@@ -1,4 +1,4 @@
-﻿using ChatApp.Modules.Identity.Application.Commands.Employees;
+using ChatApp.Modules.Identity.Application.Commands.Employees;
 using ChatApp.Modules.Identity.Application.Commands.Users;
 using ChatApp.Modules.Identity.Application.DTOs.Requests;
 using ChatApp.Modules.Identity.Application.DTOs.Responses;
@@ -46,12 +46,12 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] CreateUserRequest request,
             CancellationToken cancellationToken)
         {
-            // Get the ID of the user making the request
             var creatorId = GetCurrentUserId();
             if (creatorId == Guid.Empty)
                 return Unauthorized();
 
-            // Create a new command
+            var (callerCompanyId, _) = GetCompanyClaims();
+
             var command = new CreateUserCommand(
                 request.FirstName,
                 request.LastName,
@@ -64,7 +64,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
                 request.AboutMe,
                 request.DateOfBirth,
                 request.WorkPhone,
-                request.HiringDate);
+                request.HiringDate,
+                CallerCompanyId: callerCompanyId);
 
             var result = await _mediator.Send(command, cancellationToken);
 
@@ -74,15 +75,12 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             return CreatedAtAction(
                 nameof(GetUserById),
                 new { userId = result.Value },
-                new { userId=result.Value, message="User created succesfully"});
+                new { userId = result.Value, message = "User created successfully" });
         }
 
 
-
-
         /// <summary>
-        /// Searches users by full name (first name or last name)
-        /// Any authenticated user can search for other users (for messaging purposes)
+        /// Searches users by full name
         /// </summary>
         [HttpGet("search")]
         [ProducesResponseType(typeof(List<UserSearchResultDto>), StatusCodes.Status200OK)]
@@ -93,12 +91,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(searchTerm) || searchTerm.Length < 2)
-            {
                 return Ok(new List<UserSearchResultDto>());
-            }
 
-            var isSuperAdmin = GetClaimValue("role") == "SuperAdmin";
-            var companyId = Guid.TryParse(GetClaimValue("companyId"), out var cid) ? cid : (Guid?)null;
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
 
             var result = await _mediator.Send(
                 new SearchUsersQuery(searchTerm, companyId, isSuperAdmin), cancellationToken);
@@ -106,7 +101,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
 
-            // Exclude current user from results
             var currentUserId = GetCurrentUserId();
             var filteredUsers = result.Value?.Where(u => u.Id != currentUserId).ToList() ?? new List<UserSearchResultDto>();
 
@@ -143,7 +137,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
         /// <summary>
         /// Gets the current authenticated user's profile information
-        /// This endpoint does not require any permissions - any authenticated user can view their own profile
         /// </summary>
         [HttpGet("me")]
         [ProducesResponseType(typeof(UserDetailDto), StatusCodes.Status200OK)]
@@ -169,12 +162,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         }
 
 
-
-
         /// <summary>
-        /// Updates the current authenticated user's profile information
-        /// Users can update their email, display name, avatar URL, and notes
-        /// This endpoint does not require any permissions - any authenticated user can update their own profile
+        /// Updates the current authenticated user's own profile
         /// </summary>
         [HttpPut("me")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -210,12 +199,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         }
 
 
-
-
         /// <summary>
-        /// Changes the current authenticated user's password
-        /// Requires the current password for security verification
-        /// This endpoint does not require any permissions - any authenticated user can change their own password
+        /// Changes the current user's own password
         /// </summary>
         [HttpPut("me/change-password")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -244,12 +229,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         }
 
 
-
-
         /// <summary>
-        /// Changes the current authenticated user's password
-        /// Requires the current password for security verification
-        /// This endpoint does not require any permissions - any authenticated user can change their own password
+        /// Admin changes another user's password
         /// </summary>
         [HttpPut("change-user-password")]
         [RequirePermission("Users.Update")]
@@ -261,14 +242,14 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] AdminChangePasswordRequest request,
             CancellationToken cancellationToken)
         {
-            var userId = GetCurrentUserId();
-            if (userId == Guid.Empty)
-                return Unauthorized();
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
 
             var command = new AdminChangePasswordCommand(
                 request.Id,
                 request.NewPassword,
-                request.ConfirmNewPassword);
+                request.ConfirmNewPassword,
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await _mediator.Send(command, cancellationToken);
 
@@ -277,8 +258,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "Password changed successfully" });
         }
-
-
 
 
         /// <summary>
@@ -294,7 +273,10 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid userId,
             CancellationToken cancellationToken)
         {
-            var result = await _mediator.Send(new GetUserQuery(userId), cancellationToken);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var result = await _mediator.Send(
+                new GetUserQuery(userId, callerCompanyId, isSuperAdmin), cancellationToken);
 
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
@@ -304,7 +286,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(result.Value);
         }
-
 
 
         /// <summary>
@@ -321,12 +302,10 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromQuery] int pageSize = 10,
             CancellationToken cancellationToken = default)
         {
-            // Validate pagination parameters
             if (pageNumber < 1 || pageSize < 1 || pageSize > 100)
                 return BadRequest(new { error = "Invalid pagination parameters. PageNumber must be >= 1 and PageSize must be between 1 and 100" });
 
-            var isSuperAdmin = GetClaimValue("role") == "SuperAdmin";
-            var companyId = Guid.TryParse(GetClaimValue("companyId"), out var cid) ? cid : (Guid?)null;
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
 
             var result = await _mediator.Send(
                 new GetUsersQuery(pageNumber, pageSize, companyId, isSuperAdmin),
@@ -337,7 +316,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(result.Value);
         }
-
 
 
         /// <summary>
@@ -355,6 +333,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] UpdateUserRequest request,
             CancellationToken cancellationToken)
         {
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
             var command = new UpdateUserCommand(
                 userId,
                 request.FirstName,
@@ -366,7 +346,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
                 request.AboutMe,
                 request.DateOfBirth,
                 request.WorkPhone,
-                request.HiringDate);
+                request.HiringDate,
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await _mediator.Send(command, cancellationToken);
 
@@ -375,8 +357,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "User updated successfully" });
         }
-
-
 
 
         [HttpPut("{userId:guid}/activate")]
@@ -390,9 +370,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid userId,
             CancellationToken cancellationToken)
         {
-            var command = new ActivateUserCommand(
-                userId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
 
+            var command = new ActivateUserCommand(userId, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -400,8 +380,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "User activated successfully" });
         }
-
-
 
 
         [HttpPut("{userId:guid}/deactivate")]
@@ -415,9 +393,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid userId,
             CancellationToken cancellationToken)
         {
-            var command = new DeactivateUserCommand(
-                userId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
 
+            var command = new DeactivateUserCommand(userId, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -425,8 +403,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "User deactivated successfully" });
         }
-
-
 
 
         /// <summary>
@@ -445,15 +421,16 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         {
             _logger?.LogInformation("Deleting user: {UserId}", userId);
 
-            var result = await _mediator.Send(new DeleteUserCommand(userId), cancellationToken);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var result = await _mediator.Send(
+                new DeleteUserCommand(userId, callerCompanyId, isSuperAdmin), cancellationToken);
 
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
 
             return Ok(new { message = "User deleted successfully" });
         }
-
-
 
 
         /// <summary>
@@ -471,7 +448,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] AssignPermissionToUserRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new AssignPermissionToUserCommand(userId, request.PermissionName);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new AssignPermissionToUserCommand(userId, request.PermissionName, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -479,8 +458,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "Permission assigned successfully" });
         }
-
-
 
 
         /// <summary>
@@ -498,7 +475,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] string permissionName,
             CancellationToken cancellationToken)
         {
-            var command = new RemovePermissionFromUserCommand(userId, permissionName);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new RemovePermissionFromUserCommand(userId, permissionName, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -506,8 +485,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "Permission removed successfully" });
         }
-
-
 
 
         /// <summary>
@@ -525,11 +502,15 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] AssignEmployeeToDepartmentRequest request,
             CancellationToken cancellationToken)
         {
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
             var command = new AssignEmployeeToDepartmentCommand(
                 userId,
                 request.DepartmentId,
                 request.SupervisorId,
-                request.HeadOfDepartmentId);
+                request.HeadOfDepartmentId,
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await _mediator.Send(command, cancellationToken);
 
@@ -538,8 +519,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "Employee assigned to department successfully" });
         }
-
-
 
 
         /// <summary>
@@ -556,7 +535,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid userId,
             CancellationToken cancellationToken)
         {
-            var command = new RemoveEmployeeFromDepartmentCommand(userId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new RemoveEmployeeFromDepartmentCommand(userId, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -564,8 +545,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "Employee removed from department successfully" });
         }
-
-
 
 
         /// <summary>
@@ -583,7 +562,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] AssignSupervisorToEmployeeRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new AssignSupervisorToEmployeeCommand(userId, request.SupervisorId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new AssignSupervisorToEmployeeCommand(userId, request.SupervisorId, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -591,8 +572,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
 
             return Ok(new { message = "Supervisor assigned successfully" });
         }
-
-
 
 
         /// <summary>
@@ -610,7 +589,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid supervisorId,
             CancellationToken cancellationToken)
         {
-            var command = new RemoveSupervisorFromEmployeeCommand(userId, supervisorId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new RemoveSupervisorFromEmployeeCommand(userId, supervisorId, callerCompanyId, isSuperAdmin);
             var result = await _mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -620,7 +601,12 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         }
 
 
-
+        private (Guid? companyId, bool isSuperAdmin) GetCompanyClaims()
+        {
+            var companyId = Guid.TryParse(GetClaimValue("companyId"), out var cid) ? cid : (Guid?)null;
+            var isSuperAdmin = GetClaimValue("role") == "SuperAdmin";
+            return (companyId, isSuperAdmin);
+        }
 
         private Guid GetCurrentUserId()
         {

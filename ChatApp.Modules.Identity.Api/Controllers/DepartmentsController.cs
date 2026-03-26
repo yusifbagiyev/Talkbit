@@ -22,7 +22,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetAllDepartments(CancellationToken cancellationToken)
         {
-            var query = new GetAllDepartmentsQuery();
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
+
+            var query = new GetAllDepartmentsQuery(companyId, isSuperAdmin);
             var result = await mediator.Send(query, cancellationToken);
 
             if (result.IsFailure)
@@ -42,7 +44,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid departmentId,
             CancellationToken cancellationToken)
         {
-            var query = new GetDepartmentByIdQuery(departmentId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var query = new GetDepartmentByIdQuery(departmentId, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(query, cancellationToken);
 
             if (result.IsFailure)
@@ -65,9 +69,11 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] CreateDepartmentRequest request,
             CancellationToken cancellationToken)
         {
+            var (callerCompanyId, _) = GetCompanyClaims();
+
             var command = new CreateDepartmentCommand(
                 request.Name,
-                request.CompanyId,
+                callerCompanyId,
                 request.ParentDepartmentId);
 
             var result = await mediator.Send(command, cancellationToken);
@@ -96,10 +102,14 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] UpdateDepartmentRequest request,
             CancellationToken cancellationToken)
         {
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
             var command = new UpdateDepartmentCommand(
                 departmentId,
                 request.Name,
-                request.ParentDepartmentId);
+                request.ParentDepartmentId,
+                callerCompanyId,
+                isSuperAdmin);
 
             var result = await mediator.Send(command, cancellationToken);
 
@@ -121,7 +131,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid departmentId,
             CancellationToken cancellationToken)
         {
-            var command = new DeleteDepartmentCommand(departmentId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new DeleteDepartmentCommand(departmentId, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -143,7 +155,9 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromBody] AssignDepartmentHeadRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new AssignDepartmentHeadCommand(departmentId, request.UserId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new AssignDepartmentHeadCommand(departmentId, request.UserId, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
@@ -164,13 +178,22 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             [FromRoute] Guid departmentId,
             CancellationToken cancellationToken)
         {
-            var command = new RemoveDepartmentHeadCommand(departmentId);
+            var (callerCompanyId, isSuperAdmin) = GetCompanyClaims();
+
+            var command = new RemoveDepartmentHeadCommand(departmentId, callerCompanyId, isSuperAdmin);
             var result = await mediator.Send(command, cancellationToken);
 
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
 
             return Ok(new { message = "Department head removed successfully" });
+        }
+
+        private (Guid? companyId, bool isSuperAdmin) GetCompanyClaims()
+        {
+            var companyId = Guid.TryParse(User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+            var isSuperAdmin = User.FindFirst("role")?.Value == "SuperAdmin";
+            return (companyId, isSuperAdmin);
         }
     }
 }

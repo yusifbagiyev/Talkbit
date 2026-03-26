@@ -11,7 +11,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
     public record CreatePositionCommand(
         string Name,
         Guid? DepartmentId,
-        string? Description
+        string? Description,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result<Guid>>;
 
     public class CreatePositionCommandValidator : AbstractValidator<CreatePositionCommand>
@@ -40,28 +42,24 @@ namespace ChatApp.Modules.Identity.Application.Commands.Positions
         {
             try
             {
-                // Validate department exists if DepartmentId is provided
                 if (command.DepartmentId.HasValue)
                 {
-                    var departmentExists = await unitOfWork.Departments
-                        .AnyAsync(d => d.Id == command.DepartmentId.Value, cancellationToken);
+                    var dept = await unitOfWork.Departments
+                        .FirstOrDefaultAsync(d => d.Id == command.DepartmentId.Value, cancellationToken);
 
-                    if (!departmentExists)
+                    if (dept == null)
                         return Result.Failure<Guid>("Department not found");
+
+                    if (!command.IsSuperAdmin && dept.CompanyId != command.CallerCompanyId)
+                        return Result.Failure<Guid>("Department does not belong to your company");
                 }
 
-                // Check for duplicate position name in the same department
                 var isDuplicate = await unitOfWork.Positions
                     .AnyAsync(p => p.Name == command.Name && p.DepartmentId == command.DepartmentId, cancellationToken);
-
                 if (isDuplicate)
                     return Result.Failure<Guid>("A position with this name already exists in this department");
 
-                var position = new Position(
-                    command.Name,
-                    command.DepartmentId,
-                    command.Description);
-
+                var position = new Position(command.Name, command.DepartmentId, command.Description);
                 await unitOfWork.Positions.AddAsync(position, cancellationToken);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 

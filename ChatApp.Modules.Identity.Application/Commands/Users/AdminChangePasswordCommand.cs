@@ -1,4 +1,4 @@
-﻿using ChatApp.Modules.Identity.Application.Interfaces;
+using ChatApp.Modules.Identity.Application.Interfaces;
 using ChatApp.Modules.Identity.Domain.Events;
 using ChatApp.Modules.Identity.Domain.Services;
 using ChatApp.Shared.Kernel.Common;
@@ -14,9 +14,10 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
     public record AdminChangePasswordCommand(
         Guid UserId,
         string NewPassword,
-        string ConfirmNewPassword
-    ):IRequest<Result>;
-
+        string ConfirmNewPassword,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
+    ) : IRequest<Result>;
 
     public class AdminChangePasswordComamndValidator : AbstractValidator<AdminChangePasswordCommand>
     {
@@ -40,7 +41,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         }
     }
 
-
     public class AdminChangePasswordCommandHandler(
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
@@ -53,27 +53,21 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         {
             try
             {
-                // Get the user
                 var user = await unitOfWork.Users
-                    .FirstOrDefaultAsync(r=>r.Id==request.UserId, cancellationToken) 
+                    .FirstOrDefaultAsync(r => r.Id == request.UserId, cancellationToken)
                         ?? throw new NotFoundException($"User with ID {request.UserId} not found");
 
-                // Hash the new password
+                if (!request.IsSuperAdmin && user.CompanyId != request.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 var newPasswordHash = passwordHasher.Hash(request.NewPassword);
-
-                // Update the password
                 user.ChangePassword(newPasswordHash);
-
-                // Save changes
                 unitOfWork.Users.Update(user);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
-                // Publish password changed event for potential notifications or security logging
-                await eventBus.PublishAsync(
-                    new UserPasswordChangedEvent(user.Id),
-                    cancellationToken);
+                await eventBus.PublishAsync(new UserPasswordChangedEvent(user.Id), cancellationToken);
 
-                logger?.LogInformation("Admin changed the password of the user {UserId} succesfully", request.UserId);
+                logger?.LogInformation("Admin changed the password of the user {UserId} successfully", request.UserId);
                 return Result.Success();
             }
             catch (NotFoundException ex)

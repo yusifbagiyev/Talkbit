@@ -11,7 +11,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
 {
     public record AssignPermissionToUserCommand(
         Guid UserId,
-        string PermissionName
+        string PermissionName,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
     public class AssignPermissionToUserCommandValidator : AbstractValidator<AssignPermissionToUserCommand>
@@ -23,12 +25,7 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
 
             RuleFor(x => x.PermissionName)
                 .NotEmpty().WithMessage("Permission name is required")
-                .Must(BeValidPermission).WithMessage("Invalid permission name");
-        }
-
-        private bool BeValidPermission(string permissionName)
-        {
-            return Permissions.GetAll().Contains(permissionName);
+                .Must(name => Permissions.GetAll().Contains(name)).WithMessage("Invalid permission name");
         }
     }
 
@@ -42,7 +39,6 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
         {
             try
             {
-                // Validate user exists and is active
                 var user = await unitOfWork.Users
                     .Include(u => u.UserPermissions)
                     .FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
@@ -50,42 +46,29 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 if (user == null)
                     return Result.Failure("User not found");
 
+                if (!command.IsSuperAdmin && user.CompanyId != command.CallerCompanyId)
+                    return Result.Failure("Access denied");
+
                 if (!user.IsActive)
                     return Result.Failure("Cannot assign permission to inactive user");
 
-                // Check if user already has this permission
                 if (user.UserPermissions.Any(up => up.PermissionName == command.PermissionName))
                     return Result.Failure($"User already has the permission '{command.PermissionName}'");
 
-                // Create permission directly via DbSet to avoid concurrency issues with User entity
                 var userPermission = new UserPermission(command.UserId, command.PermissionName);
                 await unitOfWork.UserPermissions.AddAsync(userPermission, cancellationToken);
-
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation(
                     "Permission {PermissionName} assigned to user {UserId}",
-                    command.PermissionName,
-                    command.UserId);
+                    command.PermissionName, command.UserId);
 
                 return Result.Success();
             }
-            catch (InvalidOperationException ex)
-            {
-                logger.LogWarning(
-                    ex,
-                    "Failed to assign permission {PermissionName} to user {UserId}",
-                    command.PermissionName,
-                    command.UserId);
-                return Result.Failure(ex.Message);
-            }
             catch (Exception ex)
             {
-                logger.LogError(
-                    ex,
-                    "Error assigning permission {PermissionName} to user {UserId}",
-                    command.PermissionName,
-                    command.UserId);
+                logger.LogError(ex, "Error assigning permission {PermissionName} to user {UserId}",
+                    command.PermissionName, command.UserId);
                 return Result.Failure("An error occurred while assigning permission");
             }
         }
