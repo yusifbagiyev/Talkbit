@@ -97,7 +97,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
 
-            return Ok();
+            return NoContent();
         }
 
         /// <summary>
@@ -105,7 +105,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         /// </summary>
         [HttpDelete("{id:guid}")]
         [RequirePermission("Companies.Delete")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteCompany(Guid id, CancellationToken cancellationToken)
         {
@@ -115,7 +115,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (result.IsFailure)
                 return NotFound(new { error = result.Error });
 
-            return Ok();
+            return NoContent();
         }
 
         /// <summary>
@@ -123,7 +123,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         /// </summary>
         [HttpPost("{id:guid}/admin")]
         [RequirePermission("Companies.Update")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> AssignCompanyAdmin(
             Guid id,
@@ -136,7 +136,7 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
 
-            return Ok();
+            return NoContent();
         }
     }
 
