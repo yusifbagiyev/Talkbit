@@ -450,10 +450,18 @@ namespace ChatApp.Modules.Identity.Infrastructure.Persistence
             await context.Employees.AddAsync(emp10);
 
 
-            // ========== 11. System Administrator (SuperAdmin — qlobal, şirkətə aid deyil) ==========
+            // ========== 0. Default SuperAdmin (platform-level, no company) ==========
+            var superAdminId = Guid.Parse("00000000-0000-0000-0000-000000000099");
+            var superAdmin = new User("Super", "Admin", "superadmin@chatapp.com",
+                passwordHasher.Hash("SuperAdmin123!"), Role.SuperAdmin)
+            { Id = superAdminId };
+            await context.Users.AddAsync(superAdmin);
+            // SuperAdmin has no Employee record — no company, no department, no position
+
+            // ========== 11. System Administrator (company Admin) ==========
             var user11Id = Guid.Parse("00000000-0000-0000-0000-000000000011");
             var user11 = new User("System", "Administrator", "admin@chatapp.com",
-                passwordHasher.Hash("Yusif2000+"), Role.SuperAdmin)
+                passwordHasher.Hash("Yusif2000+"), Role.Admin, null, company.Id)
             { Id = user11Id };
             await context.Users.AddAsync(user11);
             var emp11 = new Employee(user11Id, new DateTime(2000, 6, 23), "++994708074624",
