@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo } from "react";
-import { getCompanies, getCompany, createCompany, updateCompany, assignCompanyAdmin, getUsers, apiUpload } from "../../services/api";
+import { getCompanies, getCompany, createCompany, updateCompany, setCompanyStatus, assignCompanyAdmin, getUsers, apiUpload } from "../../services/api";
 import { useToast } from "../../context/ToastContext";
 import { getFileUrl } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
@@ -136,40 +136,60 @@ const AssignAdminModal = memo(({ company, onSave, onClose }) => {
 
   return (
     <div className="cm-form-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cm-form-panel cm-form-panel-sm">
-        <div className="cm-form-header">
-          <h2 className="cm-form-title">Assign Admin — {company.name}</h2>
+      <div className="cm-assign-panel">
+        {/* Header */}
+        <div className="cm-assign-header">
+          <div className="cm-assign-title-row">
+            <div className="cm-assign-company-icon" style={{ background: company.logoUrl ? "transparent" : getAvatarColor(company.name) }}>
+              {company.logoUrl ? <img src={getFileUrl(company.logoUrl)} alt="" /> : getInitials(company.name)}
+            </div>
+            <div>
+              <h2 className="cm-assign-title">Assign Admin</h2>
+              <p className="cm-assign-subtitle">{company.name}</p>
+            </div>
+          </div>
           <button className="cm-form-close" onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div className="cm-form-body">
-          <input className="cm-form-input" placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
-          <div className="cm-user-list">
-            {loading ? <div className="cm-empty">Loading...</div> : filtered.length === 0
-              ? <div className="cm-empty">No users found</div>
-              : filtered.map((u) => (
-                <div key={u.id} className={`cm-user-row${selected?.id === u.id ? " selected" : ""}`} onClick={() => setSelected(u)}>
-                  <div className="cm-user-avatar" style={{ background: u.avatarUrl ? "transparent" : getAvatarColor(u.fullName) }}>
-                    {u.avatarUrl ? <img src={getFileUrl(u.avatarUrl)} alt="" /> : getInitials(u.fullName)}
-                  </div>
-                  <div className="cm-user-info">
-                    <span className="cm-user-name">{u.fullName}</span>
-                    <span className="cm-user-role">{u.role}</span>
-                  </div>
-                  {selected?.id === u.id && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  )}
+
+        {/* Body */}
+        <div className="cm-assign-body">
+          <div className="cm-assign-search-wrap">
+            <svg className="cm-assign-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input className="cm-assign-search" placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
+          </div>
+          <div className="cm-assign-list">
+            {loading ? (
+              <div className="cm-empty">Loading...</div>
+            ) : filtered.length === 0 ? (
+              <div className="cm-assign-empty">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <p>No users found</p>
+              </div>
+            ) : filtered.map((u) => (
+              <div key={u.id} className={`cm-assign-row${selected?.id === u.id ? " selected" : ""}`} onClick={() => setSelected(u)}>
+                <div className="cm-assign-avatar" style={{ background: u.avatarUrl ? "transparent" : getAvatarColor(u.fullName) }}>
+                  {u.avatarUrl ? <img src={getFileUrl(u.avatarUrl)} alt="" /> : getInitials(u.fullName)}
                 </div>
-              ))
-            }
+                <div className="cm-assign-info">
+                  <span className="cm-assign-name">{u.fullName}</span>
+                  <span className="cm-assign-meta">{u.role}{u.departmentName ? ` · ${u.departmentName}` : ""}</span>
+                </div>
+                {selected?.id === u.id && (
+                  <svg className="cm-assign-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                )}
+              </div>
+            ))}
           </div>
-          <div className="cm-form-actions">
-            <button type="button" className="cm-btn cm-btn-ghost" onClick={onClose}>Cancel</button>
-            <button className="cm-btn cm-btn-primary" disabled={!selected || saving} onClick={handleAssign}>
-              {saving ? "Assigning..." : "Assign Admin"}
-            </button>
-          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="cm-assign-footer">
+          <button type="button" className="cm-btn cm-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="cm-btn cm-btn-primary" disabled={!selected || saving} onClick={handleAssign}>
+            {saving ? "Assigning..." : "Assign Admin"}
+          </button>
         </div>
       </div>
     </div>
@@ -225,7 +245,7 @@ function CompanyManagement() {
   const handleDeactivate = async (company) => {
     setMenuOpen(null);
     try {
-      await updateCompany(company.id, { isActive: !company.isActive });
+      await setCompanyStatus(company.id, !company.isActive);
       showToast(`Company ${company.isActive ? "deactivated" : "activated"}`, "success");
       load();
     } catch (err) { showToast(err.message || "Failed", "error"); }
@@ -273,7 +293,7 @@ function CompanyManagement() {
             ) : filtered.map((c) => (
               <tr
                 key={c.id}
-                className={!c.isActive ? "cm-row-inactive" : ""}
+                className={`cm-row${!c.isActive ? " cm-row-inactive" : ""}`}
                 onClick={() => openDetail(c)}
                 style={{ cursor: "pointer" }}
               >

@@ -124,6 +124,28 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         }
 
         /// <summary>
+        /// Activate or deactivate a company (SuperAdmin only)
+        /// </summary>
+        [HttpPatch("{id:guid}/status")]
+        [RequirePermission("Companies.Update")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SetCompanyStatus(
+            Guid id,
+            [FromBody] SetCompanyStatusRequest request,
+            CancellationToken cancellationToken=default)
+        {
+            var command = new SetCompanyActiveCommand(id, request.IsActive);
+            var result = await mediator.Send(command, cancellationToken);
+
+            if (result.IsFailure)
+                return BadRequest(new { error = result.Error });
+
+            return NoContent();
+        }
+
+        /// <summary>
         /// Assign an admin to a company (SuperAdmin only)
         /// </summary>
         [HttpPost("{id:guid}/admin")]
@@ -148,4 +170,5 @@ namespace ChatApp.Modules.Identity.Api.Controllers
     // Request models (controller-ə gələn body-lər)
     public record UpdateCompanyRequest(string Name, string? LogoUrl, string? Description);
     public record AssignCompanyAdminRequest(Guid UserId);
+    public record SetCompanyStatusRequest(bool IsActive);
 }
