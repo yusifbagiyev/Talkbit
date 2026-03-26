@@ -87,7 +87,7 @@
   padding: 12px 16px;
   text-align: left;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -123,15 +123,26 @@
 /* Role badge */
 .um-role-badge {
   display: inline-block;
-  padding: 2px 9px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
 }
-.um-role-badge.superadmin { background: #fef3c7; color: #92400e; }
-.um-role-badge.admin      { background: #dbeafe; color: #1e40af; }
-.um-role-badge.user       { background: var(--gray-100); color: var(--gray-500); }
+.um-role-badge.superadmin {
+  padding: 2px 10px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+.um-role-badge.admin {
+  padding: 2px 10px;
+  background: rgba(47, 198, 246, 0.15);
+  color: var(--primary-color);
+}
+.um-role-badge.user {
+  padding: 2px 8px;
+  background: var(--gray-100);
+  color: var(--gray-500);
+}
 
 /* Status badge */
 .um-status-badge {
@@ -145,6 +156,7 @@
 }
 .um-status-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .um-status-badge.active   { background: #dcfce7; color: #16a34a; }
+.um-status-badge.active::before { animation: cm-pulse 2s infinite; }
 .um-status-badge.inactive { background: var(--gray-100); color: var(--gray-400); }
 
 /* Actions menu */
@@ -169,7 +181,7 @@
   min-width: 150px;
   z-index: 101;
   overflow: hidden;
-  animation: umDropIn 180ms ease-out;
+  animation: adm-dropdownIn 150ms ease;
 }
 .um-menu-item {
   display: block; width: 100%;
@@ -191,26 +203,25 @@
   border-top: 1px solid var(--gray-100);
 }
 
-/* Form overlay */
+/* Form overlay — slide panel */
 .um-form-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.35);
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
   z-index: 1000;
-  display: flex; align-items: center; justify-content: center;
-  animation: umFadeIn 150ms ease-out;
 }
 .um-form-panel {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 480px;
+  height: 100vh;
   background: var(--white);
-  border-radius: 12px;
-  width: 520px;
-  max-width: calc(100vw - 32px);
-  max-height: 90vh;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.10);
+  border-radius: 0;
   overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-  animation: umModalIn 200ms ease-out;
+  animation: ap-panel-in 200ms ease;
 }
-.um-form-panel-sm { width: 380px; }
-.um-form-panel-md { width: 460px; }
 .um-form-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 24px 0;
@@ -232,14 +243,22 @@
   font-size: 13px; color: var(--gray-700); background: var(--white);
   transition: border-color var(--transition-fast);
 }
-.um-form-input:focus { outline: none; border-color: var(--primary-color); }
+.um-form-input:focus {
+  outline: 2px solid rgba(47, 198, 246, 0.25);
+  outline-offset: -1px;
+  border-color: var(--primary-color);
+}
 .um-form-select {
   padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 8px;
   font-size: 13px; color: var(--gray-700); background: var(--white);
   cursor: pointer;
   transition: border-color var(--transition-fast);
 }
-.um-form-select:focus { outline: none; border-color: var(--primary-color); }
+.um-form-select:focus {
+  outline: 2px solid rgba(47, 198, 246, 0.25);
+  outline-offset: -1px;
+  border-color: var(--primary-color);
+}
 .um-form-select:disabled { opacity: 0.5; cursor: not-allowed; }
 .um-form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 
@@ -288,7 +307,3 @@
 .um-user-dept { font-size: 11px; color: var(--gray-400); font-weight: 400; }
 
 .um-empty { text-align: center; color: var(--gray-400); padding: 20px; font-size: 13px; }
-
-@keyframes umFadeIn  { from { opacity: 0; } to { opacity: 1; } }
-@keyframes umModalIn { from { opacity: 0; transform: scale(0.96) translateY(-8px); } to { opacity: 1; transform: none; } }
-@keyframes umDropIn  { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }

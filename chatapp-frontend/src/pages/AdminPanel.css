@@ -1,3 +1,5 @@
+@import "../components/admin/admin-shared.css";
+
 /* ─── Admin Panel Page ───────────────────────────────────────────────────── */
 .ap-page {
   display: flex;
@@ -15,7 +17,7 @@
   padding: 0 24px;
   height: 56px;
   background: var(--white);
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 2px solid var(--primary-color);
   flex-shrink: 0;
 }
 
@@ -47,15 +49,21 @@
 }
 
 .ap-role-badge {
+  border-radius: 4px;
   padding: 4px 10px;
-  border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
-.ap-role-badge.superadmin { background: #fef3c7; color: #92400e; }
-.ap-role-badge.admin      { background: #dbeafe; color: #1e40af; }
+.ap-role-badge.superadmin {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+.ap-role-badge.admin {
+  background: rgba(47, 198, 246, 0.15);
+  color: var(--primary-color);
+}
 
 /* Body */
 .ap-body {
@@ -66,7 +74,7 @@
 
 /* Sol nav */
 .ap-nav {
-  width: 200px;
+  width: 220px;
   flex-shrink: 0;
   background: var(--white);
   border-right: 1px solid var(--gray-200);
@@ -82,7 +90,8 @@
   gap: 10px;
   padding: 10px 12px;
   border: none;
-  border-radius: 8px;
+  border-left: 3px solid transparent;
+  border-radius: 0 8px 8px 0;
   background: none;
   color: var(--gray-600);
   font-size: 13px;
@@ -93,7 +102,8 @@
 }
 .ap-nav-item:hover { background: var(--gray-50); color: var(--gray-800); }
 .ap-nav-item.active {
-  background: #e0f6fe;
+  background: rgba(47, 198, 246, 0.10);
+  border-left-color: var(--primary-color);
   color: var(--primary-color);
   font-weight: 600;
 }
