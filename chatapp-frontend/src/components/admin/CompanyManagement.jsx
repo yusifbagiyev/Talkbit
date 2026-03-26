@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo } from "react";
-import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, assignCompanyAdmin, getUsers, apiUpload, apiPut } from "../../services/api";
+import { getCompanies, getCompany, createCompany, updateCompany, assignCompanyAdmin, getUsers, apiUpload } from "../../services/api";
 import { useToast } from "../../context/ToastContext";
 import { getFileUrl } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
@@ -210,6 +210,18 @@ function CompanyManagement() {
     finally { setDetailLoading(false); }
   }, []);
 
+  // Edit formunu açmadan əvvəl tam məlumatı gətirir (description itməsin deyə)
+  const openEdit = useCallback(async (company) => {
+    setMenuOpen(null);
+    try {
+      const full = await getCompany(company.id);
+      setEditCompany(full);
+    } catch {
+      setEditCompany(company);
+    }
+    setFormOpen(true);
+  }, []);
+
   const handleDeactivate = async (company) => {
     setMenuOpen(null);
     try {
@@ -286,7 +298,7 @@ function CompanyManagement() {
                       <>
                         <div className="cm-menu-overlay" onClick={() => setMenuOpen(null)} />
                         <div className="cm-menu">
-                          <button className="cm-menu-item" onClick={() => { setMenuOpen(null); setEditCompany(c); setFormOpen(true); }}>Edit</button>
+                          <button className="cm-menu-item" onClick={() => openEdit(c)}>Edit</button>
                           <button className="cm-menu-item" onClick={() => { setMenuOpen(null); setAssignModal(c); }}>Assign Admin</button>
                           <button className={`cm-menu-item ${c.isActive ? "danger" : ""}`} onClick={() => handleDeactivate(c)}>
                             {c.isActive ? "Deactivate" : "Activate"}
@@ -388,7 +400,7 @@ function CompanyManagement() {
               <div className="cm-form-actions">
                 <button
                   className="cm-btn cm-btn-primary"
-                  onClick={() => { setDetail(null); setEditCompany(detail); setFormOpen(true); }}
+                  onClick={() => { setDetail(null); openEdit(detail); }}
                 >
                   Edit Company
                 </button>
