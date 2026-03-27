@@ -102,7 +102,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                     Email: null,
                     Role: null,
                     IsActive: true,
-                    AvatarUrl: null,
+                    AvatarUrl: d.AvatarUrl,
                     PositionName: null,
                     DepartmentId: null,
                     CreatedAtUtc: d.CreatedAtUtc,

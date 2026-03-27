@@ -377,7 +377,7 @@ function DepartmentManagement() {
     } finally {
       setSaving(false);
     }
-  }, [formName, formParentId, panel, activeDept, loadDepts, closePanel]);
+  }, [formName, formParentId, formAvatarUrl, panel, activeDept, loadDepts, closePanel]);
 
   const handleDelete = useCallback(async (dept) => {
     setRowDeleteConfirm(null);

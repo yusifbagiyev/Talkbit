@@ -4,6 +4,7 @@ import {
   activateUser, deactivateUser, deleteUser,
   createUser, createDepartment, getDepartments, getPositionsByDepartment,
   assignDepartmentHead, removeDepartmentHead, deleteDepartment, updateDepartment, getUsers, searchUsers,
+  uploadDepartmentAvatar,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import { useToast } from "../../context/ToastContext";
@@ -178,6 +179,10 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
   const [formParentId, setFormParentId]     = useState("");
   const [formError, setFormError]           = useState("");
   const [saving, setSaving]                 = useState(false);
+  const [formAvatarUrl, setFormAvatarUrl]   = useState(null);
+  const [avatarPreview, setAvatarPreview]   = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef                      = useRef(null);
   const [allUsers, setAllUsers]             = useState([]);
   const [usersLoading, setUsersLoading]     = useState(false);
   const [headSearch, setHeadSearch]         = useState("");
@@ -209,8 +214,29 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
     }
   };
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarPreview(URL.createObjectURL(file));
+    setAvatarUploading(true);
+    try {
+      const result = await uploadDepartmentAvatar(file);
+      setFormAvatarUrl(result.downloadUrl);
+    } catch {
+      setAvatarPreview(null);
+      setFormAvatarUrl(null);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const openEdit = () => {
-    setFormName(node.name); setFormParentId(node.parentDepartmentId ?? ""); setFormError(""); setSubPanel("edit");
+    setFormName(node.name);
+    setFormParentId(node.parentDepartmentId ?? "");
+    setFormError("");
+    setFormAvatarUrl(node.avatarUrl ?? null);
+    setAvatarPreview(node.avatarUrl ? getFileUrl(node.avatarUrl) : null);
+    setSubPanel("edit");
   };
 
   const handleEdit = async (e) => {
@@ -218,7 +244,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
     if (!formName.trim()) { setFormError("Name is required."); return; }
     setSaving(true); setFormError("");
     try {
-      await updateDepartment(node.id, { name: formName.trim(), parentDepartmentId: formParentId || null });
+      await updateDepartment(node.id, { name: formName.trim(), parentDepartmentId: formParentId || null, avatarUrl: formAvatarUrl || null });
       setSubPanel(null); onClose(); onAfterMutation();
     } catch (err) {
       setFormError(err?.message ?? "An error occurred.");
@@ -385,6 +411,24 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
               <button className="dm-form-close" onClick={() => setSubPanel(null)} aria-label="Close"><CloseIcon /></button>
             </div>
             <form className="dm-form-body" onSubmit={handleEdit}>
+              <div className="dm-form-field">
+                <label className="dm-form-label">Department Avatar</label>
+                <div className="dm-avatar-upload-area" onClick={() => avatarInputRef.current?.click()}>
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
+                  ) : (
+                    <div className="dm-avatar-placeholder">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
+                    </div>
+                  )}
+                </div>
+                <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
+              </div>
               <div className="dm-form-field">
                 <label className="dm-form-label dm-form-label--required">Department Name *</label>
                 <input className="dm-form-input" value={formName} onChange={e => setFormName(e.target.value)} autoFocus />
@@ -961,11 +1005,15 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
               </span>
             : <span className="hi-chevron-spacer" />}
           <span className="hi-dept-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="7" width="6" height="14" rx="1"/>
-              <rect x="9" y="3" width="6" height="18" rx="1"/>
-              <rect x="16" y="11" width="6" height="10" rx="1"/>
-            </svg>
+            {node.avatarUrl ? (
+              <img src={getFileUrl(node.avatarUrl)} alt="" className="hi-dept-avatar-img" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="6" height="14" rx="1"/>
+                <rect x="9" y="3" width="6" height="18" rx="1"/>
+                <rect x="16" y="11" width="6" height="10" rx="1"/>
+              </svg>
+            )}
           </span>
           <span className="hi-dept-name"><Highlight text={node.name} query={search} /></span>
           <div className="hi-dept-actions" onClick={e => e.stopPropagation()}>

@@ -138,7 +138,8 @@
   user-select: none; transition: background 150ms;
 }
 .hi-dept-node:hover { background: #f0f9ff; }
-.hi-dept-icon { font-size: 14px; flex-shrink: 0; opacity: 0.65; }
+.hi-dept-icon { font-size: 14px; flex-shrink: 0; opacity: 0.65; display: flex; align-items: center; }
+.hi-dept-avatar-img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; opacity: 1; }
 .hi-dept-name {
   font-size: 13px; font-weight: 600; color: #334155; flex: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
