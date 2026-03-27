@@ -363,3 +363,32 @@
 }
 .dm-spinner--dark { border-color: rgba(239,68,68,0.3); border-top-color: #ef4444; }
 @keyframes dm-spin { to { transform: rotate(360deg); } }
+
+/* ─── Department Avatar ───────────────────────────────────────────────────── */
+.dm-dept-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  overflow: hidden; flex-shrink: 0;
+}
+.dm-dept-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dm-dept-avatar-initials {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff;
+}
+
+/* Avatar upload area in form */
+.dm-avatar-upload-area {
+  width: 80px; height: 80px;
+  border: 2px dashed var(--border-color);
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; transition: border-color 0.2s;
+}
+.dm-avatar-upload-area:hover { border-color: var(--primary-color, #2fc6f6); }
+.dm-avatar-preview { width: 100%; height: 100%; object-fit: cover; }
+.dm-avatar-placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; color: var(--gray-400); font-size: 10px;
+  text-align: center; padding: 8px;
+}
+.dm-required { color: #e53e3e; }

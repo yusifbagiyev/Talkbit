@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import {
   getDepartments, createDepartment, updateDepartment, deleteDepartment,
   assignDepartmentHead, removeDepartmentHead, getUsers, searchUsers,
+  uploadDepartmentAvatar, getFileUrl,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import "./DepartmentManagement.css";
@@ -193,6 +194,12 @@ function DepartmentManagement() {
   const [formError, setFormError]       = useState("");
   const [saving, setSaving]             = useState(false);
 
+  // Avatar
+  const [formAvatarUrl, setFormAvatarUrl]     = useState(null);
+  const [avatarPreview, setAvatarPreview]     = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef                        = useRef(null);
+
   // Head panel
   const [users, setUsers]                   = useState([]);
   const [usersLoading, setUsersLoading]     = useState(false);
@@ -294,8 +301,25 @@ function DepartmentManagement() {
     setTimeout(() => { setDetailDept(null); setDetailClosing(false); }, 200);
   }, []);
 
+  const handleAvatarChange = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarPreview(URL.createObjectURL(file));
+    setAvatarUploading(true);
+    try {
+      const result = await uploadDepartmentAvatar(file);
+      setFormAvatarUrl(result.downloadUrl);
+    } catch {
+      setAvatarPreview(null);
+      setFormAvatarUrl(null);
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, []);
+
   const openCreatePanel = useCallback(() => {
     setFormName(""); setFormParentId(""); setFormError("");
+    setFormAvatarUrl(null); setAvatarPreview(null);
     setActiveDept(null);
     setPanel("create");
   }, []);
@@ -304,6 +328,8 @@ function DepartmentManagement() {
     setFormName(dept.name);
     setFormParentId(dept.parentDepartmentId ?? "");
     setFormError("");
+    setFormAvatarUrl(dept.avatarUrl ?? null);
+    setAvatarPreview(dept.avatarUrl ? getFileUrl(dept.avatarUrl) : null);
     setActiveDept(dept);
     setPanel("edit");
     closeDetailPanel();
@@ -331,6 +357,8 @@ function DepartmentManagement() {
     setPanel(null);
     setActiveDept(null);
     setFormError("");
+    setFormAvatarUrl(null);
+    setAvatarPreview(null);
   }, []);
 
   const handleSubmit = useCallback(async (e) => {
@@ -339,7 +367,7 @@ function DepartmentManagement() {
     setSaving(true);
     setFormError("");
     try {
-      const payload = { name: formName.trim(), parentDepartmentId: formParentId || null };
+      const payload = { name: formName.trim(), parentDepartmentId: formParentId || null, avatarUrl: formAvatarUrl || null };
       if (panel === "create") await createDepartment(payload);
       else await updateDepartment(activeDept.id, payload);
       await loadDepts();
@@ -477,6 +505,16 @@ function DepartmentManagement() {
                   </div>
                 ) : (
                   <>
+                    {/* Avatar */}
+                    <div className="dm-dept-avatar">
+                      {dept.avatarUrl ? (
+                        <img src={getFileUrl(dept.avatarUrl)} alt={dept.name} />
+                      ) : (
+                        <div className="dm-dept-avatar-initials" style={{ background: getAvatarColor(dept.name) }}>
+                          {dept.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
                     {/* Name — click to open detail panel */}
                     <span className="dm-dept-name" onClick={() => openDetailPanel(dept)}>
                       {dept.name}
@@ -536,6 +574,27 @@ function DepartmentManagement() {
               </button>
             </div>
             <form className="dm-form-body" onSubmit={handleSubmit}>
+              {/* Avatar upload */}
+              <div className="dm-form-field">
+                <label className="dm-form-label">
+                  Department Avatar{panel === "create" && <span className="dm-required"> *</span>}
+                </label>
+                <div className="dm-avatar-upload-area" onClick={() => avatarInputRef.current?.click()}>
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
+                  ) : (
+                    <div className="dm-avatar-placeholder">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
+                    </div>
+                  )}
+                </div>
+                <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
+              </div>
               <div className="dm-form-field">
                 <label className="dm-form-label dm-form-label--required">Department Name *</label>
                 <input

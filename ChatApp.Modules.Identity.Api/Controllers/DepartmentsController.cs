@@ -83,7 +83,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
             var command = new CreateDepartmentCommand(
                 request.Name,
                 effectiveCompanyId,
-                request.ParentDepartmentId);
+                request.ParentDepartmentId,
+                request.AvatarUrl);
 
             var result = await mediator.Send(command, cancellationToken);
 
@@ -118,7 +119,8 @@ namespace ChatApp.Modules.Identity.Api.Controllers
                 request.Name,
                 request.ParentDepartmentId,
                 callerCompanyId,
-                isSuperAdmin);
+                isSuperAdmin,
+                request.AvatarUrl);
 
             var result = await mediator.Send(command, cancellationToken);
 
