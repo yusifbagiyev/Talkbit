@@ -5,6 +5,7 @@ using ChatApp.Modules.Identity.Application.DTOs.Responses;
 using ChatApp.Modules.Identity.Application.Queries.GetUser;
 using ChatApp.Modules.Identity.Application.Queries.GetUsers;
 using ChatApp.Modules.Identity.Application.Queries.SearchUsers;
+using ChatApp.Modules.Identity.Domain.Constants;
 using ChatApp.Shared.Infrastructure.Authorization;
 using ChatApp.Shared.Kernel.Common;
 using MediatR;
@@ -602,6 +603,21 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         }
 
 
+        /// <summary>
+        /// Get all available permissions grouped by module
+        /// </summary>
+        [HttpGet("permissions")]
+        [RequirePermission("Permissions.Read")]
+        [ProducesResponseType(typeof(List<PermissionGroupDto>), StatusCodes.Status200OK)]
+        public IActionResult GetAllPermissions()
+        {
+            var grouped = Permissions.GetAll()
+                .GroupBy(p => p.Split('.')[0])
+                .Select(g => new PermissionGroupDto(g.Key, g.ToList()))
+                .ToList();
+            return Ok(grouped);
+        }
+
         private (Guid? companyId, bool isSuperAdmin) GetCompanyClaims()
         {
             var companyId = Guid.TryParse(GetClaimValue("companyId"), out var cid) ? cid : (Guid?)null;
@@ -620,4 +636,6 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         private string? GetClaimValue(string claimType) =>
             User.FindFirst(claimType)?.Value;
     }
+
+    public record PermissionGroupDto(string Module, List<string> Permissions);
 }

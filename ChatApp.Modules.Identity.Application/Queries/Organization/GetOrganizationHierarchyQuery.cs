@@ -34,7 +34,6 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                     .AsQueryable();
 
                 var departmentsQuery = unitOfWork.Departments
-                    .Include(d => d.ParentDepartment)
                     .Include(d => d.HeadOfDepartment)
                     .AsNoTracking()
                     .AsQueryable();

@@ -395,6 +395,31 @@ namespace ChatApp.Modules.Files.Api.Controllers
             return Ok(new { message = "File deleted successfully" });
         }
 
+        /// <summary>
+        /// Get file storage statistics for a user
+        /// </summary>
+        [HttpGet("storage/{userId:guid}")]
+        [RequirePermission("Users.Read")]
+        [ProducesResponseType(typeof(UserStorageDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetUserStorageStats(
+            [FromRoute] Guid userId,
+            CancellationToken cancellationToken)
+        {
+            var (totalBytes, fileCount, imageCount, documentCount, otherCount) =
+                await _unitOfWork.Files.GetStorageStatsAsync(userId, cancellationToken);
+
+            return Ok(new UserStorageDto(
+                UserId: userId,
+                TotalBytes: totalBytes,
+                TotalMb: Math.Round(totalBytes / 1_048_576.0, 2),
+                FileCount: fileCount,
+                ImageCount: imageCount,
+                DocumentCount: documentCount,
+                OtherCount: otherCount));
+        }
+
         private Guid GetCurrentUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -473,4 +498,13 @@ namespace ChatApp.Modules.Files.Api.Controllers
             return Ok(preview);
         }
     }
+
+    public record UserStorageDto(
+        Guid UserId,
+        long TotalBytes,
+        double TotalMb,
+        int FileCount,
+        int ImageCount,
+        int DocumentCount,
+        int OtherCount);
 }

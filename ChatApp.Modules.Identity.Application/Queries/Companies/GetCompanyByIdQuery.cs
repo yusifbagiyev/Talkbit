@@ -23,34 +23,39 @@ namespace ChatApp.Modules.Identity.Application.Queries.Companies
         {
             try
             {
-                var company = await unitOfWork.Companies
-                    .Include(c => c.HeadOfCompany)
+                // 3 ayrı sorğu əvəzinə tək proyeksiya sorğusu ilə DB-də aggregasiya
+                var result = await unitOfWork.Companies
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == query.CompanyId, cancellationToken);
+                    .Where(c => c.Id == query.CompanyId)
+                    .Select(c => new
+                    {
+                        c.Id, c.Name, c.LogoUrl, c.Description, c.IsActive,
+                        c.HeadOfCompanyId,
+                        HeadName = c.HeadOfCompany != null ? c.HeadOfCompany.FullName : null,
+                        UserCount = c.Users.Count(u => u.IsActive),
+                        DepartmentCount = c.Departments.Count(),
+                        c.CreatedAtUtc, c.UpdatedAtUtc
+                    })
+                    .FirstOrDefaultAsync(cancellationToken);
 
-                if (company is null)
+                if (result is null)
                     return Result.Failure<CompanyDetailDto>("Company not found");
 
-                if (!query.IsSuperAdmin && company.Id != query.CallerCompanyId)
+                if (!query.IsSuperAdmin && result.Id != query.CallerCompanyId)
                     return Result.Failure<CompanyDetailDto>("Access denied");
 
-                var userCount = await unitOfWork.Users
-                    .CountAsync(u => u.CompanyId == company.Id && u.IsActive, cancellationToken);
-                var departmentCount = await unitOfWork.Departments
-                    .CountAsync(d => d.CompanyId == company.Id, cancellationToken);
-
                 return Result.Success(new CompanyDetailDto(
-                    company.Id,
-                    company.Name,
-                    company.LogoUrl,
-                    company.Description,
-                    company.IsActive,
-                    company.HeadOfCompanyId,
-                    company.HeadOfCompany?.FullName,
-                    userCount,
-                    departmentCount,
-                    company.CreatedAtUtc,
-                    company.UpdatedAtUtc));
+                    result.Id,
+                    result.Name,
+                    result.LogoUrl,
+                    result.Description,
+                    result.IsActive,
+                    result.HeadOfCompanyId,
+                    result.HeadName,
+                    result.UserCount,
+                    result.DepartmentCount,
+                    result.CreatedAtUtc,
+                    result.UpdatedAtUtc));
             }
             catch (Exception ex)
             {

@@ -91,12 +91,38 @@ public class GetDepartmentUsersQueryHandler(
             }
             else
             {
-                // Find the ROOT ancestor of user's department
-                var rootDepartmentId = await GetRootAncestorDepartmentIdAsync(departmentId.Value, cancellationToken);
+                // Şirkətin bütün departamentlərini tək sorğu ilə yüklə, in-memory traverse et
+                var allDepts = await unitOfWork.Departments
+                    .Where(d => d.CompanyId == currentUser.CompanyId!.Value)
+                    .Select(d => new { d.Id, d.ParentDepartmentId })
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
 
-                // Get ALL departments in this tree (root + all descendants)
-                var visibleDepartmentIds = new HashSet<Guid> { rootDepartmentId };
-                await GetDescendantDepartmentIdsAsync([rootDepartmentId], visibleDepartmentIds, cancellationToken);
+                // Root ancestor — in-memory, N sorğu yox
+                var deptLookup = allDepts.ToDictionary(d => d.Id, d => d.ParentDepartmentId);
+                var rootId = departmentId.Value;
+                while (deptLookup.TryGetValue(rootId, out var parentId) && parentId.HasValue)
+                    rootId = parentId.Value;
+
+                // BFS ilə bütün nəsil departamentlər — in-memory
+                var childrenByParent = allDepts
+                    .Where(d => d.ParentDepartmentId.HasValue)
+                    .GroupBy(d => d.ParentDepartmentId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Select(d => d.Id).ToList());
+
+                var visibleDepartmentIds = new HashSet<Guid> { rootId };
+                var bfsQueue = new Queue<Guid>();
+                bfsQueue.Enqueue(rootId);
+                while (bfsQueue.Count > 0)
+                {
+                    var current = bfsQueue.Dequeue();
+                    if (!childrenByParent.TryGetValue(current, out var children)) continue;
+                    foreach (var child in children)
+                    {
+                        visibleDepartmentIds.Add(child);
+                        bfsQueue.Enqueue(child);
+                    }
+                }
 
                 usersQuery = usersQuery.Where(u =>
                     u.Employee != null && u.Employee.DepartmentId != null &&
@@ -142,52 +168,4 @@ public class GetDepartmentUsersQueryHandler(
         }
     }
 
-    /// <summary>
-    /// Finds the ROOT ancestor of a department (the topmost parent in the hierarchy).
-    /// If department has no parent, returns itself.
-    /// Example: DevOps → Engineering (root) returns Engineering ID
-    /// </summary>
-    private async Task<Guid> GetRootAncestorDepartmentIdAsync(
-        Guid departmentId,
-        CancellationToken cancellationToken)
-    {
-        var currentId = departmentId;
-
-        while (true)
-        {
-            var department = await unitOfWork.Departments
-                .Where(d => d.Id == currentId)
-                .Select(d => new { d.ParentDepartmentId })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            // No parent means this is the root
-            if (department?.ParentDepartmentId == null)
-                return currentId;
-
-            // Move up to parent
-            currentId = department.ParentDepartmentId.Value;
-        }
-    }
-
-    /// <summary>
-    /// Recursively gets all descendant department IDs using breadth-first traversal.
-    /// </summary>
-    private async Task GetDescendantDepartmentIdsAsync(
-        List<Guid> parentIds,
-        HashSet<Guid> allIds,
-        CancellationToken cancellationToken)
-    {
-        var childIds = await unitOfWork.Departments
-            .Where(d => d.ParentDepartmentId != null && parentIds.Contains(d.ParentDepartmentId.Value))
-            .Select(d => d.Id)
-            .ToListAsync(cancellationToken);
-
-        if (childIds.Count == 0) return;
-
-        foreach (var id in childIds)
-            allIds.Add(id);
-
-        // Recurse for next level
-        await GetDescendantDepartmentIdsAsync(childIds, allIds, cancellationToken);
-    }
 }

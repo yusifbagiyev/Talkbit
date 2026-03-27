@@ -1,5 +1,6 @@
 ﻿using ChatApp.Modules.Files.Application.DTOs.Responses;
 using ChatApp.Modules.Files.Domain.Entities;
+using ChatApp.Modules.Files.Domain.Enums;
 
 namespace ChatApp.Modules.Files.Application.Interfaces
 {
@@ -29,5 +30,8 @@ namespace ChatApp.Modules.Files.Application.Interfaces
         Task AddAsync(FileMetadata file, CancellationToken cancellationToken = default);
         Task UpdateAsync(FileMetadata file, CancellationToken cancellationToken = default);
         Task DeleteAsync(FileMetadata file, CancellationToken cancellationToken = default);
+
+        Task<(long TotalBytes, int FileCount, int ImageCount, int DocumentCount, int OtherCount)>
+            GetStorageStatsAsync(Guid userId, CancellationToken cancellationToken = default);
     }
 }

@@ -54,9 +54,9 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
                 if (user.Employee == null)
                     return Result.Failure("User does not have an employee record");
 
-                // Rəhbəri User + Employee ilə yüklə
+                // Rəhbəri yüklə — SupervisorLinks lazım deyil, circular check DB-də edilir
                 var supervisorUser = await unitOfWork.Users
-                    .Include(u => u.Employee!.SupervisorLinks)
+                    .Include(u => u.Employee)
                     .FirstOrDefaultAsync(u => u.Id == command.SupervisorId, cancellationToken);
 
                 if (supervisorUser == null)
@@ -72,9 +72,10 @@ namespace ChatApp.Modules.Identity.Application.Commands.Employees
                 if (user.CompanyId != supervisorUser.CompanyId)
                     return Result.Failure("Cannot assign supervisor from a different company");
 
-                // Dairəvi rəhbərlik yoxlanışı — A→B isə B→A ola bilməz
-                var isCircular = supervisorUser.Employee.SupervisorLinks
-                    .Any(s => s.SupervisorEmployeeId == user.Employee.Id);
+                // Dairəvi rəhbərlik yoxlanışı — DB-də tək EXISTS sorğusu
+                var isCircular = await unitOfWork.Users
+                    .Where(u => u.Id == command.SupervisorId)
+                    .AnyAsync(u => u.Employee!.SupervisorLinks.Any(s => s.SupervisorEmployeeId == user.Employee!.Id), cancellationToken);
                 if (isCircular)
                     return Result.Failure("Circular supervision detected: supervisor is already a subordinate of this employee");
 

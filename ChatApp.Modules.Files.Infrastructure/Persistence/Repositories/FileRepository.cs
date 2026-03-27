@@ -2,6 +2,7 @@
 using ChatApp.Modules.Files.Application.DTOs.Responses;
 using ChatApp.Modules.Files.Application.Interfaces;
 using ChatApp.Modules.Files.Domain.Entities;
+using ChatApp.Modules.Files.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatApp.Modules.Files.Infrastructure.Persistence.Repositories
@@ -166,6 +167,29 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence.Repositories
         {
             _context.FileMetadata.Update(file);
             return Task.CompletedTask;
+        }
+
+        public async Task<(long TotalBytes, int FileCount, int ImageCount, int DocumentCount, int OtherCount)>
+            GetStorageStatsAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            // Bütün aggregasiya DB-də edilir — memory-ə heç bir sətir çəkilmir
+            var result = await _context.FileMetadata
+                .Where(f => f.UploadedBy == userId && !f.IsDeleted)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    TotalBytes = g.Sum(f => f.FileSizeInBytes),
+                    FileCount = g.Count(),
+                    ImageCount = g.Count(f => f.FileType == FileType.Image),
+                    DocumentCount = g.Count(f => f.FileType == FileType.Document),
+                    OtherCount = g.Count(f => f.FileType != FileType.Image && f.FileType != FileType.Document)
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (result is null)
+                return (0, 0, 0, 0, 0);
+
+            return (result.TotalBytes, result.FileCount, result.ImageCount, result.DocumentCount, result.OtherCount);
         }
     }
 }

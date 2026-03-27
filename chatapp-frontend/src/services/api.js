@@ -399,6 +399,13 @@ function deleteUser(userId) { return apiDelete(`/api/users/${userId}`); }
 function getSupervisors(userId) { return apiGet(`/api/users/${userId}/supervisors`); }
 function addSupervisor(userId, supervisorId) { return apiPost(`/api/users/${userId}/supervisors`, { supervisorId }); }
 function removeSupervisor(userId, supervisorId) { return apiDelete(`/api/users/${userId}/supervisors/${supervisorId}`); }
+function removeUserFromDepartment(userId) { return apiDelete(`/api/users/${userId}/department`); }
+function getUserPermissions(userId) { return apiGet(`/api/users/${userId}/permissions`); }
+function toggleUserPermission(userId, permId, granted) { return apiPatch(`/api/users/${userId}/permissions/${permId}`, { granted }); }
+function resetUserPermissions(userId) { return apiPost(`/api/users/${userId}/permissions/reset`, {}); }
+
+// ─── Files Storage API ────────────────────────────────────────────────────────
+function getUserStorageStats(userId) { return apiGet(`/api/files/storage/${userId}`); }
 
 // ─── Organization Hierarchy API ───────────────────────────────────────────────
 function getOrganizationHierarchy(companyId = null) {
@@ -420,4 +427,4 @@ function updatePosition(id, data) { return apiPut(`/api/identity/positions/${id}
 function deletePosition(id) { return apiDelete(`/api/identity/positions/${id}`); }
 
 // Named exports — başqa fayllar bunları import edə bilsin
-export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, getUserById, createUser, updateUser, deleteUser, getSupervisors, addSupervisor, removeSupervisor, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy };
+export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, getUserById, createUser, updateUser, deleteUser, getSupervisors, addSupervisor, removeSupervisor, removeUserFromDepartment, getUserPermissions, toggleUserPermission, resetUserPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy };
