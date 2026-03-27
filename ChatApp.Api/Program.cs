@@ -119,6 +119,8 @@ builder.Services.AddResponseCompression(options =>
 // Register SignalR services
 builder.Services.AddSingleton<IConnectionManager, ConnectionManager>();
 builder.Services.AddScoped<IPresenceService, PresenceService>();
+builder.Services.AddScoped<ChatApp.Modules.Identity.Application.Interfaces.IOnlineStatusService,
+    ChatApp.Modules.Identity.Api.Services.OnlineStatusService>();
 builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
 builder.Services.AddSingleton<IChannelMemberCache, ChannelMemberCache>();
 builder.Services.AddSingleton<IUserRelationProvider, UserRelationProvider>();

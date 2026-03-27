@@ -19,6 +19,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
 
     public class GetOrganizationHierarchyQueryHandler(
         IUnitOfWork unitOfWork,
+        IOnlineStatusService onlineStatusService,
         ILogger<GetOrganizationHierarchyQueryHandler> logger)
         : IRequestHandler<GetOrganizationHierarchyQuery, Result<List<OrganizationHierarchyNodeDto>>>
     {
@@ -130,9 +131,17 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                 )).ToList();
 
                 // Build hierarchy: Company → Departments → Sub-departments → Users
-                var result = BuildHierarchy(companies, departments, departmentNodes, userNodes);
+                var hierarchy = BuildHierarchy(companies, departments, departmentNodes, userNodes);
 
-                return Result.Success(result);
+                // Online statusu mənimsət
+                var userIds = users.Select(u => u.Id).ToList();
+                if (userIds.Count > 0)
+                {
+                    var onlineMap = await onlineStatusService.GetOnlineStatusAsync(userIds);
+                    hierarchy = ApplyOnlineStatus(hierarchy, onlineMap);
+                }
+
+                return Result.Success(hierarchy);
             }
             catch (Exception ex)
             {
@@ -301,8 +310,23 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
             Dictionary<Guid, List<OrganizationHierarchyNodeDto>> usersByDepartment)
         {
             if (!usersByDepartment.TryGetValue(dept.Id, out var users)) return 0;
-            // Count direct employees excluding the department head
             return users.Count(u => u.Id != dept.HeadOfDepartmentId);
+        }
+
+        private static List<OrganizationHierarchyNodeDto> ApplyOnlineStatus(
+            List<OrganizationHierarchyNodeDto> nodes,
+            Dictionary<Guid, bool> onlineMap)
+        {
+            return nodes.Select(node =>
+            {
+                if (node.Type == NodeType.User)
+                    return node with { IsOnline = onlineMap.GetValueOrDefault(node.Id, false) };
+
+                if (node.Children?.Count > 0)
+                    return node with { Children = ApplyOnlineStatus(node.Children, onlineMap) };
+
+                return node;
+            }).ToList();
         }
     }
 }
