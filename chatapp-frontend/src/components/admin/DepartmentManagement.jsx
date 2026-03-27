@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import {
   getDepartments, createDepartment, updateDepartment, deleteDepartment,
-  assignDepartmentHead, removeDepartmentHead, getUsers,
+  assignDepartmentHead, removeDepartmentHead, getUsers, searchUsers,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import "./DepartmentManagement.css";
@@ -199,6 +199,7 @@ function DepartmentManagement() {
   const [headSearch, setHeadSearch]         = useState("");
   const [selectedHeadId, setSelectedHeadId] = useState(null);
   const [headSaving, setHeadSaving]         = useState(false);
+  const headSearchDebounce                  = useRef(null);
 
   const loadDepts = useCallback(async () => {
     setLoading(true);
@@ -214,16 +215,16 @@ function DepartmentManagement() {
 
   useEffect(() => { loadDepts(); }, [loadDepts]);
 
-  const loadUsers = useCallback(async () => {
+  // Head panel açılanda və ya headSearch dəyişəndə server-side axtarış
+  const fetchHeadUsers = useCallback((q) => {
     setUsersLoading(true);
-    try {
-      const data = await getUsers({ pageSize: 200 });
-      setUsers(data?.items ?? (Array.isArray(data) ? data : []));
-    } catch (e) {
-      console.error("Failed to load users", e);
-    } finally {
-      setUsersLoading(false);
-    }
+    const req = q.length >= 2
+      ? searchUsers(q)
+      : getUsers({ pageSize: 100 });
+    req
+      .then(d => setUsers(d?.items ?? (Array.isArray(d) ? d : [])))
+      .catch(() => setUsers([]))
+      .finally(() => setUsersLoading(false));
   }, []);
 
   // Collapse/expand
@@ -308,14 +309,24 @@ function DepartmentManagement() {
     closeDetailPanel();
   }, [closeDetailPanel]);
 
+  // headSearch dəyişdikdə debounce ilə axtarış et
+  useEffect(() => {
+    if (panel !== "head") return;
+    clearTimeout(headSearchDebounce.current);
+    headSearchDebounce.current = setTimeout(
+      () => fetchHeadUsers(headSearch.trim()),
+      headSearch.trim().length >= 2 ? 300 : 0
+    );
+  }, [headSearch, panel, fetchHeadUsers]);
+
   const openHeadPanel = useCallback((dept) => {
     setActiveDept(dept);
     setHeadSearch("");
     setSelectedHeadId(null);
     setPanel("head");
     closeDetailPanel();
-    loadUsers();
-  }, [closeDetailPanel, loadUsers]);
+    fetchHeadUsers("");
+  }, [closeDetailPanel, fetchHeadUsers]);
 
   const closePanel = useCallback(() => {
     setPanel(null);
@@ -390,14 +401,6 @@ function DepartmentManagement() {
 
   const canDelete = useCallback((dept) => !depts.some(d => d.parentDepartmentId === dept.id), [depts]);
 
-  const filteredUsers = useMemo(() => {
-    if (!headSearch.trim()) return users;
-    const q = headSearch.toLowerCase();
-    return users.filter(u => {
-      const name = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
-      return name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
-    });
-  }, [users, headSearch]);
 
   return (
     <div className="dm-root">
@@ -616,10 +619,10 @@ function DepartmentManagement() {
                 <div className="dm-user-pick-list">
                   {usersLoading ? (
                     <div className="dm-empty">Loading users...</div>
-                  ) : filteredUsers.length === 0 ? (
+                  ) : users.length === 0 ? (
                     <div className="dm-empty">No users found.</div>
                   ) : (
-                    filteredUsers.map(u => {
+                    users.map(u => {
                       const name = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
                       return (
                         <div key={u.id}
