@@ -6,89 +6,150 @@ import {
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import "./DepartmentManagement.css";
 
-// Flat list-i tree sırasına çevir (depth-first, isLast flag ilə)
-function buildTreeRows(depts) {
-  const childrenOf = {};
-  depts.forEach(d => {
-    const pid = d.parentDepartmentId ?? "__root__";
-    if (!childrenOf[pid]) childrenOf[pid] = [];
-    childrenOf[pid].push(d);
-  });
-  const rows = [];
-  function walk(node, isLast) {
-    rows.push({ ...node, isLast });
-    (childrenOf[node.id] ?? []).forEach((child, i, arr) => walk(child, i === arr.length - 1));
-  }
-  (childrenOf["__root__"] ?? []).forEach((d, i, arr) => walk(d, i === arr.length - 1));
-  return rows;
-}
-
-// ─── DepartmentRow (memoized) ─────────────────────────────────────────────────
-const DepartmentRow = memo(function DepartmentRow({
-  row, openMenuId, setOpenMenuId, onEdit, onHead, onDelete, canDelete,
+// ─── DeptDetailPanel ──────────────────────────────────────────────────────────
+const DeptDetailPanel = memo(function DeptDetailPanel({
+  dept, allDepts, closing, onClose, onDeleted, onEdit, onChangeHead,
 }) {
-  const isChild = !!row.parentDepartmentId;
+  const [members, setMembers]       = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm]   = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+
+  useEffect(() => {
+    if (!dept) return;
+    setMembersLoading(true);
+    setDeleteConfirm(false);
+    getUsers({ departmentId: dept.id, pageSize: 50 })
+      .then(d => setMembers(d?.items ?? (Array.isArray(d) ? d : [])))
+      .catch(() => setMembers([]))
+      .finally(() => setMembersLoading(false));
+  }, [dept?.id]);
+
+  const subDeptCount = allDepts.filter(d => d.parentDepartmentId === dept.id).length;
+  const parentDept   = allDepts.find(d => d.id === dept.parentDepartmentId);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteDepartment(dept.id);
+      onDeleted(); // panel bağla + depts siyahısını yenilə
+    } catch (err) {
+      alert(err.message || "Delete failed.");
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  };
 
   return (
-    <tr className={`dm-row${isChild ? " dm-row--child" : ""}`}>
-      <td>
-        <div className="dm-name-cell" style={isChild ? { paddingLeft: "28px" } : {}}>
-          {isChild && (
-            <span className="dm-tree-prefix">{row.isLast ? "└" : "├"}</span>
-          )}
-          <span className={isChild ? "dm-name-child" : "dm-name-root"} title={row.name}>
-            {row.name}
-          </span>
-        </div>
-      </td>
-      <td>
-        {row.headOfDepartmentId ? (
-          <div className="dm-head-cell--assigned">
-            <div className="dm-head-avatar-sm" style={{ background: getAvatarColor(row.headOfDepartmentName ?? "") }}>
-              {getInitials(row.headOfDepartmentName ?? "")}
-            </div>
-            <span>{row.headOfDepartmentName}</span>
+    <>
+      <div className="dm-detail-overlay" onClick={onClose} />
+      <div className={`dm-detail-panel${closing ? " closing" : ""}`}>
+        <div className="dm-detail-header">
+          <div>
+            <div className="dm-detail-title">{dept.name}</div>
+            {parentDept && (
+              <div className="dm-detail-parent">↳ {parentDept.name}</div>
+            )}
           </div>
-        ) : (
-          <span className="dm-head-cell--empty" onClick={() => onHead(row)} title="Click to assign head">
-            —
-          </span>
-        )}
-      </td>
-      <td>
-        {row.parentDepartmentId
-          ? <span className="dm-parent-name">{row.parentDepartmentName}</span>
-          : <span className="dm-cell-muted">—</span>
-        }
-      </td>
-      <td className="dm-actions-cell">
-        <div className="dm-menu-wrap">
-          <button
-            className="dm-menu-btn"
-            onClick={() => setOpenMenuId(openMenuId === row.id ? null : row.id)}
-          >•••</button>
-          {openMenuId === row.id && (
-            <>
-              <div className="dm-menu-overlay" onClick={() => setOpenMenuId(null)} />
-              <div className="dm-menu">
-                <button className="dm-menu-item" onClick={() => onEdit(row)}>Edit</button>
-                {row.headOfDepartmentId
-                  ? <button className="dm-menu-item" onClick={() => onHead(row)}>Assign Head</button>
-                  : <button className="dm-menu-item" onClick={() => onHead(row)}>Assign Head</button>
-                }
-                <button
-                  className="dm-menu-item danger"
-                  onClick={() => canDelete && onDelete(row)}
-                  disabled={!canDelete}
-                  title={!canDelete ? "Cannot delete — has sub-departments" : undefined}
-                  style={!canDelete ? { opacity: 0.4, cursor: "not-allowed" } : {}}
-                >Delete</button>
+          <button className="dm-detail-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="dm-detail-body">
+          {/* Head */}
+          <div className="dm-detail-section">
+            <p className="dm-detail-section-label">Head</p>
+            {dept.headOfDepartmentId ? (
+              <div className="dm-detail-head-row">
+                <div className="dm-detail-head-avatar"
+                  style={{ background: getAvatarColor(dept.headOfDepartmentName ?? "") }}>
+                  {getInitials(dept.headOfDepartmentName ?? "")}
+                </div>
+                <span style={{ flex: 1, fontWeight: 500, fontSize: "13px" }}>
+                  {dept.headOfDepartmentName}
+                </span>
+                <button className="dm-change-head-btn" onClick={() => onChangeHead(dept)}>
+                  Change
+                </button>
               </div>
-            </>
+            ) : (
+              <div className="dm-detail-head-row">
+                <span style={{ fontSize: "13px", color: "#9ca3af", flex: 1 }}>No head assigned</span>
+                <button className="dm-change-head-btn" onClick={() => onChangeHead(dept)}>
+                  Assign
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="dm-detail-section">
+            <p className="dm-detail-section-label">Stats</p>
+            <div className="dm-detail-stats">
+              <div className="dm-detail-stat-card">
+                <div className="dm-detail-stat-num">{members.length}</div>
+                <div className="dm-detail-stat-label">Members</div>
+              </div>
+              <div className="dm-detail-stat-card">
+                <div className="dm-detail-stat-num">{subDeptCount}</div>
+                <div className="dm-detail-stat-label">Sub-depts</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Members */}
+          {(membersLoading || members.length > 0) && (
+            <div className="dm-detail-section">
+              <p className="dm-detail-section-label">Members</p>
+              {membersLoading ? (
+                <div style={{ fontSize: "13px", color: "#9ca3af" }}>Loading...</div>
+              ) : (
+                members.map(m => {
+                  const mName = m.fullName ?? `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
+                  return (
+                    <div key={m.id} className="dm-detail-member">
+                      <div className="dm-detail-member-avatar"
+                        style={{ background: getAvatarColor(mName) }}>
+                        {getInitials(mName)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: "13px" }}>{mName}</div>
+                        {m.positionName && (
+                          <div style={{ fontSize: "11px", color: "#6b7280" }}>{m.positionName}</div>
+                        )}
+                      </div>
+                      {m.id === dept.headOfDepartmentId && (
+                        <span className="dm-head-badge">HEAD</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
-      </td>
-    </tr>
+
+        <div className="dm-detail-footer">
+          <button className="dm-btn dm-btn-primary" onClick={() => onEdit(dept)}>
+            Edit Department
+          </button>
+          {deleteConfirm ? (
+            <div className="dm-detail-delete-confirm">
+              <span>Delete?</span>
+              <button className="dm-detail-delete-yes" onClick={handleDelete} disabled={deleting}>
+                {deleting ? "..." : "Yes"}
+              </button>
+              <button className="dm-detail-delete-no" onClick={() => setDeleteConfirm(false)}>
+                No
+              </button>
+            </div>
+          ) : (
+            <button className="dm-btn-delete-outline" onClick={() => setDeleteConfirm(true)}>
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   );
 });
 
@@ -97,7 +158,12 @@ function DepartmentManagement() {
   const [depts, setDepts]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [collapsed, setCollapsed]   = useState(new Set());
+  const [rowDeleteConfirm, setRowDeleteConfirm] = useState(null); // deptId
+
+  // Detail panel
+  const [detailDept, setDetailDept] = useState(null);
+  const [detailClosing, setDetailClosing] = useState(false);
 
   // panel: null | 'create' | 'edit' | 'head'
   const [panel, setPanel]           = useState(null);
@@ -110,11 +176,11 @@ function DepartmentManagement() {
   const [saving, setSaving]             = useState(false);
 
   // Head panel
-  const [users, setUsers]                 = useState([]);
-  const [usersLoading, setUsersLoading]   = useState(false);
-  const [headSearch, setHeadSearch]       = useState("");
+  const [users, setUsers]                   = useState([]);
+  const [usersLoading, setUsersLoading]     = useState(false);
+  const [headSearch, setHeadSearch]         = useState("");
   const [selectedHeadId, setSelectedHeadId] = useState(null);
-  const [headSaving, setHeadSaving]       = useState(false);
+  const [headSaving, setHeadSaving]         = useState(false);
 
   const loadDepts = useCallback(async () => {
     setLoading(true);
@@ -142,13 +208,72 @@ function DepartmentManagement() {
     }
   }, []);
 
-  const treeRows = useMemo(() => buildTreeRows(depts), [depts]);
+  // Collapse/expand
+  const toggleCollapse = useCallback((id) => {
+    setCollapsed(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  }, []);
+
+  // Dept visible-dırmı? (yuxarı ancestor collapsed-dırsa görünmür)
+  const isVisible = useCallback((dept) => {
+    if (!dept.parentDepartmentId) return true;
+    if (collapsed.has(dept.parentDepartmentId)) return false;
+    const parent = depts.find(d => d.id === dept.parentDepartmentId);
+    return parent ? isVisible(parent) : true;
+  }, [depts, collapsed]);
+
+  // Dept-in child-ı varmı?
+  const hasChildren = useCallback((deptId) => depts.some(d => d.parentDepartmentId === deptId), [depts]);
+
+  // Dept level-i (kök=0)
+  const getLevel = useCallback((dept) => {
+    let level = 0;
+    let current = dept;
+    while (current.parentDepartmentId) {
+      level++;
+      current = depts.find(d => d.id === current.parentDepartmentId) ?? { parentDepartmentId: null };
+    }
+    return level;
+  }, [depts]);
+
+  // Tree order — depth-first
+  const treeOrdered = useMemo(() => {
+    const childrenOf = {};
+    depts.forEach(d => {
+      const pid = d.parentDepartmentId ?? "__root__";
+      if (!childrenOf[pid]) childrenOf[pid] = [];
+      childrenOf[pid].push(d);
+    });
+    const result = [];
+    function walk(id) {
+      (childrenOf[id] ?? []).forEach(d => {
+        result.push(d);
+        walk(d.id);
+      });
+    }
+    walk("__root__");
+    return result;
+  }, [depts]);
 
   const filteredRows = useMemo(() => {
-    if (!search.trim()) return treeRows;
+    if (!search.trim()) return treeOrdered.filter(d => isVisible(d));
     const q = search.toLowerCase();
-    return treeRows.filter(r => r.name.toLowerCase().includes(q));
-  }, [treeRows, search]);
+    return depts.filter(d => d.name.toLowerCase().includes(q));
+  }, [treeOrdered, depts, search, isVisible]);
+
+  // Detail panel
+  const openDetailPanel = useCallback((dept) => {
+    setDetailDept(dept);
+    setDetailClosing(false);
+  }, []);
+
+  const closeDetailPanel = useCallback(() => {
+    setDetailClosing(true);
+    setTimeout(() => { setDetailDept(null); setDetailClosing(false); }, 200);
+  }, []);
 
   const openCreatePanel = useCallback(() => {
     setFormName(""); setFormParentId(""); setFormError("");
@@ -162,17 +287,17 @@ function DepartmentManagement() {
     setFormError("");
     setActiveDept(dept);
     setPanel("edit");
-    setOpenMenuId(null);
-  }, []);
+    closeDetailPanel();
+  }, [closeDetailPanel]);
 
   const openHeadPanel = useCallback((dept) => {
     setActiveDept(dept);
     setHeadSearch("");
     setSelectedHeadId(null);
     setPanel("head");
-    setOpenMenuId(null);
+    closeDetailPanel();
     loadUsers();
-  }, [loadUsers]);
+  }, [closeDetailPanel, loadUsers]);
 
   const closePanel = useCallback(() => {
     setPanel(null);
@@ -199,8 +324,7 @@ function DepartmentManagement() {
   }, [formName, formParentId, panel, activeDept, loadDepts, closePanel]);
 
   const handleDelete = useCallback(async (dept) => {
-    if (!window.confirm(`Delete "${dept.name}"?`)) return;
-    setOpenMenuId(null);
+    setRowDeleteConfirm(null);
     try {
       await deleteDepartment(dept.id);
       await loadDepts();
@@ -236,11 +360,12 @@ function DepartmentManagement() {
     }
   }, [activeDept, loadDepts, closePanel]);
 
-  // Edit panelindən özünü və uşaqlarını parent seçimlərindən çıxar
   const parentOptions = useMemo(() => {
     if (panel !== "edit" || !activeDept) return depts;
     const excluded = new Set([activeDept.id]);
-    const addDesc = (id) => depts.forEach(d => { if (d.parentDepartmentId === id) { excluded.add(d.id); addDesc(d.id); } });
+    const addDesc = (id) => depts.forEach(d => {
+      if (d.parentDepartmentId === id) { excluded.add(d.id); addDesc(d.id); }
+    });
     addDesc(activeDept.id);
     return depts.filter(d => !excluded.has(d.id));
   }, [depts, activeDept, panel]);
@@ -280,65 +405,99 @@ function DepartmentManagement() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="dm-table-wrap">
-        <table className="dm-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Head</th>
-              <th>Parent</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={i}>
-                  <td colSpan={4} style={{ padding: 0 }}>
-                    <div className="dm-skeleton-row">
-                      <div className="dm-skeleton-bar" style={{ width: "38%" }} />
-                      <div className="dm-skeleton-bar" style={{ width: "22%" }} />
-                      <div className="dm-skeleton-bar" style={{ width: "16%" }} />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : filteredRows.length === 0 ? (
-              <tr>
-                <td colSpan={4}>
-                  {search ? (
-                    <div className="dm-empty-cell">No departments match your search.</div>
-                  ) : (
-                    <div className="dm-empty-state">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="7" width="20" height="14" rx="2"/>
-                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-                      </svg>
-                      <p>No departments yet.</p>
-                      <button className="dm-btn dm-btn-primary" onClick={openCreatePanel}>
-                        → Create your first department
+      {/* Tree */}
+      <div className="dm-tree-wrap">
+        {loading ? (
+          [1, 2, 3].map(i => (
+            <div key={i} className="dm-skeleton-row">
+              <div className="dm-skeleton-bar" style={{ width: "38%" }} />
+              <div className="dm-skeleton-bar" style={{ width: "22%" }} />
+            </div>
+          ))
+        ) : filteredRows.length === 0 ? (
+          search ? (
+            <div className="dm-empty-msg">No departments match your search.</div>
+          ) : (
+            <div className="dm-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              </svg>
+              <p>No departments yet.</p>
+              <button className="dm-btn dm-btn-primary" onClick={openCreatePanel}>
+                → Create your first department
+              </button>
+            </div>
+          )
+        ) : (
+          filteredRows.map(dept => {
+            const level  = getLevel(dept);
+            const isLeaf = !hasChildren(dept.id);
+            const open   = !collapsed.has(dept.id);
+            const isRowDeleteConfirm = rowDeleteConfirm === dept.id;
+
+            return (
+              <div key={dept.id}
+                className={`dm-dept-row${isRowDeleteConfirm ? " dm-dept-row--confirm" : ""}`}
+                style={{ paddingLeft: `${level * 24 + 12}px` }}>
+
+                {/* Expand/collapse chevron */}
+                {!isLeaf ? (
+                  <button className={`dm-chevron${open ? " dm-chevron--open" : ""}`}
+                    onClick={() => toggleCollapse(dept.id)}>▶</button>
+                ) : (
+                  <span className="dm-chevron-spacer" />
+                )}
+
+                {isRowDeleteConfirm ? (
+                  <div className="dm-row-delete-confirm">
+                    <span>Delete <b>{dept.name}</b>?</span>
+                    <button className="dm-delete-yes" onClick={() => handleDelete(dept)}>Yes</button>
+                    <button className="dm-delete-no" onClick={() => setRowDeleteConfirm(null)}>No</button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Name — click to open detail panel */}
+                    <span className="dm-dept-name" onClick={() => openDetailPanel(dept)}>
+                      {dept.name}
+                    </span>
+                    <span className="dm-dept-head">
+                      {dept.headOfDepartmentId
+                        ? `Head: ${dept.headOfDepartmentName}`
+                        : <span style={{ color: "#d1d5db" }}>No head</span>}
+                    </span>
+                    <span className="dm-dept-sub-count">
+                      {!isLeaf ? `${depts.filter(d => d.parentDepartmentId === dept.id).length} sub-depts` : ""}
+                    </span>
+
+                    {/* Hover actions */}
+                    <div className="dm-row-actions">
+                      <button className="dm-action-btn" title="Edit"
+                        onClick={() => openEditPanel(dept)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                      <button
+                        className="dm-action-btn delete"
+                        title={!canDelete(dept) ? "Cannot delete — has sub-departments" : "Delete"}
+                        disabled={!canDelete(dept)}
+                        onClick={() => canDelete(dept) && setRowDeleteConfirm(dept.id)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                          <path d="M9 6V4h6v2"/>
+                        </svg>
                       </button>
                     </div>
-                  )}
-                </td>
-              </tr>
-            ) : (
-              filteredRows.map(row => (
-                <DepartmentRow
-                  key={row.id}
-                  row={row}
-                  openMenuId={openMenuId}
-                  setOpenMenuId={setOpenMenuId}
-                  onEdit={openEditPanel}
-                  onHead={openHeadPanel}
-                  onDelete={handleDelete}
-                  canDelete={canDelete(row)}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+                  </>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Create / Edit Panel */}
@@ -414,18 +573,12 @@ function DepartmentManagement() {
                   <div className="dm-form-field">
                     <label className="dm-form-label">Current Head</label>
                     <div className="dm-current-head">
-                      <div
-                        className="dm-head-avatar"
-                        style={{ background: getAvatarColor(activeDept.headOfDepartmentName ?? "") }}
-                      >
+                      <div className="dm-head-avatar"
+                        style={{ background: getAvatarColor(activeDept.headOfDepartmentName ?? "") }}>
                         {getInitials(activeDept.headOfDepartmentName ?? "")}
                       </div>
                       <span className="dm-head-name">{activeDept.headOfDepartmentName}</span>
-                      <button
-                        className="dm-btn-ghost-danger"
-                        onClick={handleRemoveHead}
-                        disabled={headSaving}
-                      >
+                      <button className="dm-btn-ghost-danger" onClick={handleRemoveHead} disabled={headSaving}>
                         {headSaving ? <span className="dm-spinner dm-spinner--dark" /> : "Remove Head"}
                       </button>
                     </div>
@@ -439,12 +592,8 @@ function DepartmentManagement() {
                   <svg className="dm-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   </svg>
-                  <input
-                    className="dm-search-input"
-                    placeholder="Search users..."
-                    value={headSearch}
-                    onChange={e => setHeadSearch(e.target.value)}
-                  />
+                  <input className="dm-search-input" placeholder="Search users..."
+                    value={headSearch} onChange={e => setHeadSearch(e.target.value)} />
                 </div>
                 <div className="dm-user-pick-list">
                   {usersLoading ? (
@@ -455,15 +604,10 @@ function DepartmentManagement() {
                     filteredUsers.map(u => {
                       const name = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
                       return (
-                        <div
-                          key={u.id}
+                        <div key={u.id}
                           className={`dm-user-pick-row${selectedHeadId === u.id ? " selected" : ""}`}
-                          onClick={() => setSelectedHeadId(u.id)}
-                        >
-                          <div
-                            className="dm-user-avatar-sm"
-                            style={{ background: getAvatarColor(name) }}
-                          >
+                          onClick={() => setSelectedHeadId(u.id)}>
+                          <div className="dm-user-avatar-sm" style={{ background: getAvatarColor(name) }}>
                             {getInitials(name)}
                           </div>
                           <div className="dm-user-info-sm">
@@ -477,20 +621,28 @@ function DepartmentManagement() {
                 </div>
               </div>
               <div className="dm-form-actions">
-                <button type="button" className="dm-btn dm-btn-ghost" onClick={closePanel}>
-                  Cancel
-                </button>
-                <button
-                  className="dm-btn dm-btn-primary"
-                  onClick={handleAssignHead}
-                  disabled={!selectedHeadId || headSaving}
-                >
+                <button type="button" className="dm-btn dm-btn-ghost" onClick={closePanel}>Cancel</button>
+                <button className="dm-btn dm-btn-primary" onClick={handleAssignHead}
+                  disabled={!selectedHeadId || headSaving}>
                   {headSaving ? <span className="dm-spinner" /> : "Assign"}
                 </button>
               </div>
             </div>
           </div>
         </>
+      )}
+
+      {/* Detail panel */}
+      {detailDept && (
+        <DeptDetailPanel
+          dept={detailDept}
+          allDepts={depts}
+          closing={detailClosing}
+          onClose={closeDetailPanel}
+          onDeleted={async () => { closeDetailPanel(); await loadDepts(); }}
+          onEdit={openEditPanel}
+          onChangeHead={openHeadPanel}
+        />
       )}
     </div>
   );

@@ -2,40 +2,6 @@ import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { getAllPositions, getDepartments, createPosition, updatePosition, deletePosition } from "../../services/api";
 import "./PositionManagement.css";
 
-// ─── PositionRow (memoized) ───────────────────────────────────────────────────
-const PositionRow = memo(function PositionRow({ pos, openMenuId, setOpenMenuId, onEdit, onDelete }) {
-  return (
-    <tr className="pm-row">
-      <td>
-        <span className="pm-name-cell" title={pos.name}>{pos.name}</span>
-      </td>
-      <td>
-        {pos.departmentId
-          ? <span className="pm-dept-badge" title={pos.departmentName}>{pos.departmentName}</span>
-          : <span className="pm-cell-muted">—</span>
-        }
-      </td>
-      <td className="pm-actions-cell">
-        <div className="pm-menu-wrap">
-          <button
-            className="pm-menu-btn"
-            onClick={() => setOpenMenuId(openMenuId === pos.id ? null : pos.id)}
-          >•••</button>
-          {openMenuId === pos.id && (
-            <>
-              <div className="pm-menu-overlay" onClick={() => setOpenMenuId(null)} />
-              <div className="pm-menu">
-                <button className="pm-menu-item" onClick={() => onEdit(pos)}>Edit</button>
-                <button className="pm-menu-item danger" onClick={() => onDelete(pos)}>Delete</button>
-              </div>
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-});
-
 // ─── PositionManagement ───────────────────────────────────────────────────────
 function PositionManagement() {
   const [positions, setPositions]   = useState([]);
@@ -44,7 +10,7 @@ function PositionManagement() {
   const [search, setSearch]         = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [sort, setSort]             = useState("asc");
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [rowDeleteConfirm, setRowDeleteConfirm] = useState(null); // posId
 
   // panel: null | 'create' | 'edit'
   const [panel, setPanel]         = useState(null);
@@ -98,7 +64,6 @@ function PositionManagement() {
     setFormError("");
     setActivePos(pos);
     setPanel("edit");
-    setOpenMenuId(null);
   }, []);
 
   const closePanel = useCallback(() => { setPanel(null); setActivePos(null); setFormError(""); }, []);
@@ -126,8 +91,7 @@ function PositionManagement() {
   }, [formName, formDeptId, formDesc, panel, activePos, loadData, closePanel]);
 
   const handleDelete = useCallback(async (pos) => {
-    if (!window.confirm(`Delete "${pos.name}"?`)) return;
-    setOpenMenuId(null);
+    setRowDeleteConfirm(null);
     try {
       await deletePosition(pos.id);
       await loadData();
@@ -137,7 +101,6 @@ function PositionManagement() {
   }, [loadData]);
 
   const toggleSort = useCallback(() => setSort(s => s === "asc" ? "desc" : "asc"), []);
-
   const isFiltering = search || deptFilter !== "all";
 
   return (
@@ -165,7 +128,7 @@ function PositionManagement() {
           />
         </div>
         <select
-          className="pm-dept-filter"
+          className="pm-filter-select"
           value={deptFilter}
           onChange={e => setDeptFilter(e.target.value)}
         >
@@ -173,68 +136,90 @@ function PositionManagement() {
           <option value="none">No Department</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
+        <button className="pm-sort-btn" onClick={toggleSort} title="Sort by name">
+          Name {sort === "asc" ? "↑" : "↓"}
+        </button>
       </div>
 
-      {/* Table */}
-      <div className="pm-table-wrap">
-        <table className="pm-table">
-          <thead>
-            <tr>
-              <th className="pm-th-sortable" onClick={toggleSort}>
-                Position Name{" "}
-                <span className="pm-sort-icon" style={{ color: "var(--primary-color)" }}>
-                  {sort === "asc" ? "↑" : "↓"}
-                </span>
-              </th>
-              <th>Department</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={i}>
-                  <td colSpan={3} style={{ padding: 0 }}>
-                    <div className="pm-skeleton-row">
-                      <div className="pm-skeleton-bar" style={{ width: "35%" }} />
-                      <div className="pm-skeleton-bar" style={{ width: "22%" }} />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={3}>
-                  {isFiltering ? (
-                    <div className="pm-empty-cell">No positions match your search.</div>
-                  ) : (
-                    <div className="pm-empty-state">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="7" width="20" height="14" rx="2"/>
-                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-                      </svg>
-                      <p>No positions yet.</p>
-                      <button className="pm-btn pm-btn-primary" onClick={openCreatePanel}>
-                        → Create your first position
+      {/* List */}
+      <div className="pm-list-wrap">
+        {/* Header row */}
+        <div className="pm-list-header">
+          <span style={{ flex: 1 }}>Position</span>
+          <span className="pm-list-header-dept">Department</span>
+          <span className="pm-list-header-count">Users</span>
+          <span style={{ width: "64px" }} />
+        </div>
+
+        {loading ? (
+          [1, 2, 3].map(i => (
+            <div key={i} className="pm-skeleton-row">
+              <div className="pm-skeleton-bar" style={{ width: "35%" }} />
+              <div className="pm-skeleton-bar" style={{ width: "22%" }} />
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
+          isFiltering ? (
+            <div className="pm-empty-msg">No positions match your search.</div>
+          ) : (
+            <div className="pm-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              </svg>
+              <p>No positions yet.</p>
+              <button className="pm-btn pm-btn-primary" onClick={openCreatePanel}>
+                → Create your first position
+              </button>
+            </div>
+          )
+        ) : (
+          filtered.map(pos => {
+            const isDeleteConfirm = rowDeleteConfirm === pos.id;
+            return (
+              <div key={pos.id}
+                className={`pm-position-row${isDeleteConfirm ? " pm-position-row--confirm" : ""}`}>
+                {isDeleteConfirm ? (
+                  <div className="pm-row-delete-confirm">
+                    <span>Delete <b>{pos.name}</b>?</span>
+                    <button className="pm-delete-yes" onClick={() => handleDelete(pos)}>Yes</button>
+                    <button className="pm-delete-no" onClick={() => setRowDeleteConfirm(null)}>No</button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="pm-pos-name">{pos.name}</span>
+                    <span className="pm-pos-dept">
+                      {pos.departmentId
+                        ? pos.departmentName
+                        : <span style={{ color: "#d1d5db" }}>—</span>}
+                    </span>
+                    <span className="pm-pos-count">
+                      {pos.userCount ?? "—"}
+                    </span>
+                    <div className="pm-row-actions">
+                      <button className="pm-action-btn" title="Edit"
+                        onClick={() => openEditPanel(pos)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                      <button className="pm-action-btn delete" title="Delete"
+                        onClick={() => setRowDeleteConfirm(pos.id)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                          <path d="M9 6V4h6v2"/>
+                        </svg>
                       </button>
                     </div>
-                  )}
-                </td>
-              </tr>
-            ) : (
-              filtered.map(pos => (
-                <PositionRow
-                  key={pos.id}
-                  pos={pos}
-                  openMenuId={openMenuId}
-                  setOpenMenuId={setOpenMenuId}
-                  onEdit={openEditPanel}
-                  onDelete={handleDelete}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+                  </>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Create / Edit Panel */}

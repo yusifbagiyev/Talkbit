@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import {
   getOrganizationHierarchy, getCompanies, getFileUrl,
   activateUser, deactivateUser, deleteUser, getSupervisors,
+  createUser, createDepartment, getDepartments, getPositionsByDepartment,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
+import { useToast } from "../../context/ToastContext";
 import "./HierarchyView.css";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -247,8 +249,182 @@ function DeptDetailPanel({ node, parentDeptName, closing, onClose }) {
   );
 }
 
+// ─── CreateUserPanel ──────────────────────────────────────────────────────────
+function CreateUserPanel({ isSuperAdmin, onSave, onClose }) {
+  const { showToast } = useToast();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName]   = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [role, setRole]           = useState("User");
+  const [deptId, setDeptId]       = useState("");
+  const [posId, setPosId]         = useState("");
+  const [depts, setDepts]         = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [saving, setSaving]       = useState(false);
+
+  useEffect(() => { getDepartments().then(setDepts).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!deptId) { setPositions([]); return; }
+    getPositionsByDepartment(deptId).then(setPositions).catch(() => {});
+  }, [deptId]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+      showToast("First name, last name, email and password are required", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      await createUser({
+        firstName: firstName.trim(), lastName: lastName.trim(),
+        email: email.trim(), password, role,
+        ...(deptId ? { departmentId: deptId } : {}),
+        ...(posId  ? { positionId: posId }    : {}),
+      });
+      showToast("User created", "success");
+      onSave();
+    } catch (err) {
+      showToast(err.message || "Failed to create user", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const roleOptions = isSuperAdmin ? ["User", "Admin", "SuperAdmin"] : ["User"];
+
+  return (
+    <>
+      <div className="hi-panel-backdrop" onClick={onClose} />
+      <div className="hi-create-panel">
+        <div className="hi-create-panel-header">
+          <span className="hi-create-panel-title">New User</span>
+          <button className="hi-create-panel-close" onClick={onClose}>✕</button>
+        </div>
+        <form className="hi-create-panel-body" onSubmit={handleSubmit}>
+          <div className="hi-form-row">
+            <div className="hi-form-field">
+              <label className="hi-form-label">First Name *</label>
+              <input className="hi-form-input" value={firstName}
+                onChange={e => setFirstName(e.target.value)} placeholder="First name" autoFocus />
+            </div>
+            <div className="hi-form-field">
+              <label className="hi-form-label">Last Name *</label>
+              <input className="hi-form-input" value={lastName}
+                onChange={e => setLastName(e.target.value)} placeholder="Last name" />
+            </div>
+          </div>
+          <div className="hi-form-field">
+            <label className="hi-form-label">Email *</label>
+            <input className="hi-form-input" type="email" value={email}
+              onChange={e => setEmail(e.target.value)} placeholder="user@company.com" />
+          </div>
+          <div className="hi-form-field">
+            <label className="hi-form-label">Password *</label>
+            <input className="hi-form-input" type="password" value={password}
+              onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" />
+          </div>
+          <div className="hi-form-field">
+            <label className="hi-form-label">Role</label>
+            <select className="hi-form-select" value={role} onChange={e => setRole(e.target.value)}>
+              {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="hi-form-row">
+            <div className="hi-form-field">
+              <label className="hi-form-label">Department</label>
+              <select className="hi-form-select" value={deptId}
+                onChange={e => { setDeptId(e.target.value); setPosId(""); }}>
+                <option value="">— Select —</option>
+                {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div className="hi-form-field">
+              <label className="hi-form-label">Position</label>
+              <select className="hi-form-select" value={posId}
+                onChange={e => setPosId(e.target.value)} disabled={!deptId}>
+                <option value="">— Select —</option>
+                {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="hi-form-actions">
+            <button type="button" className="hi-btn-ghost" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" className="hi-btn-primary" disabled={saving}>
+              {saving ? "Creating..." : "Create User"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+}
+
+// ─── CreateDeptPanel ──────────────────────────────────────────────────────────
+function CreateDeptPanel({ onSave, onClose }) {
+  const { showToast } = useToast();
+  const [name, setName]         = useState("");
+  const [parentId, setParentId] = useState("");
+  const [depts, setDepts]       = useState([]);
+  const [saving, setSaving]     = useState(false);
+
+  useEffect(() => { getDepartments().then(setDepts).catch(() => {}); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) { showToast("Department name is required", "error"); return; }
+    setSaving(true);
+    try {
+      await createDepartment({ name: name.trim(), parentDepartmentId: parentId || null });
+      showToast("Department created", "success");
+      onSave();
+    } catch (err) {
+      showToast(err.message || "Failed to create department", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="hi-panel-backdrop" onClick={onClose} />
+      <div className="hi-create-panel">
+        <div className="hi-create-panel-header">
+          <span className="hi-create-panel-title">New Department</span>
+          <button className="hi-create-panel-close" onClick={onClose}>✕</button>
+        </div>
+        <form className="hi-create-panel-body" onSubmit={handleSubmit}>
+          <div className="hi-form-field">
+            <label className="hi-form-label">Department Name *</label>
+            <input className="hi-form-input" value={name}
+              onChange={e => setName(e.target.value)} placeholder="Enter name..." autoFocus />
+          </div>
+          <div className="hi-form-field">
+            <label className="hi-form-label">Parent Department</label>
+            <select className="hi-form-select" value={parentId} onChange={e => setParentId(e.target.value)}>
+              <option value="">None (top-level)</option>
+              {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div className="hi-form-actions">
+            <button type="button" className="hi-btn-ghost" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" className="hi-btn-primary" disabled={saving}>
+              {saving ? "Creating..." : "Create Department"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+}
+
 // ─── HierarchyView ────────────────────────────────────────────────────────────
-function HierarchyView({ isSuperAdmin }) {
+function HierarchyView({ isSuperAdmin, onOpenUser }) {
   const [tree, setTree]               = useState([]);
   const [loading, setLoading]         = useState(true);
   const [searchInput, setSearchInput] = useState("");
@@ -261,8 +437,10 @@ function HierarchyView({ isSuperAdmin }) {
   const [nodeOverrides, setNodeOverrides] = useState({}); // { [id]: partial overrides }
   const [deletingIds, setDeletingIds] = useState(new Set());
   const [deletedIds, setDeletedIds]   = useState(new Set());
+  const [createPanel, setCreatePanel] = useState(null); // null | 'user' | 'dept'
 
-  useEffect(() => {
+  const loadHierarchy = useCallback(() => {
+    setLoading(true);
     Promise.all([getOrganizationHierarchy(), getCompanies()])
       .then(([hierarchy, companiesRes]) => {
         const nodes = hierarchy ?? [];
@@ -281,6 +459,8 @@ function HierarchyView({ isSuperAdmin }) {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadHierarchy(); }, [loadHierarchy]);
 
   // 300ms debounce
   useEffect(() => {
@@ -385,7 +565,7 @@ function HierarchyView({ isSuperAdmin }) {
         {/* Info */}
         <div className="hi-user-info">
           <span className="hi-user-name"
-            onClick={() => openPanel("user", data, { companyName, deptName })}>
+            onClick={() => onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName })}>
             <Highlight text={data.name} query={search} />
           </span>
           {data.positionName && <span className="hi-user-position">{data.positionName}</span>}
@@ -401,7 +581,7 @@ function HierarchyView({ isSuperAdmin }) {
         <div className="hi-actions">
           {/* Edit */}
           <button className="hi-action-btn edit" title="Edit user"
-            onClick={() => openPanel("user", data, { companyName, deptName })}>
+            onClick={() => onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName })}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -432,7 +612,7 @@ function HierarchyView({ isSuperAdmin }) {
             {isDropOpen && (
               <div className="hi-action-dropdown">
                 <button className="hi-dropdown-item"
-                  onClick={() => { setOpenDropdown(null); openPanel("user", data, { companyName, deptName }); }}>
+                  onClick={() => { setOpenDropdown(null); onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName }); }}>
                   ✏ Edit
                 </button>
                 <button className="hi-dropdown-item"
@@ -596,12 +776,22 @@ function HierarchyView({ isSuperAdmin }) {
           />
           <span className="hi-search-shortcut">⌘K</span>
         </div>
+        <div className="hi-toolbar-actions">
+          <button className="hi-btn-primary" onClick={() => setCreatePanel("user")}>
+            + New User
+          </button>
+          {!isSuperAdmin && (
+            <button className="hi-btn-secondary" onClick={() => setCreatePanel("dept")}>
+              + New Department
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tree */}
       <div className="hi-tree">{content}</div>
 
-      {/* Panels */}
+      {/* Detail panels */}
       {panel?.type === "user" && (
         <UserDetailPanel
           user={panel.data}
@@ -617,6 +807,21 @@ function HierarchyView({ isSuperAdmin }) {
           parentDeptName={panel.extra.parentDeptName}
           closing={panelClosing}
           onClose={closePanel}
+        />
+      )}
+
+      {/* Create panels */}
+      {createPanel === "user" && (
+        <CreateUserPanel
+          isSuperAdmin={isSuperAdmin}
+          onSave={() => { setCreatePanel(null); loadHierarchy(); }}
+          onClose={() => setCreatePanel(null)}
+        />
+      )}
+      {createPanel === "dept" && (
+        <CreateDeptPanel
+          onSave={() => { setCreatePanel(null); loadHierarchy(); }}
+          onClose={() => setCreatePanel(null)}
         />
       )}
     </div>
