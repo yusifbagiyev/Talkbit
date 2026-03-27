@@ -13,7 +13,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
     /// </summary>
     public record GetOrganizationHierarchyQuery(
         Guid? CompanyId = null,
-        bool IsSuperAdmin = false
+        bool IsSuperAdmin = false,
+        Guid? UserId = null
     ) : IRequest<Result<List<OrganizationHierarchyNodeDto>>>;
 
     public class GetOrganizationHierarchyQueryHandler(
@@ -27,6 +28,24 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
         {
             try
             {
+                // CompanyId null olan Admin/User üçün department-dan şirkəti tap (köhnə null companyId problemi)
+                var effectiveCompanyId = query.CompanyId;
+                if (!effectiveCompanyId.HasValue && !query.IsSuperAdmin && query.UserId.HasValue)
+                {
+                    var deptId = await unitOfWork.Employees
+                        .Where(e => e.UserId == query.UserId.Value && e.DepartmentId.HasValue)
+                        .Select(e => e.DepartmentId)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (deptId.HasValue)
+                    {
+                        effectiveCompanyId = await unitOfWork.Departments
+                            .Where(d => d.Id == deptId.Value)
+                            .Select(d => (Guid?)d.CompanyId)
+                            .FirstOrDefaultAsync(cancellationToken);
+                    }
+                }
+
                 // Company scoping
                 var companiesQuery = unitOfWork.Companies
                     .Include(c => c.HeadOfCompany)
@@ -40,10 +59,10 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
 
                 // SuperAdmin: bütün şirkətləri və ya spesifik bir şirkəti görür
                 // Admin/User: yalnız öz şirkətini
-                if (query.CompanyId.HasValue)
+                if (effectiveCompanyId.HasValue)
                 {
-                    companiesQuery = companiesQuery.Where(c => c.Id == query.CompanyId.Value);
-                    departmentsQuery = departmentsQuery.Where(d => d.CompanyId == query.CompanyId.Value);
+                    companiesQuery = companiesQuery.Where(c => c.Id == effectiveCompanyId.Value);
+                    departmentsQuery = departmentsQuery.Where(d => d.CompanyId == effectiveCompanyId.Value);
                 }
 
                 var companies = await companiesQuery.ToListAsync(cancellationToken);
@@ -58,8 +77,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.Organization
                     .AsNoTracking()
                     .AsQueryable();
 
-                if (query.CompanyId.HasValue)
-                    usersQuery = usersQuery.Where(u => u.CompanyId == query.CompanyId.Value);
+                if (effectiveCompanyId.HasValue)
+                    usersQuery = usersQuery.Where(u => u.CompanyId == effectiveCompanyId.Value);
 
                 var users = await usersQuery.ToListAsync(cancellationToken);
 

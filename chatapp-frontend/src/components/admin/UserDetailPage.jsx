@@ -4,7 +4,7 @@ import {
   addSupervisor, removeSupervisor,
   getDepartments, assignEmployeeToDepartment, removeUserFromDepartment,
   getUsers, searchUsers, activateUser, deactivateUser, adminChangePassword,
-  assignPermission, removePermission, updateUser,
+  assignPermission, removePermission, updateUser, deleteUser,
   getFileUrl,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
@@ -64,7 +64,12 @@ function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateUser(user.id, form);
+      await updateUser(user.id, {
+        ...form,
+        dateOfBirth: form.dateOfBirth || null,
+        workPhone:   form.workPhone   || null,
+        aboutMe:     form.aboutMe     || null,
+      });
       showToast("Profile updated", "success");
       setEditing(false);
       onUserUpdate?.();
@@ -696,13 +701,16 @@ function SecurityTab({ user, onUserUpdate }) {
 }
 
 // ─── UserDetailPage ───────────────────────────────────────────────────────────
-function UserDetailPage({ userId }) {
+function UserDetailPage({ userId, onDeleted }) {
+  const { showToast } = useToast();
   const [user, setUser]           = useState(null);
   const [loading, setLoading]     = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [storage, setStorage]     = useState(null);
   const [storageLoading, setStorageLoading] = useState(false);
-  const [moreOpen, setMoreOpen]   = useState(false);
+  const [toggling, setToggling]   = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]   = useState(false);
 
   const loadUser = useCallback(() => {
     setLoading(true);
@@ -713,6 +721,32 @@ function UserDetailPage({ userId }) {
   }, [userId]);
 
   useEffect(() => { loadUser(); }, [loadUser]);
+
+  const handleToggleStatus = async () => {
+    setToggling(true);
+    try {
+      user.isActive ? await deactivateUser(user.id) : await activateUser(user.id);
+      showToast(user.isActive ? "Account deactivated" : "Account activated", "success");
+      loadUser();
+    } catch (err) {
+      showToast(err.message || "Failed to update status", "error");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteUser(user.id);
+      showToast("User deleted", "success");
+      onDeleted?.();
+    } catch (err) {
+      showToast(err.message || "Failed to delete user", "error");
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  };
 
   // Storage-i overview tab ilk açıldığında yüklə
   useEffect(() => {
@@ -756,7 +790,6 @@ function UserDetailPage({ userId }) {
               ? <img src={getFileUrl(user.avatarUrl)} alt="" />
               : getInitials(name)}
           </div>
-          <span className={`ud-hero-status-dot ${user.isActive ? "active" : "inactive"}`} />
         </div>
 
         <div className="ud-hero-info">
@@ -768,6 +801,9 @@ function UserDetailPage({ userId }) {
             </span>
             <span className={`ud-badge status-${user.isActive ? "active" : "inactive"}`}>
               {user.isActive ? "Active" : "Inactive"}
+              {user.lastVisit && (
+                <span className="ud-badge-time">· {formatRelativeTime(user.lastVisit)}</span>
+              )}
             </span>
           </div>
         </div>
@@ -776,42 +812,12 @@ function UserDetailPage({ userId }) {
           <button className="ud-btn-outline" onClick={() => setActiveTab("security")}>
             Reset Password
           </button>
-          <div style={{ position: "relative" }}>
-            {moreOpen && <div className="ud-more-backdrop" onClick={() => setMoreOpen(false)} />}
-            <button className="ud-btn-more" onClick={() => setMoreOpen(v => !v)}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-              </svg>
-            </button>
-            {moreOpen && (
-              <div className="ud-more-dropdown">
-                <button className="ud-more-item" onClick={() => { setActiveTab("security"); setMoreOpen(false); }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                  </svg>
-                  Reset Password
-                </button>
-                <button className="ud-more-item" onClick={() => { setActiveTab("security"); setMoreOpen(false); }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                    <line x1="12" y1="2" x2="12" y2="12"/>
-                  </svg>
-                  {user.isActive ? "Deactivate" : "Activate"}
-                </button>
-                <div className="ud-more-divider" />
-                <button className="ud-more-item danger" onClick={() => setMoreOpen(false)}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4h6v2"/>
-                  </svg>
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
+          <button className="ud-btn-outline" onClick={handleToggleStatus} disabled={toggling}>
+            {toggling ? "..." : user.isActive ? "Deactivate" : "Activate"}
+          </button>
+          <button className="ud-btn-danger-outline" onClick={() => setDeleteConfirm(true)}>
+            Delete
+          </button>
         </div>
       </div>
 
@@ -838,6 +844,27 @@ function UserDetailPage({ userId }) {
       )}
       {activeTab === "security" && (
         <SecurityTab user={user} onUserUpdate={loadUser} />
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div className="ud-modal-backdrop" onClick={() => setDeleteConfirm(false)}>
+          <div className="ud-modal" onClick={e => e.stopPropagation()}>
+            <p className="ud-modal-title">Delete User</p>
+            <p className="ud-modal-body">
+              Are you sure you want to delete <strong>{name}</strong>?
+              This only removes the account — messages and files are preserved.
+            </p>
+            <div className="ud-modal-actions">
+              <button className="ud-modal-cancel" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
+                Cancel
+              </button>
+              <button className="ud-modal-confirm danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

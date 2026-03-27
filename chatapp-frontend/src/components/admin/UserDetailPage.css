@@ -25,28 +25,21 @@
 }
 .ud-hero-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
-.ud-hero-status-dot {
-  position: absolute; bottom: 4px; right: 4px;
-  width: 12px; height: 12px; border-radius: 50%;
-  border: 2px solid #1e2432;
-}
-.ud-hero-status-dot.active   { background: #22c55e; }
-.ud-hero-status-dot.inactive { background: #9ca3af; }
-
 .ud-hero-info { flex: 1; min-width: 0; }
 .ud-hero-name     { font-size: 22px; font-weight: 600; color: #fff; margin: 0; }
 .ud-hero-position { font-size: 14px; color: rgba(255,255,255,0.55); margin-top: 2px; }
-.ud-hero-badges   { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
+.ud-hero-badges   { display: flex; gap: 6px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
 
 .ud-badge {
   font-size: 11px; font-weight: 600; padding: 2px 10px;
-  border-radius: 4px;
+  border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;
 }
 .ud-badge.role-admin     { background: rgba(47,198,246,0.20); color: #7dd3fc; }
 .ud-badge.role-superadmin { background: rgba(180,83,9,0.20); color: #fbbf24; }
 .ud-badge.role-user      { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.55); }
 .ud-badge.status-active   { background: rgba(34,197,94,0.18); color: #4ade80; }
 .ud-badge.status-inactive { background: rgba(156,163,175,0.15); color: #9ca3af; }
+.ud-badge-time { opacity: 0.7; font-weight: 400; }
 
 /* Sağ: hero action buttons */
 .ud-hero-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; flex-shrink: 0; }
@@ -59,38 +52,41 @@
 }
 .ud-btn-outline:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.35); }
 
-.ud-btn-more {
-  width: 32px; height: 32px; border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.2); background: transparent;
-  color: rgba(255,255,255,0.7); cursor: pointer; position: relative;
+.ud-btn-danger-outline {
+  padding: 0 14px; height: 32px; border-radius: 7px;
+  border: 1px solid rgba(239,68,68,0.5); background: transparent;
+  color: #ef4444; font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: background 150ms, border-color 150ms;
+  white-space: nowrap;
+}
+.ud-btn-danger-outline:hover { background: rgba(239,68,68,0.08); border-color: #ef4444; }
+
+/* Delete confirmation modal */
+.ud-modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.35);
   display: flex; align-items: center; justify-content: center;
+}
+.ud-modal {
+  background: #fff; border-radius: 12px;
+  padding: 24px; width: 360px; max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.ud-modal-title { font-size: 15px; font-weight: 700; color: #111827; margin: 0 0 8px; }
+.ud-modal-body  { font-size: 13px; color: #6b7280; margin: 0 0 20px; line-height: 1.5; }
+.ud-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ud-modal-cancel {
+  padding: 7px 16px; border-radius: 7px; border: 1px solid #e5e7eb;
+  background: #fff; font-size: 13px; color: #374151; cursor: pointer;
+}
+.ud-modal-cancel:hover { background: #f5f7fa; }
+.ud-modal-confirm.danger {
+  padding: 7px 16px; border-radius: 7px; border: none;
+  background: #ef4444; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer;
   transition: background 150ms;
 }
-.ud-btn-more:hover { background: rgba(255,255,255,0.08); }
-
-/* Hero ••• dropdown */
-.ud-more-dropdown {
-  position: absolute; right: 0; top: calc(100% + 6px);
-  background: #fff; border: 1px solid #e8edf2; border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.12);
-  min-width: 184px; z-index: 50; padding: 4px;
-  animation: adm-dropdownIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.ud-more-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; text-align: left; padding: 8px 10px; border-radius: 7px;
-  font-size: 13px; color: #374151; background: none; border: none; cursor: pointer;
-  transition: background 100ms; box-sizing: border-box;
-}
-.ud-more-item svg { flex-shrink: 0; color: #9ca3af; transition: color 100ms; }
-.ud-more-item:hover { background: #f5f7fa; }
-.ud-more-item:hover svg { color: #374151; }
-.ud-more-item.danger { color: #ef4444; }
-.ud-more-item.danger svg { color: #f87171; }
-.ud-more-item.danger:hover { background: rgba(239,68,68,0.06); }
-.ud-more-item.danger:hover svg { color: #ef4444; }
-.ud-more-divider { height: 1px; background: #f1f3f5; margin: 3px 0; }
-.ud-more-backdrop { position: fixed; inset: 0; z-index: 49; }
+.ud-modal-confirm.danger:hover { background: #dc2626; }
+.ud-modal-confirm.danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ─── Tabs ──────────────────────────────────────────────────────────────────── */
 .ud-tabs {

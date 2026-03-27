@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getOrganizationHierarchy, getCompanies, getFileUrl,
   activateUser, deactivateUser, deleteUser,
   createUser, createDepartment, getDepartments, getPositionsByDepartment,
+  assignDepartmentHead, removeDepartmentHead, deleteDepartment, updateDepartment, getUsers,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import { useToast } from "../../context/ToastContext";
 import "./HierarchyView.css";
+import "./DepartmentManagement.css";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function Highlight({ text, query }) {
@@ -25,9 +27,15 @@ function Highlight({ text, query }) {
 function filterTree(nodes, query) {
   return nodes.reduce((acc, node) => {
     const match = node.name?.toLowerCase().includes(query);
-    const filteredChildren = node.children?.length ? filterTree(node.children, query) : [];
-    if (match || filteredChildren.length > 0)
-      acc.push({ ...node, children: filteredChildren });
+    if (match) {
+      // Node özü uyğundursa — bütün children-i olduğu kimi saxla
+      acc.push(node);
+    } else {
+      // Node uyğun deyilsə — uşaqları rekursiv filter et
+      const filteredChildren = node.children?.length ? filterTree(node.children, query) : [];
+      if (filteredChildren.length > 0)
+        acc.push({ ...node, children: filteredChildren });
+    }
     return acc;
   }, []);
 }
@@ -156,80 +164,312 @@ function UserDetailPanel({ user, companyName, deptName, closing, onClose }) {
 }
 
 // ─── DeptDetailPanel ──────────────────────────────────────────────────────────
-function DeptDetailPanel({ node, parentDeptName, closing, onClose }) {
-  const directUsers = node.children?.filter(n => n.type === "User") ?? [];
-  const subDepts    = node.children?.filter(n => n.type === "Department") ?? [];
+function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, onOpenUser }) {
+  const [members, setMembers]               = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm]   = useState(false);
+  const [deleting, setDeleting]             = useState(false);
+  const [subPanel, setSubPanel]             = useState(null); // 'edit' | 'head' | null
+  const [formName, setFormName]             = useState("");
+  const [formParentId, setFormParentId]     = useState("");
+  const [formError, setFormError]           = useState("");
+  const [saving, setSaving]                 = useState(false);
+  const [allUsers, setAllUsers]             = useState([]);
+  const [usersLoading, setUsersLoading]     = useState(false);
+  const [headSearch, setHeadSearch]         = useState("");
+  const [selectedHeadId, setSelectedHeadId] = useState(null);
+  const [headSaving, setHeadSaving]         = useState(false);
+
+  useEffect(() => {
+    if (!node) return;
+    setMembersLoading(true);
+    setDeleteConfirm(false);
+    getUsers({ departmentId: node.id, pageSize: 50 })
+      .then(d => setMembers(d?.items ?? (Array.isArray(d) ? d : [])))
+      .catch(() => setMembers([]))
+      .finally(() => setMembersLoading(false));
+  }, [node?.id]);
+
+  const subDeptCount = allDepts.filter(d => d.parentDepartmentId === node.id).length;
+  const parentDept   = allDepts.find(d => d.id === node.parentDepartmentId);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteDepartment(node.id);
+      onClose(); onAfterMutation();
+    } catch (err) {
+      alert(err.message || "Delete failed.");
+      setDeleting(false); setDeleteConfirm(false);
+    }
+  };
+
+  const openEdit = () => {
+    setFormName(node.name); setFormParentId(node.parentDepartmentId ?? ""); setFormError(""); setSubPanel("edit");
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    if (!formName.trim()) { setFormError("Name is required."); return; }
+    setSaving(true); setFormError("");
+    try {
+      await updateDepartment(node.id, { name: formName.trim(), parentDepartmentId: formParentId || null });
+      setSubPanel(null); onClose(); onAfterMutation();
+    } catch (err) {
+      setFormError(err?.message ?? "An error occurred.");
+    } finally { setSaving(false); }
+  };
+
+  const openHead = () => {
+    setHeadSearch(""); setSelectedHeadId(null); setSubPanel("head");
+    setUsersLoading(true);
+    getUsers({ pageSize: 200 })
+      .then(d => setAllUsers(d?.items ?? (Array.isArray(d) ? d : [])))
+      .catch(() => setAllUsers([]))
+      .finally(() => setUsersLoading(false));
+  };
+
+  const handleAssignHead = async () => {
+    if (!selectedHeadId) return;
+    setHeadSaving(true);
+    try {
+      await assignDepartmentHead(node.id, selectedHeadId);
+      setSubPanel(null); onClose(); onAfterMutation();
+    } catch (err) {
+      alert(err?.message ?? "Assign failed.");
+    } finally { setHeadSaving(false); }
+  };
+
+  const handleRemoveHead = async () => {
+    setHeadSaving(true);
+    try {
+      await removeDepartmentHead(node.id);
+      setSubPanel(null); onClose(); onAfterMutation();
+    } catch (err) {
+      alert(err?.message ?? "Remove failed.");
+    } finally { setHeadSaving(false); }
+  };
+
+  const filteredUsers = headSearch.trim()
+    ? allUsers.filter(u => {
+        const n = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+        return n.toLowerCase().includes(headSearch.toLowerCase()) || u.email?.toLowerCase().includes(headSearch.toLowerCase());
+      })
+    : allUsers;
+
+  const parentOptions = allDepts.filter(d => d.id !== node.id);
+
+  const CloseIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
 
   return (
     <>
-      <div className="hi-panel-backdrop" onClick={onClose} />
-      <div className={`hi-dept-detail-panel${closing ? " closing" : ""}`}>
-        <div className="hi-dept-detail-header">
+      <div className="dm-detail-overlay" onClick={onClose} />
+      <div className={`dm-detail-panel${closing ? " closing" : ""}`}>
+        <div className="dm-detail-header">
           <div>
-            <div className="hi-dept-detail-title">{node.name}</div>
-            {parentDeptName && (
-              <div style={{ fontSize: "12px", color: "var(--gray-400)", marginTop: "3px" }}>
-                ↳ {parentDeptName}
+            <div className="dm-detail-title">{node.name}</div>
+            {parentDept && <div className="dm-detail-parent">↳ {parentDept.name}</div>}
+          </div>
+          <button className="dm-detail-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="dm-detail-body">
+          <div className="dm-detail-section">
+            <p className="dm-detail-section-label">Head</p>
+            {node.headOfDepartmentId ? (
+              <div className="dm-detail-head-row">
+                <div className="dm-detail-head-avatar" style={{ background: getAvatarColor(node.headOfDepartmentName ?? "") }}>
+                  {getInitials(node.headOfDepartmentName ?? "")}
+                </div>
+                <span style={{ flex: 1, fontWeight: 500, fontSize: "13px" }}>{node.headOfDepartmentName}</span>
+                <button className="dm-change-head-btn" onClick={openHead}>Change</button>
+              </div>
+            ) : (
+              <div className="dm-detail-head-row">
+                <span style={{ fontSize: "13px", color: "#9ca3af", flex: 1 }}>No head assigned</span>
+                <button className="dm-change-head-btn" onClick={openHead}>Assign</button>
               </div>
             )}
           </div>
-          <button className="hi-dept-detail-close" onClick={onClose}>✕</button>
-        </div>
 
-        <div className="hi-dept-detail-body">
-          {node.headOfDepartmentName && (
-            <div className="hi-detail-section">
-              <p className="hi-detail-section-label">Head</p>
-              <div className="hi-detail-info-row">
-                <div className="hi-avatar"
-                  style={{ background: getAvatarColor(node.headOfDepartmentName) }}>
-                  {getInitials(node.headOfDepartmentName)}
-                </div>
-                <span style={{ fontWeight: 500, flex: 1 }}>{node.headOfDepartmentName}</span>
-                <button className="hi-change-head-btn">Change</button>
+          <div className="dm-detail-section">
+            <p className="dm-detail-section-label">Stats</p>
+            <div className="dm-detail-stats">
+              <div className="dm-detail-stat-card">
+                <div className="dm-detail-stat-num">{members.length}</div>
+                <div className="dm-detail-stat-label">Members</div>
               </div>
-            </div>
-          )}
-
-          <div className="hi-detail-section">
-            <p className="hi-detail-section-label">Stats</p>
-            <div className="hi-dept-stats">
-              <div className="hi-dept-stat-card">
-                <div className="hi-dept-stat-num">{directUsers.length}</div>
-                <div className="hi-dept-stat-label">Members</div>
-              </div>
-              <div className="hi-dept-stat-card">
-                <div className="hi-dept-stat-num">{subDepts.length}</div>
-                <div className="hi-dept-stat-label">Sub-depts</div>
+              <div className="dm-detail-stat-card">
+                <div className="dm-detail-stat-num">{subDeptCount}</div>
+                <div className="dm-detail-stat-label">Sub-depts</div>
               </div>
             </div>
           </div>
 
-          {directUsers.length > 0 && (
-            <div className="hi-detail-section">
-              <p className="hi-detail-section-label">Members</p>
-              {directUsers.map(u => (
-                <div key={u.id} className="hi-dept-member">
-                  <div className="hi-avatar"
-                    style={{ background: u.avatarUrl ? "transparent" : getAvatarColor(u.name) }}>
-                    {u.avatarUrl
-                      ? <img src={getFileUrl(u.avatarUrl)} alt="" />
-                      : getInitials(u.name)}
+          {(membersLoading || members.length > 0) && (
+            <div className="dm-detail-section">
+              <p className="dm-detail-section-label">Members</p>
+              {membersLoading ? (
+                <div style={{ fontSize: "13px", color: "#9ca3af" }}>Loading...</div>
+              ) : members.map(m => {
+                const mName = m.fullName ?? `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
+                return (
+                  <div key={m.id} className="dm-detail-member"
+                    style={onOpenUser ? { cursor: "pointer" } : undefined}
+                    onClick={() => onOpenUser?.(m.id, mName)}>
+                    <div className="dm-detail-member-avatar" style={{ background: getAvatarColor(mName) }}>
+                      {getInitials(mName)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: "13px" }}>{mName}</div>
+                      {(m.position ?? m.positionName) && (
+                        <div style={{ fontSize: "11px", color: "#6b7280" }}>{m.position ?? m.positionName}</div>
+                      )}
+                    </div>
+                    {m.id === node.headOfDepartmentId && <span className="dm-head-badge">HEAD</span>}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 500, fontSize: "13px" }}>{u.name}</div>
-                    {u.positionName && (
-                      <div style={{ fontSize: "11px", color: "var(--gray-400)" }}>{u.positionName}</div>
-                    )}
-                  </div>
-                  {u.isDepartmentHead && <span className="hi-head-badge">HEAD</span>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
+        <div className="dm-detail-footer">
+          <button className="dm-btn dm-btn-primary" onClick={openEdit}>Edit Department</button>
+          <button className="dm-btn-delete-outline" onClick={() => setDeleteConfirm(true)}>Delete</button>
+        </div>
       </div>
+
+      {deleteConfirm && (
+        <>
+          <div className="dm-modal-backdrop" onClick={() => !deleting && setDeleteConfirm(false)} />
+          <div className="dm-modal">
+            <div className="dm-modal-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+            </div>
+            <h3 className="dm-modal-title">Delete Department</h3>
+            <p className="dm-modal-desc">Are you sure you want to delete <strong>{node.name}</strong>? This action cannot be undone.</p>
+            <div className="dm-modal-actions">
+              <button className="dm-btn dm-btn-ghost" onClick={() => setDeleteConfirm(false)} disabled={deleting}>Cancel</button>
+              <button className="dm-btn dm-btn-danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {subPanel === "edit" && (
+        <>
+          <div className="dm-form-overlay" onClick={() => setSubPanel(null)} />
+          <div className="dm-form-panel">
+            <div className="dm-form-header">
+              <h3 className="dm-form-title">Edit Department</h3>
+              <button className="dm-form-close" onClick={() => setSubPanel(null)} aria-label="Close"><CloseIcon /></button>
+            </div>
+            <form className="dm-form-body" onSubmit={handleEdit}>
+              <div className="dm-form-field">
+                <label className="dm-form-label dm-form-label--required">Department Name *</label>
+                <input className="dm-form-input" value={formName} onChange={e => setFormName(e.target.value)} autoFocus />
+                {formError && <span className="dm-form-error">{formError}</span>}
+              </div>
+              <div className="dm-form-field">
+                <label className="dm-form-label">Parent Department</label>
+                <select className="dm-form-select" value={formParentId} onChange={e => setFormParentId(e.target.value)}>
+                  <option value="">None (top-level)</option>
+                  {parentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                <span className="dm-form-hint">ⓘ Leave empty for a root department.</span>
+              </div>
+              <div className="dm-form-actions">
+                <button type="button" className="dm-btn dm-btn-ghost" onClick={() => setSubPanel(null)} disabled={saving}>Cancel</button>
+                <button type="submit" className="dm-btn dm-btn-primary" disabled={saving}>
+                  {saving ? <span className="dm-spinner" /> : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
+      {subPanel === "head" && (
+        <>
+          <div className="dm-form-overlay" onClick={() => setSubPanel(null)} />
+          <div className="dm-head-panel">
+            <div className="dm-form-header">
+              <h3 className="dm-form-title">Assign Head — {node.name}</h3>
+              <button className="dm-form-close" onClick={() => setSubPanel(null)} aria-label="Close"><CloseIcon /></button>
+            </div>
+            <div className="dm-form-body">
+              {node.headOfDepartmentId && (
+                <>
+                  <div className="dm-form-field">
+                    <label className="dm-form-label">Current Head</label>
+                    <div className="dm-current-head">
+                      <div className="dm-head-avatar" style={{ background: getAvatarColor(node.headOfDepartmentName ?? "") }}>
+                        {getInitials(node.headOfDepartmentName ?? "")}
+                      </div>
+                      <span className="dm-head-name">{node.headOfDepartmentName}</span>
+                      <button className="dm-btn-ghost-danger" onClick={handleRemoveHead} disabled={headSaving}>
+                        {headSaving ? <span className="dm-spinner dm-spinner--dark" /> : "Remove Head"}
+                      </button>
+                    </div>
+                  </div>
+                  <hr className="dm-divider" />
+                </>
+              )}
+              <div className="dm-form-field">
+                <label className="dm-form-label">Assign New Head</label>
+                <div className="dm-search-wrap dm-head-search">
+                  <svg className="dm-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input className="dm-search-input" placeholder="Search users..."
+                    value={headSearch} onChange={e => setHeadSearch(e.target.value)} />
+                </div>
+                <div className="dm-user-pick-list">
+                  {usersLoading ? (
+                    <div className="dm-empty">Loading users...</div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="dm-empty">No users found.</div>
+                  ) : filteredUsers.map(u => {
+                    const n = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+                    return (
+                      <div key={u.id}
+                        className={`dm-user-pick-row${selectedHeadId === u.id ? " selected" : ""}`}
+                        onClick={() => setSelectedHeadId(u.id)}>
+                        <div className="dm-user-avatar-sm" style={{ background: getAvatarColor(n) }}>
+                          {getInitials(n)}
+                        </div>
+                        <div className="dm-user-info-sm">
+                          <span>{n}</span>
+                          {(u.position ?? u.positionName) && (
+                            <span className="dm-user-dept">{u.position ?? u.positionName}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="dm-form-actions">
+                <button type="button" className="dm-btn dm-btn-ghost" onClick={() => setSubPanel(null)}>Cancel</button>
+                <button className="dm-btn dm-btn-primary" onClick={handleAssignHead} disabled={!selectedHeadId || headSaving}>
+                  {headSaving ? <span className="dm-spinner" /> : "Assign"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -463,6 +703,17 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
   }, []);
 
   useEffect(() => { loadHierarchy(); }, [loadHierarchy]);
+
+  // Hierarchy tree-dən bütün department node-larını düzləndirilmiş siyahıya çevir
+  const allDeptNodes = useMemo(() => {
+    const result = [];
+    function walk(n) {
+      if (n.type === "Department") { result.push(n); (n.children ?? []).forEach(walk); }
+      else if (n.type === "Company") { (n.children ?? []).forEach(walk); }
+    }
+    tree.forEach(walk);
+    return result;
+  }, [tree]);
 
   // 300ms debounce
   useEffect(() => {
@@ -840,9 +1091,11 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
       {panel?.type === "dept" && (
         <DeptDetailPanel
           node={panel.data}
-          parentDeptName={panel.extra.parentDeptName}
+          allDepts={allDeptNodes}
           closing={panelClosing}
           onClose={closePanel}
+          onAfterMutation={loadHierarchy}
+          onOpenUser={onOpenUser}
         />
       )}
 

@@ -26,11 +26,12 @@ namespace ChatApp.Modules.Identity.Api.Controllers
         {
             var isSuperAdmin = User.FindFirst(ClaimTypes.Role)?.Value == "SuperAdmin";
             var userCompanyId = Guid.TryParse(User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+            var userId = Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
 
             // SuperAdmin istənilən şirkəti, Admin/User yalnız öz şirkətini görür
             var effectiveCompanyId = isSuperAdmin ? companyId : userCompanyId;
 
-            var query = new GetOrganizationHierarchyQuery(effectiveCompanyId, isSuperAdmin);
+            var query = new GetOrganizationHierarchyQuery(effectiveCompanyId, isSuperAdmin, userId);
             var result = await mediator.Send(query, cancellationToken);
 
             if (result.IsFailure)

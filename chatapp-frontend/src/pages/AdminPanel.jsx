@@ -1,5 +1,5 @@
-import { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useContext, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import CompanyManagement from "../components/admin/CompanyManagement";
 import HierarchyView from "../components/admin/HierarchyView";
@@ -19,14 +19,34 @@ const SECTION_LABELS = {
 function AdminPanel() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { section: urlSection } = useParams();
   const isSuperAdmin = user?.role === "SuperAdmin";
 
-  const [activeSection, setActiveSection] = useState(
-    isSuperAdmin ? "companies" : "users"
-  );
+  const validSections = isSuperAdmin
+    ? ["companies", "users"]
+    : ["users", "departments", "positions"];
+  const defaultSection = isSuperAdmin ? "companies" : "users";
+
+  // URL-dən alınan section (yoxlanılmış)
+  const urlActiveSection =
+    urlSection && validSections.includes(urlSection) ? urlSection : defaultSection;
+
+  // user_detail yalnız local state-də saxlanılır (URL-ə yazılmır)
+  const [subSection, setSubSection] = useState(null); // null | "user_detail"
   // "out-fwd" | "in-fwd" | "out-back" | "in-back" | "out-fade" | "in-fade" | ""
   const [transition, setTransition] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+
+  // /admin (section yoxdur) → default section-a yönləndir
+  useEffect(() => {
+    if (!urlSection || !validSections.includes(urlSection)) {
+      navigate(`/admin/${defaultSection}`, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Aktiv section: user_detail varsa o, yoxsa URL-dən
+  const activeSection = subSection ?? urlActiveSection;
 
   const changeSection = (newSection) => {
     if (newSection === activeSection) return;
@@ -35,7 +55,12 @@ function AdminPanel() {
     const dir = isDeeper ? "fwd" : isBack ? "back" : "fade";
     setTransition(`out-${dir}`);
     setTimeout(() => {
-      setActiveSection(newSection);
+      if (newSection === "user_detail") {
+        setSubSection("user_detail");
+      } else {
+        setSubSection(null);
+        navigate(`/admin/${newSection}`);
+      }
       setTransition(`in-${dir}`);
       setTimeout(() => setTransition(""), 260);
     }, 160);
@@ -158,7 +183,7 @@ function AdminPanel() {
         <main className={`ap-content${transition ? ` ${transition}` : ""}`}>
           {activeSection === "companies"   && isSuperAdmin  && <CompanyManagement />}
           {activeSection === "users"                        && <HierarchyView isSuperAdmin={isSuperAdmin} onOpenUser={openUserDetail} />}
-          {activeSection === "user_detail" && selectedUser  && <UserDetailPage userId={selectedUser.id} />}
+          {activeSection === "user_detail" && selectedUser  && <UserDetailPage userId={selectedUser.id} onDeleted={() => changeSection("users")} />}
           {activeSection === "departments" && !isSuperAdmin && <DepartmentManagement />}
           {activeSection === "positions"   && !isSuperAdmin && <PositionManagement />}
         </main>

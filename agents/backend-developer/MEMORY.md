@@ -46,57 +46,22 @@
 ## Performance Insights
 <!-- Query patterns, caching strategies that proved effective -->
 
-### EF Core Aggregation — DB-də et, Memory-ə çəkmə (2026-03-27)
-İstifadəçi bu yanaşmadan narazı qaldı — düzəliş tələb etdi.
+→ Bütün EF Core query anti-pattern-lər skill-də: `skills/EF_CORE_QUERY_OPTIMIZATION.md`
 
-**YASAQ:**
-```csharp
-var items = await query.ToListAsync(); // bütün sətirləri memory-ə çəkir
-var count = items.Count(x => x.Type == FileType.Image); // C#-da sayır
-```
+**Xülasə (2026-03-27) — istifadəçi bu səhvləri kodda tapdı, düzəliş tələb etdi:**
+- Loop içində `ExistsAsync` → N+1 (BatchMarkChannelMessagesAsRead)
+- `GetChannelMessagesAsync(int.MaxValue)` sonra memory filter (2 komanda)
+- While loop + hər iterasiyada DB sorğusu (GetDepartmentUsers hierarchy traversal)
+- Supervisor sorğusuna lazımsız `Include(SupervisorLinks)` — `.Any()` üçün AnyAsync kifayətdir
+- `ToListAsync()` sonra C#-da `.Count()/.Sum()` — aggregasiya DB-də olmalıdır
+- 3 ayrı round trip əvəzinə tək `.Select()` proyeksiyası
 
-**DOĞRU:**
-```csharp
-var result = await query
-    .GroupBy(_ => 1)
-    .Select(g => new {
-        Total = g.Count(),
-        ImageCount = g.Count(f => f.FileType == FileType.Image),
-        TotalBytes = g.Sum(f => f.FileSizeInBytes)
-    })
-    .FirstOrDefaultAsync(cancellationToken);
-```
-
-### EF Core — Tək Proyeksiya Sorğusu (2026-03-27)
-Bir entity üçün 3 ayrı `await` çağırmaq əvəzinə tək `.Select()` proyeksiyası ilə bütün məlumatı DB-dən al.
-
-**YASAQ:** 3 ayrı round trip
-```csharp
-var company = await repo.FirstOrDefaultAsync(...);
-var userCount = await users.CountAsync(...);
-var deptCount = await depts.CountAsync(...);
-```
-
-**DOĞRU:** Tək round trip, DB-də aggregasiya
-```csharp
-var result = await repo
-    .AsNoTracking()
-    .Where(c => c.Id == id)
-    .Select(c => new {
-        c.Id, c.Name,
-        UserCount = c.Users.Count(u => u.IsActive),
-        DeptCount = c.Departments.Count()
-    })
-    .FirstOrDefaultAsync(cancellationToken);
-```
-
-### Lazımsız Include-lar (2026-03-27)
-- Navigation property-ni Include etmə əgər yalnız FK column (Id) lazımdırsa
-- `Include(d => d.ParentDepartment)` YASAQ — `d.ParentDepartmentId` birbaşa column-dur, Include tələb etmir
-- Yalnız related entity-nin FIELD-inə ehtiyac varsa Include et (məs. `d.HeadOfDepartment.FullName`)
+**Yanlış alarm (false positive) — bunlar problemdir sanıla bilər amma deyil:**
+- `UpdateAsync` loop içindədirsə amma `_context.Update()` + `Task.CompletedTask`-dırsa — DB hit yoxdur
+- `.Select()` proyeksiyası içindəki `c.Users.Count()` — EF Core SQL subquery-ə çevirir
 
 ## Process Improvements
 <!-- How this agent's own workflow should improve -->
 
 ## Last Updated
--
+- 2026-03-27: EF Core query anti-patterns skill-ə köçürüldü
