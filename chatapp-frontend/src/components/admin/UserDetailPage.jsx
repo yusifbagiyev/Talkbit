@@ -5,6 +5,7 @@ import {
   getDepartments, assignEmployeeToDepartment, removeUserFromDepartment,
   getUsers, searchUsers, activateUser, deactivateUser, adminChangePassword,
   assignPermission, removePermission, updateUser, deleteUser,
+  getAllPositions,
   getFileUrl,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
@@ -50,13 +51,33 @@ function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
   const name = user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving]   = useState(false);
+  const [positions, setPositions] = useState([]);
   const [form, setForm] = useState({
-    firstName: user.firstName ?? "",
-    lastName:  user.lastName  ?? "",
-    email:     user.email     ?? "",
-    workPhone: user.workPhone ?? "",
-    aboutMe:   user.aboutMe   ?? "",
+    firstName:   user.firstName   ?? "",
+    lastName:    user.lastName    ?? "",
+    email:       user.email       ?? "",
+    workPhone:   user.workPhone   ?? "",
+    aboutMe:     user.aboutMe     ?? "",
     dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
+    positionId:  user.positionId  ?? "",
+    hiringDate:  user.hiringDate  ? user.hiringDate.split("T")[0] : "",
+  });
+
+  useEffect(() => {
+    getAllPositions().then(data => {
+      setPositions(Array.isArray(data) ? data : (data?.items ?? []));
+    }).catch(() => {});
+  }, []);
+
+  const resetForm = () => setForm({
+    firstName:   user.firstName   ?? "",
+    lastName:    user.lastName    ?? "",
+    email:       user.email       ?? "",
+    workPhone:   user.workPhone   ?? "",
+    aboutMe:     user.aboutMe     ?? "",
+    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
+    positionId:  user.positionId  ?? "",
+    hiringDate:  user.hiringDate  ? user.hiringDate.split("T")[0] : "",
   });
 
   const setField = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -69,6 +90,8 @@ function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
         dateOfBirth: form.dateOfBirth || null,
         workPhone:   form.workPhone   || null,
         aboutMe:     form.aboutMe     || null,
+        positionId:  form.positionId  || null,
+        hiringDate:  form.hiringDate  || null,
       });
       showToast("Profile updated", "success");
       setEditing(false);
@@ -104,17 +127,7 @@ function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
                 <button className="ud-card-save-btn" onClick={handleSave} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
                 </button>
-                <button className="ud-card-cancel-btn" onClick={() => {
-                  setEditing(false);
-                  setForm({
-                    firstName: user.firstName ?? "",
-                    lastName:  user.lastName  ?? "",
-                    email:     user.email     ?? "",
-                    workPhone: user.workPhone ?? "",
-                    aboutMe:   user.aboutMe   ?? "",
-                    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
-                  });
-                }}>Cancel</button>
+                <button className="ud-card-cancel-btn" onClick={() => { setEditing(false); resetForm(); }}>Cancel</button>
               </div>
             )}
           </div>
@@ -142,6 +155,17 @@ function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
               <div className="ud-edit-field">
                 <label>Date of Birth</label>
                 <input type="date" value={form.dateOfBirth} onChange={e => setField("dateOfBirth", e.target.value)} />
+              </div>
+              <div className="ud-edit-field">
+                <label>Position</label>
+                <select value={form.positionId} onChange={e => setField("positionId", e.target.value)}>
+                  <option value="">— No position —</option>
+                  {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="ud-edit-field">
+                <label>Hiring Date</label>
+                <input type="date" value={form.hiringDate} onChange={e => setField("hiringDate", e.target.value)} />
               </div>
               <div className="ud-edit-field">
                 <label>About</label>
