@@ -703,6 +703,12 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
     return (node.children ?? []).reduce((sum, c) => sum + countUsers(c), 0);
   };
 
+  // Node altındakı online User-ləri rekursiv say
+  const countOnlineUsers = (node) => {
+    if (node.type === "User") return node.isOnline ? 1 : 0;
+    return (node.children ?? []).reduce((sum, c) => sum + countOnlineUsers(c), 0);
+  };
+
   // Hierarchy tree-dən bütün department node-larını düzləndirilmiş siyahıya çevir
   const allDeptNodes = useMemo(() => {
     const result = [];
@@ -918,7 +924,8 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
     const expanded    = isExpanded(node.id);
     const depts       = node.children?.filter(n => n.type === "Department") ?? [];
     const noDeptUsers = node.children?.filter(n => n.type === "User") ?? [];
-    const totalUsers  = (node.children ?? []).reduce((sum, c) => sum + countUsers(c), 0);
+    const totalUsers   = (node.children ?? []).reduce((sum, c) => sum + countUsers(c), 0);
+    const onlineUsers  = (node.children ?? []).reduce((sum, c) => sum + countOnlineUsers(c), 0);
 
     return (
       <div key={node.id} className={`hi-company-node${expanded ? " hi-expanded" : ""}`}>
@@ -935,16 +942,30 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
             <span className="hi-company-head">Head: {node.headOfDepartmentName}</span>
           )}
           <span className="hi-company-count">{totalUsers} users</span>
+          {onlineUsers > 0 && (
+            <span className="hi-company-online">{onlineUsers} online</span>
+          )}
           <div className="hi-company-actions" onClick={e => e.stopPropagation()}>
+            {/* New User */}
             <button className="hi-company-add-btn"
               onClick={e => { e.stopPropagation(); setCreatePanel({ type: "user", deptName: node.name }); }}
-              title={`Add user to ${node.name}`}>
-              + New User
+              title="New User">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <line x1="19" y1="8" x2="19" y2="14"/>
+                <line x1="16" y1="11" x2="22" y2="11"/>
+              </svg>
             </button>
+            {/* New Department */}
             <button className="hi-company-add-btn hi-company-add-btn--dept"
               onClick={e => { e.stopPropagation(); setCreatePanel({ type: "dept" }); }}
-              title="Add department">
-              + New Department
+              title="New Department">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <line x1="12" y1="6" x2="12" y2="12"/>
+                <line x1="9" y1="9" x2="15" y2="9"/>
+              </svg>
             </button>
           </div>
         </div>

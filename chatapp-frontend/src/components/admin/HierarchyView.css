@@ -66,6 +66,11 @@
   white-space: nowrap; flex-shrink: 0; transition: color 150ms;
 }
 .hi-company-header:hover .hi-company-count { color: var(--primary-color); }
+.hi-company-online {
+  background: rgba(34,197,94,0.12); color: #16a34a;
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+  white-space: nowrap; flex-shrink: 0;
+}
 .hi-company-children { border-top: 1px solid var(--gray-100); border-radius: 0 0 10px 10px; overflow: hidden; }
 
 /* ─── Chevron ──────────────────────────────────────────────────────────────── */
@@ -439,16 +444,25 @@
 .hi-company-header:hover .hi-company-actions { opacity: 1; }
 
 .hi-company-add-btn {
-  height: 28px; padding: 0 12px; border-radius: 7px;
-  font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+  position: relative;
+  width: 28px; height: 28px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
   background: #2563eb; color: #fff;
-  transition: background 150ms; white-space: nowrap;
+  transition: background 150ms;
 }
 .hi-company-add-btn:hover { background: #1d4ed8; }
 .hi-company-add-btn--dept {
   background: #fff; color: #374151; border: 1px solid #e5e7eb;
 }
-.hi-company-add-btn--dept:hover { background: #f9fafb; }
+.hi-company-add-btn--dept:hover { background: #f0f4ff; color: #2563eb; border-color: #c7d7f9; }
+.hi-company-add-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #1e293b; color: #fff; font-size: 11px; font-weight: 500;
+  padding: 3px 8px; border-radius: 5px; white-space: nowrap; pointer-events: none;
+  z-index: 100;
+}
 
 /* ─── Shared Buttons ───────────────────────────────────────────────────────── */
 .hi-btn-primary {
