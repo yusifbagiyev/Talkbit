@@ -47,6 +47,21 @@
 - Silent empty responses (no error, just `[]`) are the hardest bugs to diagnose
 - Check the query handler for early returns: `if (searchTerm.Length < 2) return empty`
 
+### Enum serialization — always send integers, never strings
+- Backend has NO global `JsonStringEnumConverter` — only camelCase naming policy
+- All enums must be sent as integers: `Role` (User=0, Admin=1, SuperAdmin=2), `ChannelType` (Public=1, Private=2), `MemberRole` (Member=1, Admin=2, Owner=3)
+- Exception: `NodeType` in OrganizationHierarchyNodeDto has local `[JsonConverter(typeof(JsonStringEnumConverter))]` — reads as string
+- Pattern: `const ROLE_VALUES = { User: 0, Admin: 1, SuperAdmin: 2 }; role: ROLE_VALUES[role] ?? 0`
+
+### Password validation rules — backend requires all of these
+- Minimum 8 characters (NOT 6)
+- At least one uppercase letter: `/[A-Z]/`
+- At least one lowercase letter: `/[a-z]/`
+- At least one number: `/[0-9]/`
+- At least one special character: `/[^a-zA-Z0-9]/`
+- Applies to: CreateUser, AdminChangePassword, ChangePassword (user self-service)
+- Always validate ALL rules on frontend before API call — `extractErrorMessage` in api.js will surface backend messages if missed
+
 ## Patterns Noticed
 <!-- Emerging signals needing more data -->
 
