@@ -180,11 +180,12 @@
   background: none; border: none; border-radius: 6px;
   color: var(--gray-400); cursor: pointer; transition: all 120ms;
 }
-.hi-action-btn.edit:hover    { color: var(--primary-color); background: rgba(47,198,246,0.08); }
 .hi-action-btn.toggle.is-active   { color: #22c55e; }
 .hi-action-btn.toggle.is-inactive { color: var(--gray-300); }
 .hi-action-btn.toggle:hover  { background: var(--gray-100); }
-.hi-action-btn.more:hover    { color: var(--gray-700); background: var(--gray-100); }
+.hi-action-btn.delete:hover  { color: #ef4444; background: rgba(239,68,68,0.08); }
+.hi-action-btn.arrow         { color: var(--gray-400); }
+.hi-action-btn.arrow:hover   { color: var(--primary-color); background: rgba(47,198,246,0.08); }
 
 /* ─── ••• Dropdown ─────────────────────────────────────────────────────────── */
 .hi-dropdown-wrap { position: relative; }

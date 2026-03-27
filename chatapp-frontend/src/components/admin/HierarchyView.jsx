@@ -679,7 +679,6 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch]           = useState("");
   const [collapsed, setCollapsed]     = useState(new Set());
-  const [openDropdown, setOpenDropdown] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [panel, setPanel]             = useState(null); // { type:"user"|"dept", data, extra }
   const [panelClosing, setPanelClosing] = useState(false);
@@ -771,13 +770,10 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
     const data = getNodeData(node);
     const isDeleting  = deletingIds.has(node.id);
     const isDeleteConf = deleteConfirm === node.id;
-    const isDropOpen  = openDropdown === node.id;
-
     const rowClass = [
       "hi-user-row",
       data.isDepartmentHead ? "hi-user-row--head" : "",
       !data.isActive        ? "hi-user-row--inactive" : "",
-      isDropOpen            ? "dropdown-open" : "",
       isDeleting            ? "removing" : "",
     ].filter(Boolean).join(" ");
 
@@ -826,76 +822,36 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
 
         {/* Actions toolbar */}
         <div className="hi-actions">
-          {/* Edit */}
-          <button className="hi-action-btn edit" title="Edit user"
-            onClick={() => onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName })}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-
-          {/* Toggle active */}
+          {/* Toggle active/inactive */}
           <button
             className={`hi-action-btn toggle ${data.isActive ? "is-active" : "is-inactive"}`}
             title={data.isActive ? "Deactivate" : "Activate"}
-            onClick={() => handleToggle(node.id, data.isActive)}>
+            onClick={(e) => { e.stopPropagation(); handleToggle(node.id, data.isActive); }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
               <line x1="12" y1="2" x2="12" y2="12"/>
             </svg>
           </button>
 
-          {/* ••• Dropdown */}
-          <div className="hi-dropdown-wrap">
-            <button className="hi-action-btn more" title="More actions"
-              onClick={(e) => { e.stopPropagation(); setOpenDropdown(isDropOpen ? null : node.id); }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5" r="1.5"/>
-                <circle cx="12" cy="12" r="1.5"/>
-                <circle cx="12" cy="19" r="1.5"/>
-              </svg>
-            </button>
-            {isDropOpen && (
-              <div className="hi-action-dropdown">
-                <button className="hi-dropdown-item"
-                  onClick={() => { setOpenDropdown(null); onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName }); }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                  Edit
-                </button>
-                <button className="hi-dropdown-item"
-                  onClick={() => setOpenDropdown(null)}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                  </svg>
-                  Reset Password
-                </button>
-                <button className="hi-dropdown-item"
-                  onClick={() => { setOpenDropdown(null); handleToggle(node.id, data.isActive); }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                    <line x1="12" y1="2" x2="12" y2="12"/>
-                  </svg>
-                  {data.isActive ? "Deactivate" : "Activate"}
-                </button>
-                <div className="hi-dropdown-divider" />
-                <button className="hi-dropdown-item danger"
-                  onClick={() => { setOpenDropdown(null); setDeleteConfirm(node.id); }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4h6v2"/>
-                  </svg>
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Delete */}
+          <button className="hi-action-btn delete" title="Delete user"
+            onClick={(e) => { e.stopPropagation(); setDeleteConfirm(node.id); }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
+
+          {/* Open detail → */}
+          <button className="hi-action-btn arrow" title="View details"
+            onClick={(e) => { e.stopPropagation(); onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName }); }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
         </div>
       </div>
     );
@@ -1040,11 +996,6 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
 
   return (
     <div className="hi-root">
-      {/* Dropdown backdrop */}
-      {openDropdown && (
-        <div className="hi-dropdown-backdrop" onClick={() => setOpenDropdown(null)} />
-      )}
-
       {/* Toolbar */}
       <div className="hi-toolbar">
         <div className="hi-title-wrap">
