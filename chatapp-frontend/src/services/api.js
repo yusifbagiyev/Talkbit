@@ -33,6 +33,15 @@ let refreshTimerId = null;
 // .NET ekvivalenti: CancellationToken.IsCancellationRequested
 let sessionExpired = false;
 
+// Validation errors: { errors: { Field: ["msg"] } } → birləşdirilmiş mesaj
+function extractErrorMessage(error) {
+  if (error.errors && typeof error.errors === "object") {
+    const messages = Object.values(error.errors).flat().filter(Boolean);
+    if (messages.length > 0) return messages.join(". ");
+  }
+  return error.error || "Request failed";
+}
+
 // ─── refreshToken ─────────────────────────────────────────────────────────────
 // Server-dən yeni access token alır (refresh cookie vasitəsilə).
 // "Singleton promise" pattern: eyni anda çoxlu 401 gəlsə, yalnız 1 refresh gedir.
@@ -139,7 +148,7 @@ async function apiFetch(endpoint, options = {}) {
     if (!retryResponse.ok) {
       // JSON-da server error mesajını götür (olmasa boş object {} qaytar)
       const error = await retryResponse.json().catch(() => ({}));
-      throw new Error(error.error || "Request failed");
+      throw new Error(extractErrorMessage(error));
     }
 
     // 204 No Content: server cavab vermirdi (məsələn DELETE uğurlu)
@@ -150,7 +159,7 @@ async function apiFetch(endpoint, options = {}) {
   // Normal (401 olmayan) error — serverdə problem
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || "Request failed");
+    throw new Error(extractErrorMessage(error));
   }
 
   // 204 No Content — boş cavab (məsələn POST /logout)
@@ -392,6 +401,7 @@ function getUsers(params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiGet(`/api/users${query ? `?${query}` : ""}`);
 }
+function searchUsers(q) { return apiGet(`/api/users/search?q=${encodeURIComponent(q)}`); }
 function getUserById(userId) { return apiGet(`/api/users/${userId}`); }
 function createUser(data) { return apiPost("/api/users", data); }
 function updateUser(userId, data) { return apiPut(`/api/users/${userId}`, data); }
@@ -428,4 +438,4 @@ function updatePosition(id, data) { return apiPut(`/api/identity/positions/${id}
 function deletePosition(id) { return apiDelete(`/api/identity/positions/${id}`); }
 
 // Named exports — başqa fayllar bunları import edə bilsin
-export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, getUserById, createUser, updateUser, deleteUser, addSupervisor, removeSupervisor, removeUserFromDepartment, assignPermission, removePermission, getAllPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy };
+export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, searchUsers, getUserById, createUser, updateUser, deleteUser, addSupervisor, removeSupervisor, removeUserFromDepartment, assignPermission, removePermission, getAllPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy };

@@ -71,20 +71,25 @@
 /* Hero ••• dropdown */
 .ud-more-dropdown {
   position: absolute; right: 0; top: calc(100% + 6px);
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 180px;
-  z-index: 50; padding: 4px 0;
+  background: #fff; border: 1px solid #e8edf2; border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.12);
+  min-width: 184px; z-index: 50; padding: 4px;
   animation: adm-dropdownIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .ud-more-item {
-  width: 100%; text-align: left; padding: 9px 14px;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left; padding: 8px 10px; border-radius: 7px;
   font-size: 13px; color: #374151; background: none; border: none; cursor: pointer;
-  transition: background 100ms; display: block;
+  transition: background 100ms; box-sizing: border-box;
 }
-.ud-more-item:hover { background: #f9fafb; }
+.ud-more-item svg { flex-shrink: 0; color: #9ca3af; transition: color 100ms; }
+.ud-more-item:hover { background: #f5f7fa; }
+.ud-more-item:hover svg { color: #374151; }
 .ud-more-item.danger { color: #ef4444; }
+.ud-more-item.danger svg { color: #f87171; }
 .ud-more-item.danger:hover { background: rgba(239,68,68,0.06); }
-.ud-more-divider { height: 1px; background: #f3f4f6; margin: 4px 0; }
+.ud-more-item.danger:hover svg { color: #ef4444; }
+.ud-more-divider { height: 1px; background: #f1f3f5; margin: 3px 0; }
 .ud-more-backdrop { position: fixed; inset: 0; z-index: 49; }
 
 /* ─── Tabs ──────────────────────────────────────────────────────────────────── */
@@ -114,10 +119,56 @@
   margin-bottom: 16px;
 }
 
+.ud-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ud-card-header .ud-card-title { margin-bottom: 0; }
+
 .ud-card-title {
   font-size: 11px; font-weight: 600; color: #9ca3af;
   text-transform: uppercase; letter-spacing: 0.5px;
   margin-bottom: 14px; margin-top: 0;
+}
+
+.ud-card-edit-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  border: 1px solid #e5e7eb; background: #fff; color: #6b7280;
+  cursor: pointer; transition: all 150ms;
+}
+.ud-card-edit-btn:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+
+.ud-card-save-btn {
+  padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  border: none; background: #2fc6f6; color: #fff; cursor: pointer;
+  transition: background 150ms;
+}
+.ud-card-save-btn:hover:not(:disabled) { background: #17b3e6; }
+.ud-card-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.ud-card-cancel-btn {
+  padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer;
+  transition: all 150ms;
+}
+.ud-card-cancel-btn:hover { background: #f3f4f6; }
+
+/* Edit form */
+.ud-edit-form { display: flex; flex-direction: column; gap: 12px; }
+.ud-edit-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ud-edit-field { display: flex; flex-direction: column; gap: 4px; }
+.ud-edit-field label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px; }
+.ud-edit-field input,
+.ud-edit-field textarea {
+  padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 7px;
+  font-size: 13px; color: #111827; background: #f9fafb;
+  transition: border-color 150ms, background 150ms; resize: vertical;
+  font-family: inherit;
+}
+.ud-edit-field input:focus,
+.ud-edit-field textarea:focus {
+  outline: none; border-color: #2fc6f6; background: #fff;
 }
 
 .ud-info-row {

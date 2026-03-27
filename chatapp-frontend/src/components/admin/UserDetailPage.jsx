@@ -3,8 +3,8 @@ import {
   getUserById, getUserStorageStats, getAllPermissions,
   addSupervisor, removeSupervisor,
   getDepartments, assignEmployeeToDepartment, removeUserFromDepartment,
-  getUsers, activateUser, deactivateUser, adminChangePassword,
-  assignPermission, removePermission,
+  getUsers, searchUsers, activateUser, deactivateUser, adminChangePassword,
+  assignPermission, removePermission, updateUser,
   getFileUrl,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
@@ -45,8 +45,35 @@ function Avatar({ name, url, size = 28 }) {
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ user, storage, storageLoading }) {
+function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
+  const { showToast } = useToast();
   const name = user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [form, setForm] = useState({
+    firstName: user.firstName ?? "",
+    lastName:  user.lastName  ?? "",
+    email:     user.email     ?? "",
+    workPhone: user.workPhone ?? "",
+    aboutMe:   user.aboutMe   ?? "",
+    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
+  });
+
+  const setField = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateUser(user.id, form);
+      showToast("Profile updated", "success");
+      setEditing(false);
+      onUserUpdate?.();
+    } catch (err) {
+      showToast(err.message || "Failed to update", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const storageFill = storage
     ? Math.min((storage.totalMb / 100) * 100, 100)
@@ -57,32 +84,94 @@ function OverviewTab({ user, storage, storageLoading }) {
       {/* Sol: info cards */}
       <div>
         <div className="ud-card">
-          <p className="ud-card-title">Personal Information</p>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Full Name</span>
-            <span className="ud-info-value">{name || "—"}</span>
+          <div className="ud-card-header">
+            <p className="ud-card-title">Personal Information</p>
+            {!editing ? (
+              <button className="ud-card-edit-btn" onClick={() => setEditing(true)}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Edit
+              </button>
+            ) : (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="ud-card-save-btn" onClick={handleSave} disabled={saving}>
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                <button className="ud-card-cancel-btn" onClick={() => {
+                  setEditing(false);
+                  setForm({
+                    firstName: user.firstName ?? "",
+                    lastName:  user.lastName  ?? "",
+                    email:     user.email     ?? "",
+                    workPhone: user.workPhone ?? "",
+                    aboutMe:   user.aboutMe   ?? "",
+                    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
+                  });
+                }}>Cancel</button>
+              </div>
+            )}
           </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Email</span>
-            <span className="ud-info-value">{user.email || "—"}</span>
-          </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Phone</span>
-            <span className={`ud-info-value${!user.workPhone ? " muted" : ""}`}>
-              {user.workPhone || "—"}
-            </span>
-          </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Date of Birth</span>
-            <span className={`ud-info-value${!user.dateOfBirth ? " muted" : ""}`}>
-              {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : "—"}
-            </span>
-          </div>
-          {user.aboutMe && (
-            <div className="ud-info-row">
-              <span className="ud-info-label">About</span>
-              <span className="ud-info-value">{user.aboutMe}</span>
+
+          {editing ? (
+            <div className="ud-edit-form">
+              <div className="ud-edit-row">
+                <div className="ud-edit-field">
+                  <label>First Name</label>
+                  <input value={form.firstName} onChange={e => setField("firstName", e.target.value)} />
+                </div>
+                <div className="ud-edit-field">
+                  <label>Last Name</label>
+                  <input value={form.lastName} onChange={e => setField("lastName", e.target.value)} />
+                </div>
+              </div>
+              <div className="ud-edit-field">
+                <label>Email</label>
+                <input type="email" value={form.email} onChange={e => setField("email", e.target.value)} />
+              </div>
+              <div className="ud-edit-field">
+                <label>Phone</label>
+                <input value={form.workPhone} onChange={e => setField("workPhone", e.target.value)} />
+              </div>
+              <div className="ud-edit-field">
+                <label>Date of Birth</label>
+                <input type="date" value={form.dateOfBirth} onChange={e => setField("dateOfBirth", e.target.value)} />
+              </div>
+              <div className="ud-edit-field">
+                <label>About</label>
+                <textarea rows={3} value={form.aboutMe} onChange={e => setField("aboutMe", e.target.value)} />
+              </div>
             </div>
+          ) : (
+            <>
+              <div className="ud-info-row">
+                <span className="ud-info-label">Full Name</span>
+                <span className="ud-info-value">{name || "—"}</span>
+              </div>
+              <div className="ud-info-row">
+                <span className="ud-info-label">Email</span>
+                <span className="ud-info-value">{user.email || "—"}</span>
+              </div>
+              <div className="ud-info-row">
+                <span className="ud-info-label">Phone</span>
+                <span className={`ud-info-value${!user.workPhone ? " muted" : ""}`}>
+                  {user.workPhone || "—"}
+                </span>
+              </div>
+              <div className="ud-info-row">
+                <span className="ud-info-label">Date of Birth</span>
+                <span className={`ud-info-value${!user.dateOfBirth ? " muted" : ""}`}>
+                  {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : "—"}
+                </span>
+              </div>
+              {user.aboutMe && (
+                <div className="ud-info-row">
+                  <span className="ud-info-label">About</span>
+                  <span className="ud-info-value">{user.aboutMe}</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -90,8 +179,8 @@ function OverviewTab({ user, storage, storageLoading }) {
           <p className="ud-card-title">Employment</p>
           <div className="ud-info-row">
             <span className="ud-info-label">Position</span>
-            <span className={`ud-info-value${!user.positionName ? " muted" : ""}`}>
-              {user.positionName || "—"}
+            <span className={`ud-info-value${!user.position ? " muted" : ""}`}>
+              {user.position || "—"}
             </span>
           </div>
           <div className="ud-info-row">
@@ -169,7 +258,11 @@ function OrganizationTab({ user, onUserUpdate }) {
   const { showToast } = useToast();
   // Backend SupervisorDto → userId field, id deyil — normalize et
   const [supervisors, setSupervisors] = useState(
-    (user.supervisors ?? []).map(s => ({ ...s, id: s.id ?? s.userId }))
+    (user.supervisors ?? []).map(s => ({
+      ...s,
+      id: s.id ?? s.userId,
+      positionName: s.positionName ?? s.position ?? null,
+    }))
   );
   const [subordinates] = useState(user.subordinates ?? []);
   const [depts, setDepts]             = useState([]);
@@ -191,16 +284,18 @@ function OrganizationTab({ user, onUserUpdate }) {
     if (!addingSupMode) { setSupSuggestions([]); return; }
     clearTimeout(supDebounceRef.current);
     const fetch = () => {
-      const params = supSearch.trim() ? { search: supSearch.trim(), pageSize: 20 } : { pageSize: 20 };
-      getUsers(params)
-        .then(d => {
+      const q = supSearch.trim();
+      const req = q.length >= 2
+        ? searchUsers(q)
+        : getUsers({ pageSize: 50 });
+      req.then(d => {
           const list = d?.items ?? (Array.isArray(d) ? d : []);
           const existingIds = new Set(supervisors.map(s => s.id));
           setSupSuggestions(list.filter(u => !existingIds.has(u.id) && u.id !== user.id));
         })
         .catch(() => {});
     };
-    supDebounceRef.current = setTimeout(fetch, supSearch.trim() ? 300 : 0);
+    supDebounceRef.current = setTimeout(fetch, supSearch.trim().length >= 2 ? 300 : 0);
   }, [supSearch, addingSupMode, supervisors, user.id]);
 
   const handleDeptSave = async () => {
@@ -241,7 +336,8 @@ function OrganizationTab({ user, onUserUpdate }) {
     try {
       await addSupervisor(user.id, supUser.id);
       const name = supUser.fullName ?? `${supUser.firstName ?? ""} ${supUser.lastName ?? ""}`.trim();
-      setSupervisors(prev => [...prev, { id: supUser.id, fullName: name, avatarUrl: supUser.avatarUrl, positionName: supUser.positionName }]);
+      const pos  = supUser.positionName ?? supUser.position ?? null;
+      setSupervisors(prev => [...prev, { id: supUser.id, fullName: name, avatarUrl: supUser.avatarUrl, positionName: pos }]);
       setAddingSupMode(false);
       setSupSearch("");
       setSupSuggestions([]);
@@ -347,7 +443,7 @@ function OrganizationTab({ user, onUserUpdate }) {
                   <button key={u.id} className="ud-sup-suggestion" onClick={() => handleAddSupervisor(u)}>
                     <Avatar name={uName} url={u.avatarUrl} size={24} />
                     <span>{uName}</span>
-                    {u.positionName && <span style={{ fontSize: "11px", color: "#9ca3af" }}>{u.positionName}</span>}
+                    {(u.positionName ?? u.position) && <span style={{ fontSize: "11px", color: "#9ca3af" }}>{u.positionName ?? u.position}</span>}
                   </button>
                 );
               })}
@@ -376,7 +472,7 @@ function OrganizationTab({ user, onUserUpdate }) {
                 <Avatar name={sName} url={s.avatarUrl} size={28} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "13px", fontWeight: 500, color: "#111827" }}>{sName}</div>
-                  {s.positionName && <div style={{ fontSize: "11px", color: "#6b7280" }}>{s.positionName}</div>}
+                  {(s.positionName ?? s.position) && <div style={{ fontSize: "11px", color: "#6b7280" }}>{s.positionName ?? s.position}</div>}
                 </div>
                 {!s.isActive && <span className="ud-inactive-badge">Inactive</span>}
               </div>
@@ -387,6 +483,9 @@ function OrganizationTab({ user, onUserUpdate }) {
     </div>
   );
 }
+
+// CRUD əsas hüquqları — heç kimə verilə bilməz, siyahıda göstərilmir
+const HIDDEN_ACTIONS = new Set(["Create", "Update", "Read", "Delete"]);
 
 // ─── Permissions Tab ──────────────────────────────────────────────────────────
 // allPermissions: GET /api/users/permissions → [{ module, permissions: ["Users.Create",...] }]
@@ -446,29 +545,35 @@ function PermissionsTab({ userId, userPermissions }) {
 
   return (
     <div>
-      {modules.map(mod => (
-        <div key={mod.module} className="ud-card ud-perm-module">
-          <p className="ud-perm-module-title">{mod.module}</p>
-          <div className="ud-perm-grid">
-            {(mod.permissions ?? []).map(permName => {
-              const granted = isGranted(permName);
-              const label = permName.split(".").pop();
-              return (
-                <div key={permName} className="ud-perm-item">
-                  <span className="ud-perm-name">{label}</span>
-                  <button
-                    className={`ud-toggle ${granted ? "on" : "off"}`}
-                    onClick={() => handleToggle(permName)}
-                    aria-label={`Toggle ${permName}`}
-                  >
-                    <span className="ud-toggle-knob" />
-                  </button>
-                </div>
-              );
-            })}
+      {modules.map(mod => {
+        const visiblePerms = (mod.permissions ?? []).filter(
+          p => !HIDDEN_ACTIONS.has(p.split(".").pop())
+        );
+        if (visiblePerms.length === 0) return null;
+        return (
+          <div key={mod.module} className="ud-card ud-perm-module">
+            <p className="ud-perm-module-title">{mod.module}</p>
+            <div className="ud-perm-grid">
+              {visiblePerms.map(permName => {
+                const granted = isGranted(permName);
+                const label = permName.split(".").pop();
+                return (
+                  <div key={permName} className="ud-perm-item">
+                    <span className="ud-perm-name">{label}</span>
+                    <button
+                      className={`ud-toggle ${granted ? "on" : "off"}`}
+                      onClick={() => handleToggle(permName)}
+                      aria-label={`Toggle ${permName}`}
+                    >
+                      <span className="ud-toggle-knob" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -588,7 +693,6 @@ function SecurityTab({ user, onUserUpdate }) {
 
 // ─── UserDetailPage ───────────────────────────────────────────────────────────
 function UserDetailPage({ userId }) {
-  const { showToast } = useToast();
   const [user, setUser]           = useState(null);
   const [loading, setLoading]     = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -678,14 +782,28 @@ function UserDetailPage({ userId }) {
             {moreOpen && (
               <div className="ud-more-dropdown">
                 <button className="ud-more-item" onClick={() => { setActiveTab("security"); setMoreOpen(false); }}>
-                  🔑 Reset Password
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  Reset Password
                 </button>
                 <button className="ud-more-item" onClick={() => { setActiveTab("security"); setMoreOpen(false); }}>
-                  {user.isActive ? "✗ Deactivate" : "✓ Activate"}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                    <line x1="12" y1="2" x2="12" y2="12"/>
+                  </svg>
+                  {user.isActive ? "Deactivate" : "Activate"}
                 </button>
                 <div className="ud-more-divider" />
                 <button className="ud-more-item danger" onClick={() => setMoreOpen(false)}>
-                  🗑 Delete
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4h6v2"/>
+                  </svg>
+                  Delete
                 </button>
               </div>
             )}
@@ -706,13 +824,13 @@ function UserDetailPage({ userId }) {
 
       {/* Tab content */}
       {activeTab === "overview" && (
-        <OverviewTab user={user} storage={storage} storageLoading={storageLoading} />
+        <OverviewTab user={user} storage={storage} storageLoading={storageLoading} onUserUpdate={loadUser} />
       )}
       {activeTab === "organization" && (
         <OrganizationTab user={user} onUserUpdate={loadUser} />
       )}
       {activeTab === "permissions" && (
-        <PermissionsTab userId={userId} userPermissions={user.permissions ?? []} onRefresh={loadUser} />
+        <PermissionsTab userId={userId} userPermissions={user.permissions ?? []} />
       )}
       {activeTab === "security" && (
         <SecurityTab user={user} onUserUpdate={loadUser} />
