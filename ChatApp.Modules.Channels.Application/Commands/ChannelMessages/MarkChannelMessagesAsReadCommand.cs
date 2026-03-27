@@ -60,18 +60,9 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                     return Result.Failure("User is not a member of this channel");
                 }
 
-                // Get all unread message IDs for this user in the channel (excludes user's own messages)
-                var unreadMessageIds = await _unitOfWork.ChannelMessageReads
-                    .GetUnreadMessageIdsAsync(request.ChannelId, request.UserId, cancellationToken);
-
-                // Filter out messages sent by the user (don't mark own messages as read)
-                var messagesToMark = await _unitOfWork.ChannelMessages
-                    .GetChannelMessagesAsync(request.ChannelId, int.MaxValue, null, null, cancellationToken);
-
-                var filteredMessageIds = messagesToMark
-                    .Where(m => unreadMessageIds.Contains(m.Id) && m.SenderId != request.UserId)
-                    .Select(m => m.Id)
-                    .ToList();
+                // Unread mesaj ID-ləri — öz mesajları xaric edilir, tək DB sorğusu
+                var filteredMessageIds = await _unitOfWork.ChannelMessageReads
+                    .GetUnreadMessageIdsAsync(request.ChannelId, request.UserId, cancellationToken, excludeSenderId: request.UserId);
 
                 if (filteredMessageIds.Count != 0)
                 {

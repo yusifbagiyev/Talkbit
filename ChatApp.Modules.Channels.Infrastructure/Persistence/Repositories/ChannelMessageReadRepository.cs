@@ -53,17 +53,32 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             await _context.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
         }
 
-        public async Task<List<Guid>> GetUnreadMessageIdsAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)
+        public async Task<List<Guid>> GetUnreadMessageIdsAsync(
+            Guid channelId, Guid userId,
+            CancellationToken cancellationToken = default,
+            Guid? excludeSenderId = null)
         {
-            // Get all message IDs in the channel that haven't been read by the user
-            var unreadMessageIds = await _context.ChannelMessages
+            var query = _context.ChannelMessages
                 .Where(m => m.ChannelId == channelId && !m.IsDeleted)
                 .Where(m => !_context.ChannelMessageReads
-                    .Any(r => r.MessageId == m.Id && r.UserId == userId))
-                .Select(m => m.Id)
+                    .Any(r => r.MessageId == m.Id && r.UserId == userId));
+
+            if (excludeSenderId.HasValue)
+                query = query.Where(m => m.SenderId != excludeSenderId.Value);
+
+            return await query.Select(m => m.Id).ToListAsync(cancellationToken);
+        }
+
+        public async Task<HashSet<Guid>> GetExistingReadMessageIdsAsync(
+            List<Guid> messageIds, Guid userId,
+            CancellationToken cancellationToken = default)
+        {
+            var existing = await _context.ChannelMessageReads
+                .Where(r => messageIds.Contains(r.MessageId) && r.UserId == userId)
+                .Select(r => r.MessageId)
                 .ToListAsync(cancellationToken);
 
-            return unreadMessageIds;
+            return existing.ToHashSet();
         }
 
         public async Task AddAsync(ChannelMessageRead read, CancellationToken cancellationToken = default)

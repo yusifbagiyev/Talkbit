@@ -81,13 +81,9 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMessages
                 if (filteredMessageIds.Count == 0)
                     return Result.Success();
 
-                // Artiq oxunmus olanlari cixar — idempotent olsun
-                var existingReadIds = new HashSet<Guid>();
-                foreach (var msgId in filteredMessageIds)
-                {
-                    if (await _unitOfWork.ChannelMessageReads.ExistsAsync(msgId, request.UserId, cancellationToken))
-                        existingReadIds.Add(msgId);
-                }
+                // Artıq oxunmuşları çıxar — tək DB sorğusu (N+1 yox)
+                var existingReadIds = await _unitOfWork.ChannelMessageReads
+                    .GetExistingReadMessageIdsAsync(filteredMessageIds, request.UserId, cancellationToken);
 
                 var newMessageIds = filteredMessageIds
                     .Where(id => !existingReadIds.Contains(id))

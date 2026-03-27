@@ -56,18 +56,9 @@ namespace ChatApp.Modules.Channels.Application.Commands.ChannelMembers
                 if (member == null)
                     return Result.Failure<int>("User is not a member of this channel");
 
-                // Get all unread message IDs for this user in the channel (for SignalR notification)
-                var unreadMessageIds = await _unitOfWork.ChannelMessageReads
-                    .GetUnreadMessageIdsAsync(request.ChannelId, request.UserId, cancellationToken);
-
-                // Filter out messages sent by the user (don't mark own messages as read)
-                var messagesToMark = await _unitOfWork.ChannelMessages
-                    .GetChannelMessagesAsync(request.ChannelId, int.MaxValue, null, null, cancellationToken);
-
-                var filteredMessageIds = messagesToMark
-                    .Where(m => unreadMessageIds.Contains(m.Id) && m.SenderId != request.UserId)
-                    .Select(m => m.Id)
-                    .ToList();
+                // Unread mesaj ID-ləri — öz mesajları xaric edilir, tək DB sorğusu
+                var filteredMessageIds = await _unitOfWork.ChannelMessageReads
+                    .GetUnreadMessageIdsAsync(request.ChannelId, request.UserId, cancellationToken, excludeSenderId: request.UserId);
 
                 var markedCount = 0;
 

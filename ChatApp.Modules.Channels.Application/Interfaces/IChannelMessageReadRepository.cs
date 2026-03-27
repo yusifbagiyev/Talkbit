@@ -15,9 +15,15 @@ namespace ChatApp.Modules.Channels.Application.Interfaces
         Task BulkInsertAsync(List<ChannelMessageRead> reads, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gets the IDs of unread messages in a channel for a specific user
+        /// Gets the IDs of unread messages in a channel for a specific user.
+        /// Optionally excludes messages sent by a specific sender (e.g. don't mark own messages as read).
         /// </summary>
-        Task<List<Guid>> GetUnreadMessageIdsAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default);
+        Task<List<Guid>> GetUnreadMessageIdsAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default, Guid? excludeSenderId = null);
+
+        /// <summary>
+        /// Returns which message IDs from a given list have already been read by the user — single DB query.
+        /// </summary>
+        Task<HashSet<Guid>> GetExistingReadMessageIdsAsync(List<Guid> messageIds, Guid userId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Adds a single read record
