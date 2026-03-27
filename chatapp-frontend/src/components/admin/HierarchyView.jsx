@@ -697,6 +697,12 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
 
   useEffect(() => { loadHierarchy(); }, [loadHierarchy]);
 
+  // Node altındakı bütün User-ləri rekursiv say
+  const countUsers = (node) => {
+    if (node.type === "User") return 1;
+    return (node.children ?? []).reduce((sum, c) => sum + countUsers(c), 0);
+  };
+
   // Hierarchy tree-dən bütün department node-larını düzləndirilmiş siyahıya çevir
   const allDeptNodes = useMemo(() => {
     const result = [];
@@ -912,6 +918,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
     const expanded    = isExpanded(node.id);
     const depts       = node.children?.filter(n => n.type === "Department") ?? [];
     const noDeptUsers = node.children?.filter(n => n.type === "User") ?? [];
+    const totalUsers  = (node.children ?? []).reduce((sum, c) => sum + countUsers(c), 0);
 
     return (
       <div key={node.id} className={`hi-company-node${expanded ? " hi-expanded" : ""}`}>
@@ -927,20 +934,18 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
           {node.headOfDepartmentName && (
             <span className="hi-company-head">Head: {node.headOfDepartmentName}</span>
           )}
-          <span className="hi-company-count">{node.userCount ?? 0} users</span>
+          <span className="hi-company-count">{totalUsers} users</span>
           <div className="hi-company-actions" onClick={e => e.stopPropagation()}>
             <button className="hi-company-add-btn"
               onClick={e => { e.stopPropagation(); setCreatePanel({ type: "user", deptName: node.name }); }}
               title={`Add user to ${node.name}`}>
               + New User
             </button>
-            {!isSuperAdmin && (
-              <button className="hi-company-add-btn hi-company-add-btn--dept"
-                onClick={e => { e.stopPropagation(); setCreatePanel({ type: "dept" }); }}
-                title="Add department">
-                + New Department
-              </button>
-            )}
+            <button className="hi-company-add-btn hi-company-add-btn--dept"
+              onClick={e => { e.stopPropagation(); setCreatePanel({ type: "dept" }); }}
+              title="Add department">
+              + New Department
+            </button>
           </div>
         </div>
         {expanded && (depts.length > 0 || noDeptUsers.length > 0) && (
