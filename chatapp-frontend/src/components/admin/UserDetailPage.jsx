@@ -167,7 +167,10 @@ function OverviewTab({ user, storage, storageLoading }) {
 // ─── Organization Tab ─────────────────────────────────────────────────────────
 function OrganizationTab({ user, onUserUpdate }) {
   const { showToast } = useToast();
-  const [supervisors, setSupervisors] = useState(user.supervisors ?? []);
+  // Backend SupervisorDto → userId field, id deyil — normalize et
+  const [supervisors, setSupervisors] = useState(
+    (user.supervisors ?? []).map(s => ({ ...s, id: s.id ?? s.userId }))
+  );
   const [subordinates] = useState(user.subordinates ?? []);
   const [depts, setDepts]             = useState([]);
   const [changingDept, setChangingDept] = useState(false);
@@ -183,21 +186,21 @@ function OrganizationTab({ user, onUserUpdate }) {
     getDepartments().then(setDepts).catch(() => {});
   }, []);
 
-  // Supervisor axtarışı — 300ms debounce
+  // Supervisor axtarışı — açılanda dərhal yüklə, yazdıqda debounce
   useEffect(() => {
-    if (!addingSupMode) return;
+    if (!addingSupMode) { setSupSuggestions([]); return; }
     clearTimeout(supDebounceRef.current);
-    if (!supSearch.trim()) { setSupSuggestions([]); return; }
-    supDebounceRef.current = setTimeout(() => {
-      getUsers({ search: supSearch.trim(), pageSize: 8 })
+    const fetch = () => {
+      const params = supSearch.trim() ? { search: supSearch.trim(), pageSize: 20 } : { pageSize: 20 };
+      getUsers(params)
         .then(d => {
           const list = d?.items ?? (Array.isArray(d) ? d : []);
-          // Mövcud supervisor-ları çıxar
           const existingIds = new Set(supervisors.map(s => s.id));
           setSupSuggestions(list.filter(u => !existingIds.has(u.id) && u.id !== user.id));
         })
         .catch(() => {});
-    }, 300);
+    };
+    supDebounceRef.current = setTimeout(fetch, supSearch.trim() ? 300 : 0);
   }, [supSearch, addingSupMode, supervisors, user.id]);
 
   const handleDeptSave = async () => {
@@ -388,7 +391,7 @@ function OrganizationTab({ user, onUserUpdate }) {
 // ─── Permissions Tab ──────────────────────────────────────────────────────────
 // allPermissions: GET /api/users/permissions → [{ module, permissions: ["Users.Create",...] }]
 // userPermissions: user.permissions string[] (getUserById-dan gəlir)
-function PermissionsTab({ userId, userPermissions, onRefresh }) {
+function PermissionsTab({ userId, userPermissions }) {
   const { showToast } = useToast();
   const [modules, setModules]     = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -416,7 +419,7 @@ function PermissionsTab({ userId, userPermissions, onRefresh }) {
       } else {
         await assignPermission(userId, permName);
       }
-      onRefresh?.();
+      // onRefresh çağırılmır — optimistic update kifayətdir, setLoading(true) tetiklənməsin
     } catch {
       setOverrides(prev => ({ ...prev, [permName]: current }));
       showToast("Failed to update permission", "error");

@@ -132,23 +132,41 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
           <button className="dm-btn dm-btn-primary" onClick={() => onEdit(dept)}>
             Edit Department
           </button>
-          {deleteConfirm ? (
-            <div className="dm-detail-delete-confirm">
-              <span>Delete?</span>
-              <button className="dm-detail-delete-yes" onClick={handleDelete} disabled={deleting}>
-                {deleting ? "..." : "Yes"}
-              </button>
-              <button className="dm-detail-delete-no" onClick={() => setDeleteConfirm(false)}>
-                No
-              </button>
-            </div>
-          ) : (
-            <button className="dm-btn-delete-outline" onClick={() => setDeleteConfirm(true)}>
-              Delete
-            </button>
-          )}
+          <button className="dm-btn-delete-outline" onClick={() => setDeleteConfirm(true)}>
+            Delete
+          </button>
         </div>
       </div>
+
+      {/* Delete confirm modal */}
+      {deleteConfirm && (
+        <>
+          <div className="dm-modal-backdrop" onClick={() => !deleting && setDeleteConfirm(false)} />
+          <div className="dm-modal">
+            <div className="dm-modal-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+                <path d="M9 6V4h6v2"/>
+              </svg>
+            </div>
+            <h3 className="dm-modal-title">Delete Department</h3>
+            <p className="dm-modal-desc">
+              Are you sure you want to delete <strong>{dept.name}</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="dm-modal-actions">
+              <button className="dm-btn dm-btn-ghost" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
+                Cancel
+              </button>
+              <button className="dm-btn dm-btn-danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 });
