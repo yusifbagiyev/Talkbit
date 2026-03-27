@@ -100,20 +100,21 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                 if (await unitOfWork.Users.AnyAsync(u => u.Email == command.Email, cancellationToken))
                     return Result.Failure<Guid>("Email already exists");
 
-                // DepartmentId-nin caller-in şirkətinə aid olduğunu yoxla
-                if (command.CallerCompanyId.HasValue)
-                {
-                    var deptCompanyId = await unitOfWork.Departments
-                        .Where(d => d.Id == command.DepartmentId)
-                        .Select(d => (Guid?)d.CompanyId)
-                        .FirstOrDefaultAsync(cancellationToken);
+                // Department-in şirkətini tap — həm doğrulama, həm companyId üçün
+                var deptCompanyId = await unitOfWork.Departments
+                    .Where(d => d.Id == command.DepartmentId)
+                    .Select(d => (Guid?)d.CompanyId)
+                    .FirstOrDefaultAsync(cancellationToken);
 
-                    if (deptCompanyId == null)
-                        return Result.Failure<Guid>("Department not found");
+                if (deptCompanyId == null)
+                    return Result.Failure<Guid>("Department not found");
 
-                    if (deptCompanyId != command.CallerCompanyId)
-                        return Result.Failure<Guid>("Department does not belong to your company");
-                }
+                // Admin: department öz şirkətinə aid olmalıdır
+                if (command.CallerCompanyId.HasValue && deptCompanyId != command.CallerCompanyId)
+                    return Result.Failure<Guid>("Department does not belong to your company");
+
+                // SuperAdmin üçün companyId department-dan götürülür
+                var targetCompanyId = command.CallerCompanyId ?? deptCompanyId;
 
                 // Admin yalnız User rolu verə bilər
                 if (!command.IsSuperAdmin && command.Role != Role.User)
@@ -128,7 +129,7 @@ namespace ChatApp.Modules.Identity.Application.Commands.Users
                     passwordHash,
                     command.Role,
                     command.AvatarUrl,
-                    command.CallerCompanyId);
+                    targetCompanyId);
 
                 await unitOfWork.Users.AddAsync(user, cancellationToken);
 
