@@ -170,8 +170,7 @@ function UserDetailPanel({ user, companyName, deptName, closing, onClose, onOpen
 
 // ─── DeptDetailPanel ──────────────────────────────────────────────────────────
 function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, onOpenUser }) {
-  const [members, setMembers]               = useState([]);
-  const [membersLoading, setMembersLoading] = useState(false);
+  const [members, setMembers]               = useState(null); // null = loading
   const [deleteConfirm, setDeleteConfirm]   = useState(false);
   const [deleting, setDeleting]             = useState(false);
   const [subPanel, setSubPanel]             = useState(null); // 'edit' | 'head' | null
@@ -192,13 +191,12 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
 
   useEffect(() => {
     if (!node) return;
-    setMembersLoading(true);
-    setDeleteConfirm(false);
+    let active = true;
     getUsers({ departmentId: node.id, pageSize: 50 })
-      .then(d => setMembers(d?.items ?? (Array.isArray(d) ? d : [])))
-      .catch(() => setMembers([]))
-      .finally(() => setMembersLoading(false));
-  }, [node?.id]);
+      .then(d => { if (active) setMembers(d?.items ?? (Array.isArray(d) ? d : [])); })
+      .catch(() => { if (active) setMembers([]); });
+    return () => { active = false; };
+  }, [node]);
 
   const subDeptCount = allDepts.filter(d => d.parentDepartmentId === node.id).length;
   const parentDept   = allDepts.find(d => d.id === node.parentDepartmentId);
@@ -356,10 +354,10 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
             </div>
           </div>
 
-          {(membersLoading || members.length > 0) && (
+          {(members === null || members.length > 0) && (
             <div className="hi-detail-section">
               <p className="hi-detail-section-label">Members</p>
-              {membersLoading ? (
+              {members === null ? (
                 <div style={{ fontSize: "13px", color: "#9ca3af" }}>Loading...</div>
               ) : members.map(m => {
                 const mName = m.fullName ?? `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
@@ -701,18 +699,39 @@ function CreateDeptPanel({ preloadedDepts = null, companyId = null, defaultParen
   const [parentId, setParentId] = useState(defaultParentId);
   const [depts, setDepts]       = useState(preloadedDepts ?? []);
   const [saving, setSaving]     = useState(false);
+  const [avatarUrl, setAvatarUrl]           = useState(null);
+  const [avatarPreview, setAvatarPreview]   = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarRef                            = useRef(null);
 
   useEffect(() => {
     if (preloadedDepts !== null) { setDepts(preloadedDepts); return; }
     getDepartments().then(d => setDepts(Array.isArray(d) ? d : [])).catch(() => {});
   }, [preloadedDepts]);
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarPreview(URL.createObjectURL(file));
+    setAvatarUploading(true);
+    try {
+      const result = await uploadDepartmentAvatar(file, companyId);
+      setAvatarUrl(result.downloadUrl);
+    } catch {
+      setAvatarPreview(null);
+      setAvatarUrl(null);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { showToast("Department name is required", "error"); return; }
+    if (!avatarUrl) { showToast("Department avatar is required", "error"); return; }
     setSaving(true);
     try {
-      await createDepartment({ name: name.trim(), parentDepartmentId: parentId || null, companyId: companyId || null });
+      await createDepartment({ name: name.trim(), parentDepartmentId: parentId || null, companyId: companyId || null, avatarUrl });
       showToast("Department created", "success");
       onSave();
     } catch (err) {
@@ -735,6 +754,24 @@ function CreateDeptPanel({ preloadedDepts = null, companyId = null, defaultParen
         </div>
         <form id="cd-form" className="hi-create-panel-body" onSubmit={handleSubmit}>
           <div className="hi-form-field">
+            <label className="hi-form-label">Department Avatar *</label>
+            <div className="dm-avatar-upload-area" onClick={() => avatarRef.current?.click()}>
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
+              ) : (
+                <div className="dm-avatar-placeholder">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
+                </div>
+              )}
+            </div>
+            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
+          </div>
+          <div className="hi-form-field">
             <label className="hi-form-label">Department Name *</label>
             <input className="hi-form-input" value={name}
               onChange={e => setName(e.target.value)} placeholder="Enter name..." autoFocus />
@@ -749,7 +786,7 @@ function CreateDeptPanel({ preloadedDepts = null, companyId = null, defaultParen
         </form>
         <div className="hi-create-panel-footer">
           <button type="button" className="hi-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" form="cd-form" className="hi-btn-primary" disabled={saving}>
+          <button type="submit" form="cd-form" className="hi-btn-primary" disabled={saving || avatarUploading}>
             {saving ? "Creating..." : "Create Department"}
           </button>
         </div>
@@ -781,7 +818,12 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadHierarchy(); }, [loadHierarchy]);
+  // İlk yükləmə — loading artıq true-dur, birbaşa fetch edirik
+  useEffect(() => {
+    getOrganizationHierarchy()
+      .then(nodes => setTree(nodes ?? []))
+      .finally(() => setLoading(false));
+  }, []);
 
   // Node altındakı bütün User-ləri rekursiv say
   const countUsers = (node) => {

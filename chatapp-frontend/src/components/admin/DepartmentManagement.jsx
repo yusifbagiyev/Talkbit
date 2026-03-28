@@ -11,20 +11,18 @@ import "./DepartmentManagement.css";
 const DeptDetailPanel = memo(function DeptDetailPanel({
   dept, allDepts, closing, onClose, onDeleted, onEdit, onChangeHead,
 }) {
-  const [members, setMembers]       = useState([]);
-  const [membersLoading, setMembersLoading] = useState(false);
+  const [members, setMembers]       = useState(null); // null = loading
   const [deleteConfirm, setDeleteConfirm]   = useState(false);
   const [deleting, setDeleting]     = useState(false);
 
   useEffect(() => {
     if (!dept) return;
-    setMembersLoading(true);
-    setDeleteConfirm(false);
+    let active = true;
     getUsers({ departmentId: dept.id, pageSize: 50 })
-      .then(d => setMembers(d?.items ?? (Array.isArray(d) ? d : [])))
-      .catch(() => setMembers([]))
-      .finally(() => setMembersLoading(false));
-  }, [dept?.id]);
+      .then(d => { if (active) setMembers(d?.items ?? (Array.isArray(d) ? d : [])); })
+      .catch(() => { if (active) setMembers([]); });
+    return () => { active = false; };
+  }, [dept]);
 
   const subDeptCount = allDepts.filter(d => d.parentDepartmentId === dept.id).length;
   const parentDept   = allDepts.find(d => d.id === dept.parentDepartmentId);
@@ -98,10 +96,10 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
           </div>
 
           {/* Members */}
-          {(membersLoading || members.length > 0) && (
+          {(members === null || members.length > 0) && (
             <div className="dm-detail-section">
               <p className="dm-detail-section-label">Members</p>
-              {membersLoading ? (
+              {members === null ? (
                 <div style={{ fontSize: "13px", color: "#9ca3af" }}>Loading...</div>
               ) : (
                 members.map(m => {
@@ -366,6 +364,7 @@ function DepartmentManagement() {
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!formName.trim()) { setFormError("Department name is required."); return; }
+    if (panel === "create" && !formAvatarUrl) { setFormError("Department avatar is required."); return; }
     setSaving(true);
     setFormError("");
     try {
