@@ -8,6 +8,7 @@ import {
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 import "./HierarchyView.css";
 import "./DepartmentManagement.css";
 
@@ -60,116 +61,10 @@ function HierarchySkeleton() {
   );
 }
 
-// ─── UserDetailPanel ──────────────────────────────────────────────────────────
-function UserDetailPanel({ user, companyName, deptName, closing, onClose, onOpenUser }) {
-  // Supervisors data hierarchy node-dan gəlir (getUserById-dan deyil)
-  const supervisors = user.supervisors ?? [];
-
-  return (
-    <>
-      <div className="hi-panel-backdrop" onClick={onClose} />
-      <div className={`hi-user-detail-panel${closing ? " closing" : ""}`}>
-        <div className="hi-detail-hero">
-          <button className="hi-detail-hero-close" onClick={onClose}>✕</button>
-          <div className={`hi-detail-avatar-wrap${user.isActive ? " active" : ""}`}>
-            <div className="hi-detail-avatar"
-              style={{ background: user.avatarUrl ? "transparent" : getAvatarColor(user.name) }}>
-              {user.avatarUrl
-                ? <img src={getFileUrl(user.avatarUrl)} alt="" />
-                : getInitials(user.name)}
-            </div>
-          </div>
-          <div className="hi-detail-name">{user.name}</div>
-          {user.positionName && <div className="hi-detail-position">{user.positionName}</div>}
-          <span className={`hi-detail-role-badge ${(user.role ?? "User").toLowerCase()}`}>
-            {user.role ?? "User"}
-          </span>
-        </div>
-
-        <div className="hi-detail-body">
-          {user.email && (
-            <div className="hi-detail-section">
-              <p className="hi-detail-section-label">Contact</p>
-              <div className="hi-detail-info-row">
-                <svg className="hi-detail-info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-                {user.email}
-              </div>
-            </div>
-          )}
-
-          {(companyName || deptName) && (
-            <div className="hi-detail-section">
-              <p className="hi-detail-section-label">Organization</p>
-              {companyName && (
-                <div className="hi-detail-info-row">
-                  <svg className="hi-detail-info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
-                  </svg>
-                  {companyName}
-                </div>
-              )}
-              {deptName && (
-                <div className="hi-detail-info-row">
-                  <svg className="hi-detail-info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                  </svg>
-                  {deptName}
-                </div>
-              )}
-            </div>
-          )}
-
-          {supervisors.length > 0 && (
-            <div className="hi-detail-section">
-              <p className="hi-detail-section-label">Supervisors</p>
-              {supervisors.map((s, idx) => {
-                const name = s.fullName ?? s.name ?? "";
-                return (
-                  <div key={s.id ?? idx} className="hi-detail-supervisor">
-                    <div className="hi-avatar" style={{ background: getAvatarColor(name) }}>
-                      {s.avatarUrl
-                        ? <img src={getFileUrl(s.avatarUrl)} alt="" />
-                        : getInitials(name)}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 500, fontSize: "13px" }}>{name}</div>
-                      {s.positionName && (
-                        <div style={{ fontSize: "11px", color: "var(--gray-400)" }}>{s.positionName}</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="hi-detail-footer">
-          <button className="hi-btn-primary"
-            onClick={() => { onClose(); onOpenUser?.(user.id, user.name); }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-            Edit User
-          </button>
-          <button className="hi-btn-ghost"
-            onClick={() => { onClose(); onOpenUser?.(user.id, user.name); }}>
-            Reset Password
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
 // ─── DeptDetailPanel ──────────────────────────────────────────────────────────
 function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, onOpenUser }) {
+  const { hasPermission } = useAuth();
+  const canUploadAvatar = hasPermission("Avatar.Upload");
   const [members, setMembers]               = useState(null); // null = loading
   const [deleteConfirm, setDeleteConfirm]   = useState(false);
   const [deleting, setDeleting]             = useState(false);
@@ -218,7 +113,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
     setAvatarPreview(URL.createObjectURL(file));
     setAvatarUploading(true);
     try {
-      const result = await uploadDepartmentAvatar(file, node.companyId, node.id);
+      const result = await uploadDepartmentAvatar(file, node.companyId, node.id, node.avatarUrl);
       setFormAvatarUrl(result.downloadUrl);
     } catch {
       setAvatarPreview(null);
@@ -420,24 +315,26 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
               <button className="dm-form-close" onClick={() => setSubPanel(null)} aria-label="Close"><CloseIcon /></button>
             </div>
             <form className="dm-form-body" onSubmit={handleEdit}>
-              <div className="dm-form-field">
-                <label className="dm-form-label">Department Avatar</label>
-                <div className="dm-avatar-upload-area" onClick={() => avatarInputRef.current?.click()}>
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
-                  ) : (
-                    <div className="dm-avatar-placeholder">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                      </svg>
-                      <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
-                    </div>
-                  )}
+              {canUploadAvatar && (
+                <div className="dm-form-field">
+                  <label className="dm-form-label">Department Avatar</label>
+                  <div className="dm-avatar-upload-area" onClick={() => avatarInputRef.current?.click()}>
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
+                    ) : (
+                      <div className="dm-avatar-placeholder">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="3"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
+                      </div>
+                    )}
+                  </div>
+                  <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
                 </div>
-                <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
-              </div>
+              )}
               <div className="dm-form-field">
                 <label className="dm-form-label dm-form-label--required">Department Name *</label>
                 <input className="dm-form-input" value={formName} onChange={e => setFormName(e.target.value)} autoFocus />
@@ -695,6 +592,8 @@ function CreateUserPanel({ isSuperAdmin, preloadedDepts = null, defaultDeptId = 
 // ─── CreateDeptPanel ──────────────────────────────────────────────────────────
 function CreateDeptPanel({ preloadedDepts = null, companyId = null, defaultParentId = "", contextLabel = null, onSave, onClose }) {
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const canUploadAvatar = hasPermission("Avatar.Upload");
   const [name, setName]         = useState("");
   const [parentId, setParentId] = useState(defaultParentId);
   const [depts, setDepts]       = useState(preloadedDepts ?? []);
@@ -753,24 +652,26 @@ function CreateDeptPanel({ preloadedDepts = null, companyId = null, defaultParen
           <button className="hi-create-panel-close" onClick={onClose}>✕</button>
         </div>
         <form id="cd-form" className="hi-create-panel-body" onSubmit={handleSubmit}>
-          <div className="hi-form-field">
-            <label className="hi-form-label">Department Avatar *</label>
-            <div className="dm-avatar-upload-area" onClick={() => avatarRef.current?.click()}>
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
-              ) : (
-                <div className="dm-avatar-placeholder">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="3"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21 15 16 10 5 21"/>
-                  </svg>
-                  <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
-                </div>
-              )}
+          {canUploadAvatar && (
+            <div className="hi-form-field">
+              <label className="hi-form-label">Department Avatar *</label>
+              <div className="dm-avatar-upload-area" onClick={() => avatarRef.current?.click()}>
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
+                ) : (
+                  <div className="dm-avatar-placeholder">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="3"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
+                  </div>
+                )}
+              </div>
+              <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
             </div>
-            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
-          </div>
+          )}
           <div className="hi-form-field">
             <label className="hi-form-label">Department Name *</label>
             <input className="hi-form-input" value={name}
@@ -945,7 +846,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
   };
 
   // ─── User Row ──────────────────────────────────────────────────────────────
-  const renderUserRow = (node, companyName, deptName) => {
+  const renderUserRow = (node) => {
     if (deletedIds.has(node.id)) return null;
     const data = getNodeData(node);
     const isDeleting  = deletingIds.has(node.id);
@@ -988,7 +889,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
         {/* Info */}
         <div className="hi-user-info">
           <span className="hi-user-name"
-            onClick={() => onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName })}>
+            onClick={() => onOpenUser?.(node.id, data.name)}>
             <Highlight text={data.name} query={search} />
           </span>
           {data.positionName && <span className="hi-user-position">{data.positionName}</span>}
@@ -1025,7 +926,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
 
           {/* Open detail → */}
           <button className="hi-action-btn arrow" title="View details"
-            onClick={(e) => { e.stopPropagation(); onOpenUser ? onOpenUser(node.id, data.name) : openPanel("user", data, { companyName, deptName }); }}>
+            onClick={(e) => { e.stopPropagation(); onOpenUser?.(node.id, data.name); }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"/>
               <polyline points="12 5 19 12 12 19"/>
@@ -1098,7 +999,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
         {expanded && hasAny && (
           <>
             {subDepts.map(d => renderDeptNode(d, companyId, companyName, node.name))}
-            {deptUsers.map(u => renderUserRow(u, companyName, node.name))}
+            {deptUsers.map(u => renderUserRow(u))}
           </>
         )}
       </div>
@@ -1165,7 +1066,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
             {noDeptUsers.length > 0 && (
               <>
                 <div className="hi-no-dept-header">(No department)</div>
-                {noDeptUsers.map(u => renderUserRow(u, node.name, null))}
+                {noDeptUsers.map(u => renderUserRow(u))}
               </>
             )}
           </div>
@@ -1202,7 +1103,7 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
           {visNoDept.length > 0 && (
             <>
               <div className="hi-no-dept-header">(No department)</div>
-              {visNoDept.map(u => renderUserRow(u, adminCompany?.name, null))}
+              {visNoDept.map(u => renderUserRow(u))}
             </>
           )}
         </>
@@ -1278,16 +1179,6 @@ function HierarchyView({ isSuperAdmin, onOpenUser }) {
       <div className="hi-tree">{content}</div>
 
       {/* Detail panels */}
-      {panel?.type === "user" && (
-        <UserDetailPanel
-          user={panel.data}
-          companyName={panel.extra.companyName}
-          deptName={panel.extra.deptName}
-          closing={panelClosing}
-          onClose={closePanel}
-          onOpenUser={onOpenUser}
-        />
-      )}
       {panel?.type === "dept" && (
         <DeptDetailPanel
           node={panel.data}

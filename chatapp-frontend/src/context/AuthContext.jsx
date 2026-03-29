@@ -9,7 +9,7 @@
 // createContext: yeni bir "kanal" yaradır. null — default dəyər (Provider olmadıqda).
 // useState: React state hook — dəyər dəyişdikdə komponenti yenidən render edir.
 // useEffect: yan-təsirlər üçün hook — mount/unmount, dependency dəyişikliyi.
-import { createContext, useState, useEffect, useCallback, useMemo } from "react";
+import { createContext, useState, useEffect, useCallback, useMemo, useContext } from "react";
 
 // api.js-dən HTTP yardımçı funksiyalar
 // scheduleRefresh: token expire olmadan 5 dəq əvvəl refresh edir
@@ -92,12 +92,19 @@ function AuthProvider({ children }) {
     setUser(null); // user = null → ProtectedRoute /login-ə yönləndirir
   }, []);
 
+  // ─── hasPermission ───────────────────────────────────────────────────────────
+  // User-in permissions array-ində verilmiş permission-un olub-olmadığını yoxlayır
+  const hasPermission = useCallback(
+    (perm) => user?.permissions?.includes(perm) ?? false,
+    [user],
+  );
+
   // ─── AuthContext.Provider ────────────────────────────────────────────────────
   // value memoized — user/isLoading dəyişmədikdə yeni obyekt yaranmır
   // Bu, bütün useContext(AuthContext) consumer-lərinin lazımsız re-render-ini önləyir
   const value = useMemo(
-    () => ({ user, isLoading, login, logout }),
-    [user, isLoading, login, logout],
+    () => ({ user, isLoading, login, logout, hasPermission }),
+    [user, isLoading, login, logout, hasPermission],
   );
 
   return (
@@ -107,5 +114,11 @@ function AuthProvider({ children }) {
   );
 }
 
-// Named export: import { AuthContext, AuthProvider } from "..." ilə idxal edilir
-export { AuthContext, AuthProvider };
+// useAuth hook — useContext(AuthContext) wrapper
+function useAuth() {
+  return useContext(AuthContext);
+}
+
+// Named export: import { AuthContext, AuthProvider, useAuth } from "..." ilə idxal edilir
+// eslint-disable-next-line react-refresh/only-export-components
+export { AuthContext, AuthProvider, useAuth };

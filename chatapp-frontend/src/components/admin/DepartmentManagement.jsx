@@ -5,6 +5,7 @@ import {
   uploadDepartmentAvatar, getFileUrl,
 } from "../../services/api";
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
+import { useAuth } from "../../context/AuthContext";
 import "./DepartmentManagement.css";
 
 // ─── DeptDetailPanel ──────────────────────────────────────────────────────────
@@ -172,6 +173,8 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
 
 // ─── DepartmentManagement ─────────────────────────────────────────────────────
 function DepartmentManagement() {
+  const { hasPermission } = useAuth();
+  const canUploadAvatar = hasPermission("Avatar.Upload");
   const [depts, setDepts]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
@@ -307,7 +310,7 @@ function DepartmentManagement() {
     try {
       const companyId = activeDept?.companyId ?? depts[0]?.companyId;
       const departmentId = activeDept?.id ?? null;
-      const result = await uploadDepartmentAvatar(file, companyId, departmentId);
+      const result = await uploadDepartmentAvatar(file, companyId, departmentId, activeDept?.avatarUrl);
       setFormAvatarUrl(result.downloadUrl);
     } catch {
       setAvatarPreview(null);
@@ -575,27 +578,29 @@ function DepartmentManagement() {
               </button>
             </div>
             <form className="dm-form-body" onSubmit={handleSubmit}>
-              {/* Avatar upload */}
-              <div className="dm-form-field">
-                <label className="dm-form-label">
-                  Department Avatar{panel === "create" && <span className="dm-required"> *</span>}
-                </label>
-                <div className="dm-avatar-upload-area" onClick={() => avatarInputRef.current?.click()}>
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
-                  ) : (
-                    <div className="dm-avatar-placeholder">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                      </svg>
-                      <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
-                    </div>
-                  )}
+              {/* Avatar upload — yalnız Avatar.Upload permission varsa */}
+              {canUploadAvatar && (
+                <div className="dm-form-field">
+                  <label className="dm-form-label">
+                    Department Avatar{panel === "create" && <span className="dm-required"> *</span>}
+                  </label>
+                  <div className="dm-avatar-upload-area" onClick={() => avatarInputRef.current?.click()}>
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="preview" className="dm-avatar-preview" />
+                    ) : (
+                      <div className="dm-avatar-placeholder">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="3"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span>{avatarUploading ? "Uploading…" : "Click to upload"}</span>
+                      </div>
+                    )}
+                  </div>
+                  <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
                 </div>
-                <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarChange} />
-              </div>
+              )}
               <div className="dm-form-field">
                 <label className="dm-form-label dm-form-label--required">Department Name *</label>
                 <input

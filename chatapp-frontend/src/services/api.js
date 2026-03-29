@@ -419,13 +419,15 @@ function getAllPermissions() { return apiGet("/api/users/permissions"); }
 // ─── Files Storage API ────────────────────────────────────────────────────────
 function getUserStorageStats(userId) { return apiGet(`/api/files/storage/${userId}`); }
 
-// Department avatarı yükləyir — companyId mütləq, departmentId mövcud olduqda path-ə daxil edilir
-async function uploadDepartmentAvatar(file, companyId, departmentId = null) {
+// Department avatarı yükləyir — companyId mütləq, departmentId+currentAvatarUrl opsional
+async function uploadDepartmentAvatar(file, companyId, departmentId = null, currentAvatarUrl = null) {
   const formData = new FormData();
   formData.append("file", file);
-  const url = departmentId
-    ? `/api/files/upload/department-avatar/${companyId}?departmentId=${departmentId}`
-    : `/api/files/upload/department-avatar/${companyId}`;
+  const params = new URLSearchParams();
+  if (departmentId) params.set("departmentId", departmentId);
+  if (currentAvatarUrl) params.set("currentAvatarUrl", currentAvatarUrl);
+  const qs = params.toString();
+  const url = `/api/files/upload/department-avatar/${companyId}${qs ? "?" + qs : ""}`;
   return apiUpload(url, formData);
 }
 

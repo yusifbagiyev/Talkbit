@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { getUserProfile, getFileUrl, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, apiUpload, apiPut, activateUser, deactivateUser, assignEmployeeToDepartment } from "../services/api";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
 import "./UserProfilePanel.css";
 
 // ─── Field — görüntüləmə rejimi ──────────────────────────────────────────────
@@ -415,8 +416,10 @@ function UserProfilePanel({ userId, currentUserId, isAdmin, onClose, onStartChat
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef(null);
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const canUploadAvatar = hasPermission("Avatar.Upload");
 
-  const handleAvatarClick = () => { if (canEdit) fileInputRef.current?.click(); };
+  const handleAvatarClick = () => { if (canEdit && canUploadAvatar) fileInputRef.current?.click(); };
 
   const handleFileSelect = (e) => {
     const f = e.target.files?.[0];
@@ -444,9 +447,11 @@ function UserProfilePanel({ userId, currentUserId, isAdmin, onClose, onStartChat
       const form = new FormData();
       form.append("File", croppedFile);
       const targetId = isAdmin && !isOwn ? profile.id : null;
-      const uploadEndpoint = targetId
-        ? `/api/files/upload/profile-picture?targetUserId=${targetId}`
-        : "/api/files/upload/profile-picture";
+      const oldAvatar = profile.avatarUrl ?? "";
+      const params = new URLSearchParams();
+      if (targetId) params.set("targetUserId", targetId);
+      if (oldAvatar) params.set("currentAvatarUrl", oldAvatar);
+      const uploadEndpoint = `/api/files/upload/profile-picture${params.toString() ? "?" + params : ""}`;
       const result = await apiUpload(uploadEndpoint, form);
 
       // Avatar URL-ni identity modulunda yenilə
@@ -967,7 +972,7 @@ function UserProfilePanel({ userId, currentUserId, isAdmin, onClose, onStartChat
                 ) : (
                   <div className="upp-avatar-skeleton" />
                 )}
-                {canEdit && (
+                {canEdit && canUploadAvatar && (
                   <div className="upp-avatar-upload-overlay">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <span>Upload a photo</span>

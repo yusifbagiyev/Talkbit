@@ -2,6 +2,7 @@
 import { useRef, useState, useEffect, useCallback, memo, lazy, Suspense } from "react";
 import { MESSAGE_MAX_LENGTH, MAX_FILE_SIZE, formatFileSize, isAllowedFileExtension } from "../utils/chatUtils";
 import { useToast } from "../context/ToastContext";               // Toast notification sistemi
+import { useAuth } from "../context/AuthContext";                 // Permission yoxlaması
 import { renderTextWithEmojis } from "../utils/emojiConstants";  // Emoji → Apple img çevirici
 import MentionPanel from "./MentionPanel";                       // @ mention dropdown paneli
 import FilePreviewPanel from "./FilePreviewPanel";               // Fayl preview modal
@@ -43,6 +44,8 @@ function ChatInputArea({
   selectedFiles, onFilesSelected, onRemoveFile, onReorderFiles, onClearFiles, onSendFiles,
 }) {
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const canUploadFiles = hasPermission("Files.Upload");
   const mirrorRef = useRef(null);
   const fileInputRef = useRef(null);       // Gizli <input type="file"> referansı
   const attachMenuRef = useRef(null);      // Attach dropdown menu referansı (click-outside üçün)
@@ -298,8 +301,8 @@ function ChatInputArea({
 
         {/* Input sahəsi — Bitrix layout: attach sol yuxarı, butonlar sağ aşağı */}
         <div className="message-input-wrapper">
-          {/* Attach butonu — sol yuxarı (absolute) */}
-          <button
+          {/* Attach butonu — sol yuxarı (absolute), yalnız Files.Upload permission varsa */}
+          {canUploadFiles && <button
             ref={attachBtnRef}
             className={`input-icon-btn attach-btn${attachMenuOpen ? " active" : ""}`}
             title="Attach"
@@ -315,7 +318,7 @@ function ChatInputArea({
             >
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
             </svg>
-          </button>
+          </button>}
 
           {/* Attach dropdown menu — ds-dropdown pattern */}
           {attachMenuOpen && (
