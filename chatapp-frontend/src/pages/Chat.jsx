@@ -711,22 +711,24 @@ function Chat() {
     setShouldScrollBottom(false);
     programmaticScrollRef.current = true;
 
-    // useLayoutEffect-də DOM artıq commit olunub — birbaşa scroll et
+    // Birbaşa scroll — DOM artıq commit olunub
     scrollToBottom();
-    // Fallback — şəkillər/lazy content yüklənə bilər
-    setTimeout(scrollToBottom, 150);
-    setTimeout(() => {
-      programmaticScrollRef.current = false;
-    }, 400);
+    // rAF — paint-dən sonra ChatStatusBar + lazy content-i tutur, double scroll yoxdur
+    requestAnimationFrame(() => {
+      scrollToBottom();
+      setTimeout(() => {
+        programmaticScrollRef.current = false;
+      }, 200);
+    });
   }, [shouldScrollBottom, scrollToBottom]);
 
-  // Mesajlar dəyişəndə (echo replacement, status update) aşağıda idik → aşağıda qal
-  // useLayoutEffect — paint-dən ƏVVƏL scroll düzəldir, istifadəçi sıçramanı görməz
+  // Mesajlar dəyişəndə (echo replacement, status update, edit, delete) — yalnız kiçik gap
+  // Yeni mesaj scroll-u artıq useChatSignalR + shouldScrollBottom ilə idarə olunur
   useLayoutEffect(() => {
     const area = messagesAreaRef.current;
-    if (!area) return;
+    if (!area || programmaticScrollRef.current) return;
     const gap = area.scrollHeight - area.scrollTop - area.clientHeight;
-    if (gap > 0 && gap < 80) {
+    if (gap > 0 && gap < 40) {
       area.scrollTop = area.scrollHeight;
     }
   }, [messages]);
