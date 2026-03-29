@@ -72,9 +72,12 @@ namespace ChatApp.Modules.DirectMessages.Api.Controllers
 
             var user1CompanyIdClaim = User.FindFirst("companyId")?.Value;
             Guid.TryParse(user1CompanyIdClaim, out var user1CompanyId);
+            var isSuperAdmin = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "SuperAdmin";
 
-            // User2-nin şirkətini yoxla
-            var user2Result = await _mediator.Send(new GetUserQuery(request.OtherUserId), cancellationToken);
+            // User2-ni company isolation ilə yoxla
+            var user2Result = await _mediator.Send(
+                new GetUserQuery(request.OtherUserId, user1CompanyId, isSuperAdmin),
+                cancellationToken);
             if (user2Result.IsFailure || user2Result.Value is null)
                 return NotFound(new { error = "User not found" });
 

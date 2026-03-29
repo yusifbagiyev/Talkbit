@@ -138,7 +138,8 @@ namespace ChatApp.Modules.Channels.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetPublicChannels(CancellationToken cancellationToken)
         {
-            var result = await _mediator.Send(new GetPublicChannelsQuery(), cancellationToken);
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
+            var result = await _mediator.Send(new GetPublicChannelsQuery(companyId, isSuperAdmin), cancellationToken);
 
             if (result.IsFailure)
                 return BadRequest(new { error = result.Error });
@@ -167,8 +168,9 @@ namespace ChatApp.Modules.Channels.Api.Controllers
             if (userId == Guid.Empty)
                 return Unauthorized();
 
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
             var result = await _mediator.Send(
-                new SearchChannelsQuery(query, userId),
+                new SearchChannelsQuery(query, userId, companyId, isSuperAdmin),
                 cancellationToken);
 
             if (result.IsFailure)
@@ -194,8 +196,9 @@ namespace ChatApp.Modules.Channels.Api.Controllers
             if (string.IsNullOrWhiteSpace(name))
                 return Ok(new CheckChannelNameResult(false, "Channel name cannot be empty"));
 
+            var (companyId, _) = GetCompanyClaims();
             var result = await _mediator.Send(
-                new CheckChannelNameQuery(name),
+                new CheckChannelNameQuery(name, companyId),
                 cancellationToken);
 
             if (result.IsFailure)
@@ -443,6 +446,13 @@ namespace ChatApp.Modules.Channels.Api.Controllers
             }
 
             return userId;
+        }
+
+        private (Guid? companyId, bool isSuperAdmin) GetCompanyClaims()
+        {
+            var companyId = Guid.TryParse(User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+            var isSuperAdmin = User.FindFirst(ClaimTypes.Role)?.Value == "SuperAdmin";
+            return (companyId, isSuperAdmin);
         }
     }
 }

@@ -166,8 +166,9 @@ namespace ChatApp.Modules.Channels.Api.Controllers
             if (userId == Guid.Empty)
                 return Unauthorized();
 
+            var (companyId, isSuperAdmin) = GetCompanyClaims();
             var result = await _mediator.Send(
-                new JoinChannelCommand(channelId, userId),
+                new JoinChannelCommand(channelId, userId, companyId, isSuperAdmin),
                 cancellationToken);
 
             if (result.IsFailure)
@@ -216,6 +217,13 @@ namespace ChatApp.Modules.Channels.Api.Controllers
             }
 
             return userId;
+        }
+
+        private (Guid? companyId, bool isSuperAdmin) GetCompanyClaims()
+        {
+            var companyId = Guid.TryParse(User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+            var isSuperAdmin = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value == "SuperAdmin";
+            return (companyId, isSuperAdmin);
         }
     }
 }

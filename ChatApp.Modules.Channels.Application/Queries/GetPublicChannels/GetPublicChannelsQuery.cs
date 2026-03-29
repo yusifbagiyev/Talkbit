@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Channels.Application.Queries.GetPublicChannels
 {
-    public record GetPublicChannelsQuery() : IRequest<Result<List<ChannelDto>>>;
+    public record GetPublicChannelsQuery(
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
+    ) : IRequest<Result<List<ChannelDto>>>;
 
     public class GetPublicChannelsQueryHandler : IRequestHandler<GetPublicChannelsQuery, Result<List<ChannelDto>>>
     {
@@ -27,7 +30,8 @@ namespace ChatApp.Modules.Channels.Application.Queries.GetPublicChannels
         {
             try
             {
-                var channelDtos = await _unitOfWork.Channels.GetPublicChannelsAsync(cancellationToken);
+                var channelDtos = await _unitOfWork.Channels.GetPublicChannelsAsync(
+                    request.CallerCompanyId, request.IsSuperAdmin, cancellationToken);
 
                 return Result.Success(channelDtos);
             }

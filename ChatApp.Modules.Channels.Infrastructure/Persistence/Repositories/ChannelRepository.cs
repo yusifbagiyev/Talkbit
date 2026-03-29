@@ -341,10 +341,16 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             return PagedResult<ChannelDto>.Create(items, pageNumber, pageSize, totalCount);
         }
 
-        public async Task<List<ChannelDto>> GetPublicChannelsAsync(CancellationToken cancellationToken = default)
+        public async Task<List<ChannelDto>> GetPublicChannelsAsync(
+            Guid? callerCompanyId = null, bool isSuperAdmin = false,
+            CancellationToken cancellationToken = default)
         {
-            return await _context.Channels
-                .Where(c => c.Type == ChannelType.Public)
+            var query = _context.Channels.Where(c => c.Type == ChannelType.Public);
+
+            if (!isSuperAdmin && callerCompanyId.HasValue)
+                query = query.Where(c => c.CompanyId == callerCompanyId);
+
+            return await query
                 .OrderByDescending(c => c.CreatedAtUtc)
                 .Select(c => new ChannelDto(
                     c.Id, c.Name, c.Description, c.Type, c.CreatedBy,

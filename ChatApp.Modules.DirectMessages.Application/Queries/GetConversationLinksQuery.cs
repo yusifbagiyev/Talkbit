@@ -42,6 +42,10 @@ namespace ChatApp.Modules.DirectMessages.Application.Queries
                 if (conversation == null)
                     return Result.Failure<List<DirectMessageDto>>("You are not a participant in this conversation");
 
+                // İstifadəçinin conversation-da iştirakçı olduğunu yoxla
+                if (conversation.User1Id != request.RequestedBy && conversation.User2Id != request.RequestedBy)
+                    return Result.Failure<List<DirectMessageDto>>("Access denied — you are not a participant of this conversation");
+
                 var links = await _unitOfWork.Messages.GetConversationLinksAsync(
                     request.ConversationId,
                     request.PageSize,

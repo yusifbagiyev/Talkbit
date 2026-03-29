@@ -10,7 +10,10 @@ namespace ChatApp.Modules.Channels.Application.Queries.CheckChannelName
     /// available = true → ad istifadə oluna bilər
     /// available = false + error → niyə istifadə oluna bilmir
     /// </summary>
-    public record CheckChannelNameQuery(string Name) : IRequest<Result<CheckChannelNameResult>>;
+    public record CheckChannelNameQuery(
+        string Name,
+        Guid? CallerCompanyId = null
+    ) : IRequest<Result<CheckChannelNameResult>>;
 
     public record CheckChannelNameResult(bool Available, string? Error = null);
 
@@ -52,8 +55,10 @@ namespace ChatApp.Modules.Channels.Application.Queries.CheckChannelName
                 return Result.Success(new CheckChannelNameResult(false, ex.Message));
             }
 
-            // Unikallıq yoxlaması
-            var existing = await _unitOfWork.Channels.GetByNameAsync(name, cancellationToken);
+            // Unikallıq yoxlaması — company daxilində
+            var existing = request.CallerCompanyId.HasValue
+                ? await _unitOfWork.Channels.GetByNameAndCompanyAsync(name, request.CallerCompanyId.Value, cancellationToken)
+                : await _unitOfWork.Channels.GetByNameAsync(name, cancellationToken);
             if (existing != null)
                 return Result.Success(new CheckChannelNameResult(false, "A channel with this name already exists"));
 

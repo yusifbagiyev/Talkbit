@@ -43,6 +43,10 @@ namespace ChatApp.Modules.DirectMessages.Application.Queries
                     return Result.Failure<List<DirectMessageDto>>("Conversation not found");
                 }
 
+                // İstifadəçinin conversation-da iştirakçı olduğunu yoxla
+                if (conversation.User1Id != request.RequestedBy && conversation.User2Id != request.RequestedBy)
+                    return Result.Failure<List<DirectMessageDto>>("Access denied — you are not a participant of this conversation");
+
                 // Get messages after date
                 var messages = await _unitOfWork.Messages.GetMessagesAfterDateAsync(
                     request.ConversationId,

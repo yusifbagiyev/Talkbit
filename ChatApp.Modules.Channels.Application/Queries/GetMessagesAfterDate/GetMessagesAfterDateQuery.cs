@@ -43,11 +43,13 @@ namespace ChatApp.Modules.Channels.Application.Queries.GetMessagesAfterDate
                     return Result.Failure<List<ChannelMessageDto>>("Channel not found");
                 }
 
-                // Üzvün tarixçə görünürlüyünü yoxla
+                // Üzv yoxlaması — yalnız üzvlər mesajları görə bilər
                 var member = await _unitOfWork.ChannelMembers.GetMemberAsync(
                     request.ChannelId, request.RequestedBy, cancellationToken);
-                DateTime? visibleFromUtc = (member != null && !member.CanViewHistory)
-                    ? member.JoinedAtUtc : null;
+                if (member == null)
+                    return Result.Failure<List<ChannelMessageDto>>("You are not a member of this channel");
+
+                DateTime? visibleFromUtc = !member.CanViewHistory ? member.JoinedAtUtc : null;
 
                 // Get messages after date
                 var messages = await _unitOfWork.ChannelMessages.GetMessagesAfterDateAsync(

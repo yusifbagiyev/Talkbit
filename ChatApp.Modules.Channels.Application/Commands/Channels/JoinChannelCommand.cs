@@ -17,7 +17,9 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
     /// </summary>
     public record JoinChannelCommand(
         Guid ChannelId,
-        Guid UserId
+        Guid UserId,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result>;
 
 
@@ -72,9 +74,12 @@ namespace ChatApp.Modules.Channels.Application.Commands.Channels
 
                 // Only public channels can be self-joined
                 if (channel.Type != ChannelType.Public)
-                {
                     return Result.Failure("Only public channels can be joined. Private channels require an invitation.");
-                }
+
+                // Company isolation — fərqli company-nin channel-ına qoşulmaq olmaz
+                if (!request.IsSuperAdmin && request.CallerCompanyId.HasValue
+                    && channel.CompanyId != request.CallerCompanyId)
+                    return Result.Failure("Cannot join a channel from another company");
 
                 // Check if already a member
                 var existingMember = await _unitOfWork.ChannelMembers.GetMemberAsync(

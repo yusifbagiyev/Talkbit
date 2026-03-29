@@ -9,7 +9,9 @@ namespace ChatApp.Modules.Channels.Application.Queries.SearchChannels
 {
     public record SearchChannelsQuery(
         string SearchTerm,
-        Guid RequestedBy
+        Guid RequestedBy,
+        Guid? CallerCompanyId = null,
+        bool IsSuperAdmin = false
     ) : IRequest<Result<List<ChannelDto>>>;
 
     public class SearchChannelsQueryHandler : IRequestHandler<SearchChannelsQuery, Result<List<ChannelDto>>>
@@ -36,8 +38,9 @@ namespace ChatApp.Modules.Channels.Application.Queries.SearchChannels
                     return Result.Success(new List<ChannelDto>());
                 }
 
-                // Get all public channels (DTO projection — Members yüklənmir)
-                var publicChannels = await _unitOfWork.Channels.GetPublicChannelsAsync(cancellationToken);
+                // Public channels — company-scoped
+                var publicChannels = await _unitOfWork.Channels.GetPublicChannelsAsync(
+                    request.CallerCompanyId, request.IsSuperAdmin, cancellationToken);
 
                 // Get user's channels (includes private ones they're member of)
                 var userChannels = await _unitOfWork.Channels.GetUserChannelsAsync(
