@@ -49,8 +49,7 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
             RuleFor(x => x.UploadedBy)
                 .NotEmpty().WithMessage("Uploader ID is required");
 
-            RuleFor(x => x.CompanyId)
-                .NotEmpty().WithMessage("Company ID is required");
+            // CompanyId nullable — SuperAdmin-in companyId-si yoxdur, fayllar shared/ altına düşür
         }
     }
 
@@ -299,7 +298,7 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
         {
             var companySegment = companyId.HasValue
                 ? $"company/{companyId}"
-                : throw new InvalidOperationException("CompanyId is required for file storage");
+                : "shared";
 
             // 1. Company avatar
             if (isCompanyAvatar)
