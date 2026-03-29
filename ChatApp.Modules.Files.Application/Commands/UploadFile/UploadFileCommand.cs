@@ -171,14 +171,16 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
 
                 _logger?.LogInformation("File {FileName} is clean - proceeding with upload", uniqueFileName);
 
-                // Create file metadata
+                // DB-də yalnız relative path saxlanılır — full disk path runtime-da construct olunur
+                var relativePath = $"{directory}/{uniqueFileName}".Replace("\\", "/");
+
                 var fileMetadata = new FileMetadata(
                     uniqueFileName,
                     originalFileName,
                     contentType,
                     request.File.Length,
                     fileType,
-                    tempStoragePath,
+                    relativePath,
                     request.UploadedBy,
                     request.CompanyId);
 
@@ -217,10 +219,9 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
                     "File {FileId} uploaded succesfully",
                     fileMetadata.Id);
 
-                // Generate URL from directory and filename with API base URL
+                // Download URL — /uploads/ prefix ilə
                 var apiBaseUrl = _configuration["ApiBaseUrl"] ?? "http://localhost:7000";
-                var relativePath = $"/uploads/{directory}/{uniqueFileName}".Replace("\\", "/");
-                var downloadUrl = $"{apiBaseUrl.TrimEnd('/')}{relativePath}";
+                var downloadUrl = $"{apiBaseUrl.TrimEnd('/')}/uploads/{relativePath}";
 
                 var result = new FileUploadResult(
                     fileMetadata.Id,

@@ -1,11 +1,11 @@
-﻿using ChatApp.Modules.Files.Application.Interfaces;
+using ChatApp.Modules.Files.Application.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace ChatApp.Modules.Files.Infrastructure.Services
 {
-    public class LocalFileStorageService:IFileStorageService
+    public class LocalFileStorageService : IFileStorageService
     {
         private readonly string _baseStoragePath;
         private readonly ILogger<LocalFileStorageService> _logger;
@@ -19,7 +19,6 @@ namespace ChatApp.Modules.Files.Infrastructure.Services
 
             _logger = logger;
 
-            // Ensure base directory exists
             if (!Directory.Exists(_baseStoragePath))
             {
                 Directory.CreateDirectory(_baseStoragePath);
@@ -27,7 +26,10 @@ namespace ChatApp.Modules.Files.Infrastructure.Services
             }
         }
 
-
+        /// <summary>
+        /// Faylı diskə saxlayır. Return: absolute full path (disk I/O üçün).
+        /// DB-yə yazılmır — handler relative path yaradır.
+        /// </summary>
         public async Task<string> SaveFileAsync(
             IFormFile file,
             string fileName,
@@ -36,16 +38,12 @@ namespace ChatApp.Modules.Files.Infrastructure.Services
         {
             try
             {
-                // Create subdirectory if it doesnt exist
-                var fullDirectoryPath=Path.Combine(_baseStoragePath, directory);
+                var fullDirectoryPath = Path.Combine(_baseStoragePath, directory);
                 if (!Directory.Exists(fullDirectoryPath))
-                {
                     Directory.CreateDirectory(fullDirectoryPath);
-                }
 
-                var fullPath=Path.Combine(fullDirectoryPath, fileName);
+                var fullPath = Path.Combine(fullDirectoryPath, fileName);
 
-                // Save file
                 using var stream = new FileStream(fullPath, FileMode.Create);
                 await file.CopyToAsync(stream, cancellationToken);
 
@@ -59,32 +57,32 @@ namespace ChatApp.Modules.Files.Infrastructure.Services
             }
         }
 
-
         public async Task<Stream> GetFileStreamAsync(
             string storagePath,
             CancellationToken cancellationToken = default)
         {
-            if (!File.Exists(storagePath))
-            {
+            var fullPath = ResolvePath(storagePath);
+
+            if (!File.Exists(fullPath))
                 throw new FileNotFoundException($"File not found: {storagePath}");
-            }
 
             var memoryStream = new MemoryStream();
-            using var fileStream = new FileStream(storagePath, FileMode.Open, FileAccess.Read);
+            using var fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
             await fileStream.CopyToAsync(memoryStream, cancellationToken);
 
             memoryStream.Position = 0;
             return memoryStream;
         }
 
-
-        public Task DeleteFileAsync(string storagePath,CancellationToken cancellationToken = default)
+        public Task DeleteFileAsync(string storagePath, CancellationToken cancellationToken = default)
         {
             try
             {
-                if (File.Exists(storagePath))
+                var fullPath = ResolvePath(storagePath);
+
+                if (File.Exists(fullPath))
                 {
-                    File.Delete(storagePath);
+                    File.Delete(fullPath);
                     _logger?.LogInformation("File deleted: {Path}", storagePath);
                 }
             }
@@ -97,23 +95,31 @@ namespace ChatApp.Modules.Files.Infrastructure.Services
             return Task.CompletedTask;
         }
 
-
-
-        public Task<bool> FileExistsAsync(string storagePath,CancellationToken cancellationToken = default)
+        public Task<bool> FileExistsAsync(string storagePath, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(File.Exists(storagePath));
+            var fullPath = ResolvePath(storagePath);
+            return Task.FromResult(File.Exists(fullPath));
         }
-
 
         public Task<long> GetFileSizeAsync(string storagePath, CancellationToken cancellationToken = default)
         {
-            if (!File.Exists(storagePath))
-            {
-                throw new FileNotFoundException($"File not found: {storagePath}");
-            }
+            var fullPath = ResolvePath(storagePath);
 
-            var fileInfo = new FileInfo(storagePath);
-            return Task.FromResult(fileInfo.Length);
+            if (!File.Exists(fullPath))
+                throw new FileNotFoundException($"File not found: {storagePath}");
+
+            return Task.FromResult(new FileInfo(fullPath).Length);
+        }
+
+        /// <summary>
+        /// Relative path → absolute disk path. Əgər path artıq absolute-dirsa (köhnə data), olduğu kimi qaytarır.
+        /// </summary>
+        private string ResolvePath(string storagePath)
+        {
+            if (Path.IsPathRooted(storagePath))
+                return storagePath;
+
+            return Path.Combine(_baseStoragePath, storagePath);
         }
     }
 }
