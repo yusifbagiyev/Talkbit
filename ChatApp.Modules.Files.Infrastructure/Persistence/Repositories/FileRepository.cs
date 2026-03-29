@@ -174,7 +174,8 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence.Repositories
         {
             // Bütün aggregasiya DB-də edilir — memory-ə heç bir sətir çəkilmir
             var result = await _context.FileMetadata
-                .Where(f => f.UploadedBy == userId && !f.IsDeleted)
+                .Where(f => f.UploadedBy == userId && !f.IsDeleted
+                          && !f.StoragePath.Contains("/departments/"))
                 .GroupBy(_ => 1)
                 .Select(g => new
                 {

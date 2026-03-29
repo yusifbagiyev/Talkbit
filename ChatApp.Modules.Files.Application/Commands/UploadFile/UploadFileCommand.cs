@@ -297,37 +297,41 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
             bool isDepartmentAvatar = false,
             Guid? departmentId = null)
         {
-            var companySegment = $"company/{companyId}";
+            var companySegment = companyId.HasValue
+                ? $"company/{companyId}"
+                : throw new InvalidOperationException("CompanyId is required for file storage");
 
-            // Şirkət avatarı: company/{companyId}/avatar/
+            // 1. Company avatar
             if (isCompanyAvatar)
                 return $"{companySegment}/avatar";
 
-            // Department avatarı: company/{companyId}/departments/{departmentId}/ (və ya /departments/avatars/ yeni dept üçün)
+            // 2. Department avatar
             if (isDepartmentAvatar)
                 return departmentId.HasValue
                     ? $"{companySegment}/departments/{departmentId}"
                     : $"{companySegment}/departments/avatars";
 
-            // İstifadəçi profil şəkli: company/{companyId}/users/{userId}/avatar/
+            // 3. User profile picture
             if (isProfilePicture)
                 return $"{companySegment}/users/{uploadedBy}/avatar";
 
-            // Kanal avatarı: company/{companyId}/users/{userId}/avatar/
-            if (isChannelAvatar)
+            // 4. Channel avatar
+            if (isChannelAvatar && channelAvatarTargetId.HasValue)
                 return $"{companySegment}/users/{uploadedBy}/avatar";
 
-            // Media (şəkil/video/audio) vs fayl (sənəd/arxiv/digər)
+            // 5. Media (image/video/audio) vs File (document/other)
             var isMedia = fileType == FileType.Image || fileType == FileType.Video || fileType == FileType.Audio;
-            var typeSegment = isMedia ? "media" : "files";
+            var typeSegment = isMedia ? "images" : "files";
 
+            // 6. Channel message faylları
             if (channelId.HasValue)
-                return $"{companySegment}/users/{uploadedBy}/{typeSegment}/channel/{channelId}";
+                return $"{companySegment}/users/{uploadedBy}/{typeSegment}/channel_messages/{channelId}";
 
+            // 7. Direct message faylları
             if (conversationId.HasValue)
                 return $"{companySegment}/users/{uploadedBy}/{typeSegment}/direct_messages/{conversationId}";
 
-            // Kontekstsiz fayllar → drive
+            // 8. Kontekstsiz — drive (gələcək personal storage)
             return $"{companySegment}/users/{uploadedBy}/drive";
         }
     }

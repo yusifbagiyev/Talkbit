@@ -65,6 +65,9 @@ namespace ChatApp.Modules.Files.Api.Controllers
 
             var (companyId, companySlug) = GetCompanyClaims();
 
+            if (!companyId.HasValue || companyId == Guid.Empty)
+                return BadRequest(new { error = "Company context is required for file upload" });
+
             var result = await _mediator.Send(
                 new UploadFileCommand(
                     request.File,
