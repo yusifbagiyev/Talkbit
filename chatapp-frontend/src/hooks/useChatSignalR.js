@@ -96,10 +96,8 @@ export default function useChatSignalR(
           if (matchedOptId) {
             return prev.map((m) => m.id === matchedOptId ? enrichedMsg : m);
           }
-          // User aşağıdadırsa, hər yeni mesajda auto-scroll et (öz+başqasının)
-          if (!showScrollDownRef?.current) {
-            setShouldScrollBottom(true);
-          }
+          // Yeni mesaj əlavə et — scroll Chat.jsx useLayoutEffect ilə idarə olunur
+          // (ayrı setShouldScrollBottom çağırmaq frame gap yaradır → sıçrama)
           return [enrichedMsg, ...prev];
         });
 

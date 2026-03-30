@@ -722,13 +722,15 @@ function Chat() {
     });
   }, [shouldScrollBottom, scrollToBottom]);
 
-  // Mesajlar dəyişəndə (echo replacement, status update, edit, delete) — yalnız kiçik gap
-  // Yeni mesaj scroll-u artıq useChatSignalR + shouldScrollBottom ilə idarə olunur
+  // Mesajlar dəyişəndə — aşağıdadırsa scroll et (sıçrama yoxdur)
+  // useLayoutEffect paint-dən ƏVVƏL işləyir → frame gap yoxdur → sıçrama yoxdur
+  // showScrollDownRef guard — yuxarı scroll olunubsa (buton varsa) scroll etmə
   useLayoutEffect(() => {
     const area = messagesAreaRef.current;
     if (!area || programmaticScrollRef.current) return;
+    if (showScrollDownRef.current) return; // yuxarıdadır — müdaxilə etmə
     const gap = area.scrollHeight - area.scrollTop - area.clientHeight;
-    if (gap > 0 && gap < 40) {
+    if (gap > 0) {
       area.scrollTop = area.scrollHeight;
     }
   }, [messages]);

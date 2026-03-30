@@ -14,7 +14,7 @@
 
 /* Yalnız yeni gələn mesajlar üçün animasiya — JS tərəfindən class əlavə edilir */
 .message-row.new-message {
-  animation: messageFadeIn 0.2s ease-out;
+  animation: messageFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .message-row.own {
