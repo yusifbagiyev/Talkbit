@@ -31,6 +31,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetPositions
                         p.Description,
                         p.DepartmentId,
                         p.Department != null ? p.Department.Name : null,
+                        p.Employees.Count,
                         p.CreatedAtUtc))
                     .AsNoTracking()
                     .ToListAsync(cancellationToken);

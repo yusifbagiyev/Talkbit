@@ -375,6 +375,25 @@ function DepartmentManagement() {
     return depts.filter(d => d.name.toLowerCase().includes(q));
   }, [treeOrdered, depts, search, isVisible]);
 
+  // Statistika
+  const stats = useMemo(() => {
+    const rootCount = depts.filter(d => !d.parentDepartmentId).length;
+    const withHead = depts.filter(d => d.headOfDepartmentId).length;
+    return { total: depts.length, root: rootCount, withHead, withoutHead: depts.length - withHead };
+  }, [depts]);
+
+  // Hamısını aç/bağla
+  const expandAll = useCallback(() => setCollapsed(new Set()), []);
+  const collapseAll = useCallback(() => {
+    setCollapsed(new Set(depts.filter(d => hasChildren(d.id)).map(d => d.id)));
+  }, [depts, hasChildren]);
+
+  // Hər sətir üçün tree connector məlumatları
+  const isLastChild = useCallback((dept) => {
+    const siblings = depts.filter(d => d.parentDepartmentId === dept.parentDepartmentId);
+    return siblings[siblings.length - 1]?.id === dept.id;
+  }, [depts]);
+
   // Detail panel
   const openDetailPanel = useCallback((dept) => {
     setDetailDept(dept);
@@ -404,8 +423,8 @@ function DepartmentManagement() {
     }
   }, [activeDept, depts]);
 
-  const openCreatePanel = useCallback(() => {
-    setFormName(""); setFormParentId(""); setFormError("");
+  const openCreatePanel = useCallback((parentId) => {
+    setFormName(""); setFormParentId(parentId ?? ""); setFormError("");
     setFormAvatarUrl(null); setAvatarPreview(null);
     setActiveDept(null);
     setPanel("create");
@@ -477,6 +496,18 @@ function DepartmentManagement() {
         <div className="dm-toolbar-left">
           <h2 className="dm-section-title">Departments</h2>
           <span className="dm-count">{depts.length}</span>
+          <div className="dm-expand-controls">
+            <button className="dm-expand-btn" onClick={expandAll} title="Expand all">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <button className="dm-expand-btn" onClick={collapseAll} title="Collapse all">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="dm-toolbar-right">
           <div className="dm-search-wrap">
@@ -490,7 +521,30 @@ function DepartmentManagement() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <button className="dm-btn dm-btn-primary" onClick={openCreatePanel}>+ New Department</button>
+          <button className="dm-btn dm-btn-primary" onClick={() => openCreatePanel("")}>+ New Department</button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="dm-stats">
+        <div className="dm-stat-item">
+          <span className="dm-stat-num">{stats.total}</span>
+          <span className="dm-stat-label">Total</span>
+        </div>
+        <div className="dm-stat-divider" />
+        <div className="dm-stat-item">
+          <span className="dm-stat-num">{stats.root}</span>
+          <span className="dm-stat-label">Root</span>
+        </div>
+        <div className="dm-stat-divider" />
+        <div className="dm-stat-item dm-stat-item--success">
+          <span className="dm-stat-num">{stats.withHead}</span>
+          <span className="dm-stat-label">With Head</span>
+        </div>
+        <div className="dm-stat-divider" />
+        <div className="dm-stat-item dm-stat-item--warning">
+          <span className="dm-stat-num">{stats.withoutHead}</span>
+          <span className="dm-stat-label">No Head</span>
         </div>
       </div>
 
@@ -513,7 +567,7 @@ function DepartmentManagement() {
                 <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
               </svg>
               <p>No departments yet.</p>
-              <button className="dm-btn dm-btn-primary" onClick={openCreatePanel}>
+              <button className="dm-btn dm-btn-primary" onClick={() => openCreatePanel("")}>
                 → Create your first department
               </button>
             </div>
@@ -527,8 +581,15 @@ function DepartmentManagement() {
 
             return (
               <div key={dept.id}
-                className={`dm-dept-row${isRowDeleteConfirm ? " dm-dept-row--confirm" : ""}`}
+                className={`dm-dept-row${isRowDeleteConfirm ? " dm-dept-row--confirm" : ""}${level === 0 ? " dm-dept-row--root" : ""}${isLastChild(dept) ? " dm-dept-row--last-child" : ""}`}
                 style={{ paddingLeft: `${level * 24 + 12}px` }}>
+                {/* Tree connector lines */}
+                {level > 0 && (
+                  <div className="dm-tree-connector" style={{ left: `${(level - 1) * 24 + 20}px` }}>
+                    <div className={`dm-tree-vert${isLastChild(dept) ? " dm-tree-vert--last" : ""}`} />
+                    <div className="dm-tree-horiz" />
+                  </div>
+                )}
 
                 {!isLeaf ? (
                   <button className={`dm-chevron${open ? " dm-chevron--open" : ""}`}
@@ -567,6 +628,12 @@ function DepartmentManagement() {
                     </span>
 
                     <div className="dm-row-actions">
+                      <button className="dm-action-btn dm-action-btn--add" title="Add sub-department"
+                        onClick={() => openCreatePanel(dept.id)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      </button>
                       <button className="dm-action-btn" title="Edit"
                         onClick={() => openEditPanel(dept)}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

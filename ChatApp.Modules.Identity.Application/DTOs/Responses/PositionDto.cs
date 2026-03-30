@@ -6,5 +6,6 @@ namespace ChatApp.Modules.Identity.Application.DTOs.Responses
         string? Description,
         Guid? DepartmentId,
         string? DepartmentName,
+        int UserCount,
         DateTime CreatedAtUtc);
 }

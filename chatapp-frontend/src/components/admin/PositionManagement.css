@@ -1,54 +1,50 @@
 @import "./admin-shared.css";
 
-/* ─── PositionManagement ─────────────────────────────────────────────────────── */
+/* ─── PositionManagement — Hierarxik dizayn ──────────────────────────────────── */
 .pm-root { display: flex; flex-direction: column; gap: 16px; }
 
-/* Header row */
-.pm-toolbar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.pm-toolbar-left { display: flex; align-items: center; gap: 10px; }
-.pm-section-title { font-size: 20px; font-weight: 700; color: var(--gray-800); margin: 0; }
-.pm-count { background: var(--gray-100); color: var(--gray-500); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+/* ─── Header ──────────────────────────────────────────────────────────────────── */
+.pm-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.pm-header-left { display: flex; align-items: center; gap: 10px; }
+.pm-header-right { display: flex; align-items: center; gap: 10px; }
+.pm-title { font-size: 20px; font-weight: 700; color: var(--gray-800); margin: 0; }
+.pm-badge {
+  background: var(--gray-100); color: var(--gray-500);
+  font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+}
 
-/* Filter toolbar */
-.pm-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Expand/collapse kontrolları */
+.pm-expand-controls { display: flex; align-items: center; gap: 2px; margin-left: 2px; }
+.pm-expand-btn {
+  width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--gray-200); border-radius: 7px;
+  background: var(--white); color: var(--gray-400);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 150ms;
+}
+.pm-expand-btn:hover { background: var(--gray-50); border-color: var(--gray-300); color: var(--gray-700); }
 
-/* Search */
+/* Axtarış */
 .pm-search-wrap { position: relative; display: flex; align-items: center; }
 .pm-search-icon { position: absolute; left: 10px; color: var(--gray-400); pointer-events: none; }
 .pm-search-input {
   padding: 8px 12px 8px 32px;
-  border: 1px solid var(--gray-200);
-  border-radius: 8px;
-  font-size: 13px;
-  background: var(--white);
-  color: var(--gray-700);
-  width: 200px;
-  transition: border-color var(--transition-fast);
+  border: 1px solid var(--gray-200); border-radius: 8px;
+  font-size: 13px; background: var(--white); color: var(--gray-700);
+  width: 220px; transition: border-color var(--transition-fast);
 }
-.pm-search-input:focus { outline: 2px solid rgba(47,198,246,0.25); outline-offset: -1px; border-color: var(--primary-color); }
-
-/* Department filter */
-.pm-dept-filter,
-.pm-filter-select {
-  height: 36px; padding: 0 10px;
-  border: 1px solid #e5e7eb; border-radius: 8px;
-  font-size: 13px; color: #374151; background: #fff;
-  cursor: pointer; transition: border-color var(--transition-fast);
+.pm-search-input:focus {
+  outline: 2px solid rgba(47,198,246,0.25); outline-offset: -1px;
+  border-color: var(--primary-color);
 }
-.pm-dept-filter:focus,
-.pm-filter-select:focus { outline: none; border-color: var(--primary-color); }
 
-/* Sort button */
-.pm-sort-btn {
-  height: 36px; padding: 0 12px;
-  border: 1px solid #e5e7eb; border-radius: 8px;
-  font-size: 13px; color: #374151; background: #fff;
-  cursor: pointer; transition: all 120ms; white-space: nowrap;
+/* Düymələr */
+.pm-btn {
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; transition: all var(--transition-fast);
 }
-.pm-sort-btn:hover { background: #f9fafb; }
-
-/* Buttons */
-.pm-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all var(--transition-fast); }
 .pm-btn-primary { background: var(--primary-color); color: var(--white); }
 .pm-btn-primary:hover { filter: brightness(1.08); }
 .pm-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -56,44 +52,154 @@
 .pm-btn-ghost:hover { background: var(--gray-50); border-color: var(--gray-300); }
 .pm-btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* List */
-.pm-list-wrap {
-  background: var(--white);
-  border-radius: 10px;
-  border: 1px solid var(--gray-200);
-  overflow: hidden;
+/* ─── Stats ───────────────────────────────────────────────────────────────────── */
+.pm-stats {
+  display: flex; align-items: center; gap: 0;
+  background: var(--white); border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 10px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-
-.pm-list-header {
-  display: flex; align-items: center;
-  padding: 0 12px 0 16px; height: 36px;
-  background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-  font-size: 11px; font-weight: 600; color: #9ca3af;
+.pm-stat-item {
+  display: flex; align-items: center; gap: 6px; padding: 0 16px;
+}
+.pm-stat-item:first-child { padding-left: 0; }
+.pm-stat-num { font-size: 18px; font-weight: 700; color: var(--gray-800); line-height: 1; }
+.pm-stat-label {
+  font-size: 11px; color: var(--gray-400); font-weight: 500;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
-.pm-list-header-dept  { width: 160px; flex-shrink: 0; }
-.pm-list-header-count { width: 70px; flex-shrink: 0; text-align: right; }
+.pm-stat-divider { width: 1px; height: 28px; background: var(--gray-100); flex-shrink: 0; }
 
-.pm-position-row {
+/* ─── Tree ────────────────────────────────────────────────────────────────────── */
+.pm-tree { display: flex; flex-direction: column; gap: 8px; }
+
+/* Department qrupu */
+.pm-dept-group {
+  background: var(--white);
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: box-shadow 200ms;
+}
+.pm-dept-group:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Department başlığı */
+.pm-dept-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer;
+  user-select: none; transition: background 150ms;
+}
+.pm-dept-header:hover { background: #f8fafc; }
+
+.pm-chevron {
+  font-size: 9px; color: #94a3b8; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px;
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), color 120ms;
+}
+.pm-chevron--open { transform: rotate(90deg); }
+
+.pm-dept-icon {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff;
+}
+
+.pm-dept-name {
+  font-size: 14px; font-weight: 600; color: #1e293b; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pm-dept-count {
+  font-size: 11px; color: var(--gray-400); font-weight: 500;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+.pm-dept-add-btn {
+  width: 24px; height: 24px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer; flex-shrink: 0;
+  background: rgba(37,99,235,0.08); color: #2563eb;
+  opacity: 0; transition: opacity 120ms, background 120ms;
+}
+.pm-dept-header:hover .pm-dept-add-btn { opacity: 1; }
+.pm-dept-add-btn:hover { background: rgba(37,99,235,0.16); }
+
+/* ─── Pozisiya siyahısı ───────────────────────────────────────────────────────── */
+.pm-pos-list {
+  border-top: 1px solid #f1f5f9;
+}
+
+.pm-no-positions {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px 12px 56px;
+  font-size: 12px; color: #94a3b8; font-style: italic;
+}
+.pm-add-link {
+  background: none; border: none; color: #2563eb; font-size: 12px;
+  font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 4px;
+  transition: background 120ms;
+}
+.pm-add-link:hover { background: rgba(37,99,235,0.06); }
+
+/* Pozisiya sətri */
+.pm-pos-row {
   display: flex; align-items: center; gap: 8px;
-  height: 44px; padding: 0 12px 0 16px;
-  background: #fff; border-bottom: 1px solid #f3f4f6;
+  height: 42px; padding: 0 12px 0 0;
+  background: var(--white); border-bottom: 1px solid #f8fafc;
   transition: background 150ms; position: relative;
 }
-.pm-position-row:last-child { border-bottom: none; }
-.pm-position-row:hover { background: #f8fafc; }
-.pm-position-row--confirm { background: #fef9ec; }
+.pm-pos-row:last-child { border-bottom: none; }
+.pm-pos-row:hover { background: #f8fbff; }
+.pm-pos-row--confirm { background: #fef9ec; }
 
-.pm-pos-name  { font-size: 13px; font-weight: 500; color: #111827; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pm-pos-dept  { font-size: 12px; color: #6b7280; width: 160px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pm-pos-count { font-size: 12px; color: #9ca3af; width: 70px; flex-shrink: 0; text-align: right; }
+/* Tree konnektorları */
+.pm-tree-line {
+  position: relative; width: 36px; height: 100%;
+  margin-left: 20px; flex-shrink: 0;
+}
+.pm-tree-vert {
+  position: absolute; left: 8px; top: 0; bottom: 0;
+  width: 1.5px; background: #e2e8f0;
+}
+.pm-tree-vert--last { bottom: 50%; }
+.pm-tree-horiz {
+  position: absolute; left: 8px; top: 50%;
+  width: 16px; height: 1.5px; background: #e2e8f0;
+}
+
+/* Pozisiya nöqtəsi */
+.pm-pos-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #cbd5e1; flex-shrink: 0;
+  transition: background 150ms;
+}
+.pm-pos-row:hover .pm-pos-dot { background: var(--primary-color); }
+
+.pm-pos-name {
+  font-size: 13px; font-weight: 500; color: #334155; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.pm-pos-desc {
+  color: #94a3b8; flex-shrink: 0; display: flex;
+  align-items: center; cursor: help;
+}
+
+.pm-pos-users {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #94a3b8; flex-shrink: 0;
+  min-width: 40px; justify-content: flex-end;
+}
 
 /* Hover actions */
 .pm-row-actions {
   display: flex; gap: 4px;
   opacity: 0; transition: opacity 120ms; flex-shrink: 0;
 }
-.pm-position-row:hover .pm-row-actions { opacity: 1; }
+.pm-pos-row:hover .pm-row-actions { opacity: 1; }
 
 .pm-action-btn {
   width: 26px; height: 26px; border-radius: 5px;
@@ -104,10 +210,11 @@
 .pm-action-btn:hover       { background: #f3f4f6; color: #374151; }
 .pm-action-btn.delete:hover { background: #fef2f2; color: #ef4444; }
 
-/* Inline row delete confirm */
+/* Inline silmə təsdiqi */
 .pm-row-delete-confirm {
   display: flex; align-items: center; gap: 10px; flex: 1;
-  font-size: 13px; color: #374151; animation: section-enter 150ms ease;
+  font-size: 13px; color: #374151; padding: 0 4px 0 60px;
+  animation: section-enter 150ms ease;
 }
 .pm-row-delete-confirm b { color: #111827; }
 .pm-delete-yes {
@@ -123,15 +230,24 @@
 }
 .pm-delete-no:hover { border-color: #9ca3af; }
 
-/* Empty state */
-.pm-empty-msg { text-align: center; color: #9ca3af; padding: 32px 16px; font-size: 13px; }
-.pm-empty-state { display: flex; flex-direction: column; align-items: center; padding: 40px 16px; color: var(--gray-300); gap: 8px; }
-.pm-empty-state p { font-size: 14px; color: var(--gray-500); margin: 0; }
+/* ─── Empty states ─────────────────────────────────────────────────────────────── */
+.pm-empty-msg {
+  text-align: center; color: #9ca3af; padding: 40px 16px; font-size: 13px;
+  background: var(--white); border: 1px solid #e2e8f0; border-radius: 10px;
+}
+.pm-empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 16px; color: var(--gray-300); gap: 10px;
+  background: var(--white); border: 1px solid #e2e8f0; border-radius: 10px;
+}
+.pm-empty-title { font-size: 15px; font-weight: 600; color: var(--gray-600); margin: 0; }
+.pm-empty-desc { font-size: 13px; color: var(--gray-400); margin: 0; }
 
-/* Skeleton */
-.pm-skeleton-row {
-  display: flex; align-items: center; gap: 16px;
-  height: 44px; padding: 0 16px; border-bottom: 1px solid var(--gray-100);
+/* ─── Skeleton ─────────────────────────────────────────────────────────────────── */
+.pm-skeleton-group {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px; background: var(--white);
+  border: 1px solid #e2e8f0; border-radius: 10px;
 }
 .pm-skeleton-bar {
   height: 12px; border-radius: 4px;
@@ -139,7 +255,7 @@
   background-size: 200% 100%; animation: adm-shimmer 1.2s infinite;
 }
 
-/* Form overlay — slide panel */
+/* ─── Form Panel ───────────────────────────────────────────────────────────────── */
 .pm-form-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.15); z-index: 1000; }
 .pm-form-panel {
   position: fixed; right: 0; top: 0;
@@ -150,12 +266,16 @@
   animation: ap-panel-in 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   z-index: 1001;
 }
-.pm-form-panel.closing {
-  animation: ap-panel-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+.pm-form-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 0;
 }
-.pm-form-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0; }
 .pm-form-title { font-size: 16px; font-weight: 700; color: var(--gray-800); margin: 0; }
-.pm-form-close { background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 4px; border-radius: 6px; transition: all var(--transition-fast); }
+.pm-form-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--gray-400); padding: 4px; border-radius: 6px;
+  transition: all var(--transition-fast);
+}
 .pm-form-close:hover { background: var(--gray-100); color: var(--gray-600); }
 .pm-form-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
 .pm-form-field { display: flex; flex-direction: column; }
@@ -182,7 +302,6 @@
   transition: border-color var(--transition-fast);
 }
 .pm-form-textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(47,198,246,0.15); }
-.pm-form-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
 .pm-form-error { font-size: 12px; color: #ef4444; margin-top: 4px; }
 .pm-form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 
