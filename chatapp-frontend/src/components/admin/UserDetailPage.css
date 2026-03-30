@@ -534,3 +534,16 @@
 
 /* dm-modal-in animation from DepartmentManagement.css */
 @keyframes dm-modal-in { from { opacity: 0; transform: translate(-50%, -46%) scale(0.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+
+/* ─── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ud-root { max-width: 100%; padding: 12px; }
+  .ud-hero { flex-direction: column; text-align: center; padding: 20px 16px; }
+  .ud-hero-actions { margin-left: 0; justify-content: center; flex-wrap: wrap; }
+  .ud-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ud-overview-grid { grid-template-columns: 1fr; }
+  .ud-info-row { flex-direction: column; gap: 2px; }
+  .ud-info-label { width: auto; }
+  .ud-edit-row { flex-direction: column; }
+  .ud-perm-grid { grid-template-columns: 1fr; }
+}

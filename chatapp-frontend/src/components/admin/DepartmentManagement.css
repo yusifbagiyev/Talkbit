@@ -452,3 +452,8 @@
 .dm-inline-head-actions {
   display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px;
 }
+
+/* ─── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .dm-modal { width: calc(100vw - 24px); }
+}

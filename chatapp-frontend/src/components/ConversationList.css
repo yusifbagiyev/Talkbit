@@ -3,7 +3,7 @@
    =================================== */
 
 .conversation-panel {
-  width: 400px;
+  width: var(--conv-list-width, 400px);
   min-width: 320px;
   background: var(--white);
   border-right: 1px solid var(--gray-200);

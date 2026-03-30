@@ -82,3 +82,37 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─── Mobile: admin drawer-lar tam ekran ──────────────────────────────────── */
+@media (max-width: 767px) {
+  .hi-user-detail-panel,
+  .hi-dept-detail-panel,
+  .hi-create-panel,
+  .dm-detail-panel,
+  .dm-form-panel,
+  .dm-head-panel,
+  .cm-detail-panel,
+  .pm-detail-panel {
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: 100% !important;
+    height: 100vh;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 100;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hi-user-detail-panel,
+  .hi-dept-detail-panel,
+  .hi-create-panel,
+  .dm-detail-panel,
+  .dm-form-panel,
+  .dm-head-panel,
+  .cm-detail-panel,
+  .pm-detail-panel {
+    width: min(90vw, 440px) !important;
+    min-width: unset !important;
+  }
+}

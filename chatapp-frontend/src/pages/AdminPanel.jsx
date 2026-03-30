@@ -1,6 +1,7 @@
 import { useState, useContext, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AuthContext, useAuth } from "../context/AuthContext";
+import { useIsMobile } from "../hooks/useMediaQuery";
 import CompanyManagement from "../components/admin/CompanyManagement";
 import HierarchyView from "../components/admin/HierarchyView";
 import DepartmentManagement from "../components/admin/DepartmentManagement";
@@ -19,6 +20,8 @@ const SECTION_LABELS = {
 function AdminPanel() {
   const { user } = useContext(AuthContext);
   const { hasPermission } = useAuth();
+  const isMobile = useIsMobile();
+  const [navOpen, setNavOpen] = useState(false);
   const navigate = useNavigate();
   const { section: urlSection, userId: urlUserId } = useParams();
   const location = useLocation();
@@ -65,6 +68,7 @@ function AdminPanel() {
   const activeSection = subSection ?? urlActiveSection;
 
   const changeSection = (newSection) => {
+    if (isMobile) setNavOpen(false);
     if (newSection === activeSection) return;
     const isDeeper = newSection === "user_detail";
     const isBack   = activeSection === "user_detail";
@@ -102,6 +106,12 @@ function AdminPanel() {
     <div className="ap-page">
       {/* ─── Header ──────────────────────────────────────────────────────────── */}
       <div className="ap-header">
+        {/* Mobile hamburger */}
+        <button className="ap-hamburger-btn" onClick={() => setNavOpen(true)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <button className="ap-back-btn" onClick={() => navigate("/")}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -133,8 +143,10 @@ function AdminPanel() {
       </div>
 
       <div className="ap-body">
+        {/* Mobile backdrop */}
+        {isMobile && navOpen && <div className="ap-nav-backdrop" onClick={() => setNavOpen(false)} />}
         {/* ─── Sidebar nav ─────────────────────────────────────────────────── */}
-        <nav className="ap-nav">
+        <nav className={`ap-nav${isMobile && navOpen ? " open" : ""}`}>
           {/* Brand */}
           <div className="ap-nav-brand">
             <div className="ap-nav-brand-icon">

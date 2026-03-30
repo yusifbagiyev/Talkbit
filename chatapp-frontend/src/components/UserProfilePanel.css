@@ -1969,3 +1969,16 @@
   margin: 0;
   letter-spacing: 0.2px;
 }
+
+/* ─── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .upp-panel {
+    width: 100%; top: 0;
+    height: 100vh;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .upp-panel { width: min(90vw, 380px); }
+}

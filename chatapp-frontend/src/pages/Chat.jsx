@@ -28,6 +28,7 @@ import useSearchPanel from "../hooks/useSearchPanel"; // chat daxili axtarış
 import useFileUpload from "../hooks/useFileUpload"; // fayl yükləmə state (seçmə)
 import useFileUploadManager from "../hooks/useFileUploadManager"; // global upload manager
 import useSidebarPanels from "../hooks/useSidebarPanels"; // sidebar panel state + məntiq
+import { useIsMobile } from "../hooks/useMediaQuery"; // mobile responsive
 import useChannelManagement from "../hooks/useChannelManagement"; // channel + üzv idarəsi
 
 // Routing
@@ -84,6 +85,8 @@ function Chat() {
   const { user, logout } = useContext(AuthContext);
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [mobilePanel, setMobilePanel] = useState("conversations"); // "conversations" | "chat" | "details"
 
   // --- STATE DEĞİŞƏNLƏRİ ---
 
@@ -371,6 +374,12 @@ function Chat() {
     sidebar.showMembersPanel,
     sidebar.loadMembersPanelPage,
   );
+
+  // Mobile: sidebar açıldıqda mobilePanel "details"-ə, bağlandıqda "chat"-a keç
+  useEffect(() => {
+    if (!isMobile) return;
+    setMobilePanel(sidebar.showSidebar ? "details" : "chat");
+  }, [sidebar.showSidebar, isMobile]);
 
   // --- EFFECT-LƏR ---
 
@@ -1556,6 +1565,7 @@ function Chat() {
     // State sıfırla — yeni chat seçildi
     setChatLoading(!usableCache); // Usable cache varsa loading göstərmə
     setSelectedChat(chat);
+    if (isMobile) setMobilePanel("chat");
     setMessages(usableCache ? cached.messages : []);
     setPinnedMessages(usableCache ? cached.pinnedMessages : []);
     // unreadCount dərhal sıfırlanmır — scroll listener mesajlar göründükcə 1-1 azaldır
@@ -3222,11 +3232,11 @@ function Chat() {
       )}
       {/* main-body — sidebar + content yan-yana */}
       <div className="main-body">
-        {/* Sidebar — sol dar nav bar (logout button) */}
+        {/* Sidebar — sol dar nav bar (mobile-da gizlənir CSS ilə) */}
         <Sidebar onLogout={logout} user={user} onAdminPanel={() => navigate("/admin")} />
 
         {/* main-content — söhbət siyahısı + chat paneli yan-yana */}
-        <div className="main-content">
+        <div className="main-content" data-mobile-panel={isMobile ? mobilePanel : undefined}>
           {/* ConversationList — sol panel, söhbət siyahısı */}
           <ConversationList
             conversations={conversations}
@@ -3267,6 +3277,7 @@ function Chat() {
                 {/* ChatHeader — chat adı, online status, action düymələr */}
                 <ChatHeader
                   selectedChat={selectedChat}
+                  mobileBackBtn={isMobile ? () => setMobilePanel("conversations") : null}
                   onlineUsers={onlineUsers}
                   pinnedMessages={pinnedMessages}
                   onTogglePinExpand={handleTogglePinExpand}
@@ -3739,7 +3750,10 @@ function Chat() {
             )}
           </div>
 
-          {/* Detail Sidebar — ayrı komponentə çıxarılıb */}
+          {/* Detail Sidebar — tablet/mobile-da overlay backdrop */}
+          {sidebar.showSidebar && selectedChat && !isMobile && (
+            <div className="detail-sidebar-backdrop" onClick={() => sidebar.setShowSidebar(false)} />
+          )}
           {sidebar.showSidebar && selectedChat && (
             <DetailSidebar
               selectedChat={selectedChat}
@@ -3970,6 +3984,30 @@ function Chat() {
             </div>
           )}
         </div>
+
+        {/* Mobile bottom tab bar — sidebar əvəzi */}
+        {isMobile && mobilePanel === "conversations" && (
+          <nav className="mobile-bottom-tabs">
+            <button className="tab active">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Chats
+            </button>
+            <button className="tab" onClick={() => navigate("/admin")}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              Admin
+            </button>
+            <button className="tab" onClick={() => setProfileUserId(user.id)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              Profile
+            </button>
+          </nav>
+        )}
       </div>
 
       {/* İstifadəçi profil paneli — sağdan sola animasiya ilə açılır */}

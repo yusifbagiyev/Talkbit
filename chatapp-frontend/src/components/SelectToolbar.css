@@ -262,3 +262,13 @@
   color: var(--gray-700);
   background: var(--gray-100);
 }
+
+/* ─── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .delete-confirm-modal {
+    min-width: unset;
+    max-width: unset;
+    width: calc(100vw - 24px);
+    max-height: 90vh;
+  }
+}

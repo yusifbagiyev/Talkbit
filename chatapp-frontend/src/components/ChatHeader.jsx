@@ -30,6 +30,7 @@ function ChatHeader({
   canEdit,
   onSaveChannelName,
   onSaveChannelAvatar,
+  mobileBackBtn,
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
@@ -82,6 +83,14 @@ function ChatHeader({
 
   return (
     <div className="chat-header">
+      {/* Mobile back button */}
+      {mobileBackBtn && (
+        <button className="mobile-back-btn" onClick={mobileBackBtn}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+      )}
       {/* Sol tərəf: avatar + ad + status */}
       <div className="chat-header-left">
         {/* Avatar — channel üçün klik → fayl yüklə (admin/owner), digərləri read-only */}

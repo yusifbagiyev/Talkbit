@@ -15,7 +15,7 @@
 }
 
 .detail-sidebar {
-  width: 350px;
+  width: var(--detail-sidebar-width, 350px);
   min-width: 350px;
   height: 100vh;
   background: #eef2f4;
@@ -25,6 +25,27 @@
   position: relative;
   animation: detailSidebarSlideIn 0.25s ease-out;
   overflow: hidden;
+}
+
+/* ─── Tablet: sidebar overlay — chat paneli sıxılmasın ────────────────────── */
+@media (max-width: 1200px) and (min-width: 768px) {
+  .detail-sidebar {
+    position: fixed; right: 0; top: 0; bottom: 0;
+    z-index: 50;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+    min-width: unset;
+    width: min(90vw, 380px);
+  }
+}
+
+/* ─── Mobile: full screen ─────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .detail-sidebar {
+    width: 100%; min-width: unset;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 100;
+    border-left: none;
+  }
 }
 
 /* Header-dən aşağıdakı scroll sahəsi */

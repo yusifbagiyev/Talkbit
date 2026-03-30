@@ -1,3 +1,5 @@
+@import './styles/responsive.css';
+
 *{
   margin:0;
   padding:0;
@@ -114,4 +116,13 @@ body{
 @keyframes toastProgress {
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }
+}
+
+/* ─── Toast Mobile ────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .toast-container {
+    right: 12px; left: 12px; bottom: 12px;
+    max-width: unset;
+  }
+  .toast-item { min-width: unset; width: 100%; }
 }

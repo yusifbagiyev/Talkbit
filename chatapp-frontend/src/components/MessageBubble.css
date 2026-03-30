@@ -394,3 +394,9 @@
   color: var(--gray-800);
   font-weight: 450;
 }
+
+/* ─── Mobile Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .message-bubble { max-width: calc(100vw - 80px); }
+  .message-bubble:has(.bubble-file-image:not(.image-only)) { max-width: calc(100vw - 80px); }
+}

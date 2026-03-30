@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/Joseph/Desktop/ChatApp/**)"
+      "Read(//c/Users/Joseph/Desktop/ChatApp/**)",
+      "WebFetch(domain:vorix.com)",
+      "WebFetch(domain:qorix.com)",
+      "WebFetch(domain:tixor.com)",
+      "WebFetch(domain:zetiq.com)",
+      "WebFetch(domain:kexor.com)",
+      "WebFetch(domain:hexiq.com)"
     ]
   }
 }

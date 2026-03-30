@@ -1,0 +1,31 @@
+/* ─── Responsive Foundation — Breakpoints + CSS Variables ──────────────────── */
+:root {
+  --bp-sm: 375px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+
+  --spacing-page: 24px;
+  --spacing-card: 16px;
+  --conv-list-width: 400px;
+  --detail-sidebar-width: 350px;
+  --admin-sidebar-width: 216px;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --conv-list-width: 280px;
+    --admin-sidebar-width: 180px;
+    --spacing-page: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --conv-list-width: 100%;
+    --detail-sidebar-width: 100%;
+    --admin-sidebar-width: 0px;
+    --spacing-page: 12px;
+    --spacing-card: 12px;
+  }
+}

@@ -621,23 +621,65 @@
    RESPONSIVE
    =================================== */
 
-@media (max-width: 768px) {
-  .sidebar {
-    display: none;
+@media (max-width: 767px) {
+  .sidebar { display: none; }
+
+  /* Mobile single panel: data-mobile-panel ilə idarə olunur */
+  .conversation-panel { width: 100%; min-width: unset; display: none; }
+  .chat-panel { display: none; }
+  [data-mobile-panel="conversations"] .conversation-panel { display: flex; }
+  [data-mobile-panel="chat"] .chat-panel { display: flex; }
+
+  .messages-area { padding: 12px 16px; }
+
+  /* Mobile back button — chat header-da */
+  .mobile-back-btn {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; color: inherit; cursor: pointer;
+    flex-shrink: 0;
   }
 
-  .conversation-panel {
-    width: 100%;
-    min-width: unset;
+  /* Bottom tab bar */
+  .mobile-bottom-tabs {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 56px;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--white, #fff);
+    border-top: 1px solid var(--gray-200, #e5e7eb);
+    display: flex; align-items: center; justify-content: space-around;
+    z-index: 90;
   }
+  .mobile-bottom-tabs .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 8px 0; background: none; border: none;
+    font-size: 11px; font-weight: 500; color: var(--gray-400, #9ca3af);
+    cursor: pointer; transition: color 150ms;
+  }
+  .mobile-bottom-tabs .tab.active { color: var(--primary-color, #2fc6f6); }
 
-  .chat-panel {
-    display: none;
+  /* Bottom tabs olduqda conversation list-in altı kəsilməsin */
+  [data-mobile-panel="conversations"] .conversation-panel {
+    padding-bottom: 56px;
   }
+}
 
-  .messages-area {
-    padding: 12px 16px;
+@media (min-width: 768px) {
+  .mobile-back-btn { display: none; }
+  .mobile-bottom-tabs { display: none; }
+}
+
+/* ─── Tablet: conversation list daralt, sidebar backdrop ───────────────────── */
+@media (min-width: 768px) and (max-width: 1200px) {
+  .conversation-panel { width: 280px; min-width: 240px; }
+  .detail-sidebar-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 49;
   }
+}
+@media (min-width: 1201px) {
+  .detail-sidebar-backdrop { display: none; }
 }
 
 /* ─── Avatar Context Menu ─────────────────────────────────────────────────── */
