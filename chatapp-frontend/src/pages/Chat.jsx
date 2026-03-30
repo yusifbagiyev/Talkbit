@@ -1196,7 +1196,7 @@ function Chat() {
         showToast(err.message || "Failed to leave channel", "error");
       }
     },
-    [selectedChat],
+    [selectedChat, showToast],
   );
 
   // handleDeleteConversation — conversation/channel-ı sil
@@ -1218,7 +1218,7 @@ function Chat() {
         showToast(err.message || "Failed to delete conversation", "error");
       }
     },
-    [selectedChat],
+    [selectedChat, showToast],
   );
 
   // handleMessageTextChange — textarea onChange (mention detection ilə birlikdə)
@@ -2055,7 +2055,7 @@ function Chat() {
         showToast(err.message || "Failed to toggle mark later", "error");
       }
     },
-    [selectedChat, readLaterMessageId],
+    [selectedChat, readLaterMessageId, showToast],
   );
 
   // Select mode handlers → useMessageSelection hook-una çıxarılıb
@@ -2133,7 +2133,7 @@ function Chat() {
         showToast(err.message || "Failed to delete message", "error");
       }
     },
-    [selectedChat],
+    [selectedChat, showToast],
   );
 
   // handleDeleteMsgAction — delete düyməsinə basıldıqda:
@@ -3038,7 +3038,7 @@ function Chat() {
         );
       }
     },
-    [selectedChat, user],
+    [selectedChat, user, showToast],
   );
 
   // handleLoadReactionDetails — reaction badge-ə kliklədikdə kim react edib yüklə

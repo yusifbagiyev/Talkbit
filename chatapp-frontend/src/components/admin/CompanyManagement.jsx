@@ -114,7 +114,7 @@ const AssignAdminModal = memo(({ company, onSave, onClose }) => {
       .then((res) => setUsers(res?.items || res || []))
       .catch(() => showToast("Failed to load users", "error"))
       .finally(() => setLoading(false));
-  }, [company.id]);
+  }, [company.id, showToast]);
 
   const filtered = search.trim()
     ? users.filter((u) => u.fullName?.toLowerCase().includes(search.toLowerCase()))
@@ -216,7 +216,7 @@ function CompanyManagement() {
       setCompanies(res?.items || res || []);
     } catch { showToast("Failed to load companies", "error"); }
     finally { setLoading(false); }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => { load(); }, [load]);
 

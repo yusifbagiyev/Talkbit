@@ -210,7 +210,7 @@ const SupervisorsModal = memo(({ user: targetUser, onClose }) => {
       setAllUsers(users?.items || users || []);
     } catch { showToast("Failed to load data", "error"); }
     finally { setLoading(false); }
-  }, [targetUser.id]);
+  }, [targetUser.id, showToast]);
 
   useEffect(() => { loadSupervisors(); }, [loadSupervisors]);
 
@@ -331,7 +331,7 @@ function UserManagement({ isSuperAdmin }) {
       setPage(pageNum);
     } catch { showToast("Failed to load users", "error"); }
     finally { setLoading(false); }
-  }, [search, filterDept, filterStatus]);
+  }, [search, filterDept, filterStatus, showToast]);
 
   useEffect(() => { load(1); }, [load]);
 
