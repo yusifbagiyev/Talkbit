@@ -24,6 +24,7 @@ export const ALLOWED_FILE_EXTENSIONS = new Set([
   ".webp",
   ".svg",
   ".bmp",
+  ".gif",
   // Documents
   ".pdf",
   ".doc",

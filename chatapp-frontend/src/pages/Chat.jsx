@@ -1095,7 +1095,7 @@ function Chat() {
         setSelectedChat((prev) => ({ ...prev, isPinned: result.isPinned }));
       }
     } catch (err) {
-      console.error("Failed to toggle pin:", err);
+      showToast(err.message || "Failed to toggle pin", "error");
     }
   }
 
@@ -1117,7 +1117,7 @@ function Chat() {
         setSelectedChat((prev) => ({ ...prev, isMuted: result.isMuted }));
       }
     } catch (err) {
-      console.error("Failed to toggle mute:", err);
+      showToast(err.message || "Failed to toggle mute", "error");
     }
   }
 
@@ -1144,7 +1144,7 @@ function Chat() {
         }));
       }
     } catch (err) {
-      console.error("Failed to toggle read later:", err);
+      showToast(err.message || "Failed to toggle read later", "error");
     }
   }
 
@@ -1177,7 +1177,7 @@ function Chat() {
         }
       }
     } catch (err) {
-      console.error("Failed to toggle hide:", err);
+      showToast(err.message || "Failed to toggle hide", "error");
     }
   }
 
@@ -1193,7 +1193,7 @@ function Chat() {
           setMessages([]);
         }
       } catch (err) {
-        console.error("Failed to leave channel:", err);
+        showToast(err.message || "Failed to leave channel", "error");
       }
     },
     [selectedChat],
@@ -1215,7 +1215,7 @@ function Chat() {
           setMessages([]);
         }
       } catch (err) {
-        console.error("Failed to delete conversation:", err);
+        showToast(err.message || "Failed to delete conversation", "error");
       }
     },
     [selectedChat],
@@ -2010,7 +2010,7 @@ function Chat() {
         // Server-dən pinned siyahısını yenilə
         loadPinnedMessages(selectedChat);
       } catch (err) {
-        console.error("Failed to pin/unpin message:", err);
+        showToast(err.message || "Failed to pin/unpin message", "error");
         // Revert
         setMessages((prev) =>
           prev.map((m) =>
@@ -2052,7 +2052,7 @@ function Chat() {
           ),
         );
       } catch (err) {
-        console.error("Failed to toggle mark later:", err);
+        showToast(err.message || "Failed to toggle mark later", "error");
       }
     },
     [selectedChat, readLaterMessageId],
@@ -2130,7 +2130,7 @@ function Chat() {
           );
         }
       } catch (err) {
-        console.error("Failed to delete message:", err);
+        showToast(err.message || "Failed to delete message", "error");
       }
     },
     [selectedChat],
@@ -2329,7 +2329,7 @@ function Chat() {
           }),
         );
       } catch (err) {
-        console.error("Failed to edit message:", err);
+        showToast(err.message || "Failed to edit message", "error");
       }
       return; // Edit-dən sonra normal send etmə
     }
@@ -3029,7 +3029,7 @@ function Chat() {
           prev.map((m) => (m.id === msg.id ? { ...m, reactions } : m)),
         );
       } catch (err) {
-        console.error("Failed to toggle reaction:", err);
+        showToast(err.message || "Failed to toggle reaction", "error");
         // Revert — əvvəlki halına qaytar
         setMessages((prev) =>
           prev.map((m) =>

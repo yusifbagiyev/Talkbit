@@ -43,7 +43,8 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
                 .NotNull().WithMessage("File is required")
                 .Must(file => file.Length > 0).WithMessage("File cannot be empty")
                 .Must(file => file.Length <= MaxFileSizeInBytes).WithMessage("File size cannot exceed 100 MB")
-                .Must(file => FileTypeHelper.IsAllowedFileType(file.ContentType))
+                .Must(file => FileTypeHelper.IsAllowedFileType(
+                    FileTypeHelper.ResolveContentType(file.ContentType, file.FileName)))
                 .WithMessage("File type is not allowed");
 
             RuleFor(x => x.UploadedBy)
@@ -97,7 +98,8 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
                     request.ChannelId);
 
                 var originalFileName = request.File.FileName;
-                var contentType=request.File.ContentType;
+                // MIME type tanınmırsa (application/octet-stream), extension-dan resolve et
+                var contentType = FileTypeHelper.ResolveContentType(request.File.ContentType, originalFileName);
                 var fileType=FileTypeHelper.GetFileType(contentType);
                 var extension=FileTypeHelper.GetExtensionFromContentType(contentType);
 

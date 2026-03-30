@@ -41,10 +41,16 @@ namespace ChatApp.Modules.Files.Application.Services
 
             // Archives
             { "application/zip", FileType.Archive },
+            { "application/x-zip-compressed", FileType.Archive },
+            { "application/x-zip", FileType.Archive },
             { "application/x-rar-compressed", FileType.Archive },
+            { "application/vnd.rar", FileType.Archive },
             { "application/x-7z-compressed", FileType.Archive },
             { "application/x-tar", FileType.Archive },
-            { "application/gzip", FileType.Archive }
+            { "application/gzip", FileType.Archive },
+
+            // GIF
+            { "image/gif", FileType.Image }
         };
 
         public static FileType GetFileType(string contentType)
@@ -57,6 +63,43 @@ namespace ChatApp.Modules.Files.Application.Services
         public static bool IsAllowedFileType(string contentType)
         {
             return ContentTypeMapping.ContainsKey(contentType.ToLowerInvariant());
+        }
+
+        // Extension-a görə icazə verilən fayl tipini müəyyən et (MIME type tanınmadıqda fallback)
+        private static readonly Dictionary<string, string> ExtensionToContentType = new(StringComparer.OrdinalIgnoreCase)
+        {
+            { ".jpg", "image/jpeg" }, { ".jpeg", "image/jpeg" }, { ".png", "image/png" },
+            { ".webp", "image/webp" }, { ".svg", "image/svg+xml" }, { ".bmp", "image/bmp" },
+            { ".gif", "image/gif" },
+            { ".pdf", "application/pdf" }, { ".doc", "application/msword" },
+            { ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+            { ".xls", "application/vnd.ms-excel" },
+            { ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+            { ".ppt", "application/vnd.ms-powerpoint" },
+            { ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+            { ".txt", "text/plain" }, { ".csv", "text/csv" },
+            { ".mp4", "video/mp4" }, { ".mpeg", "video/mpeg" }, { ".mov", "video/quicktime" },
+            { ".avi", "video/x-msvideo" }, { ".webm", "video/webm" },
+            { ".mp3", "audio/mpeg" }, { ".wav", "audio/wav" }, { ".ogg", "audio/ogg" },
+            { ".weba", "audio/webm" },
+            { ".zip", "application/zip" }, { ".rar", "application/x-rar-compressed" },
+            { ".7z", "application/x-7z-compressed" }, { ".tar", "application/x-tar" },
+            { ".gz", "application/gzip" }
+        };
+
+        /// <summary>
+        /// MIME type tanınmırsa (application/octet-stream), fayl extension-ına görə düzgün content type qaytarır
+        /// </summary>
+        public static string ResolveContentType(string contentType, string fileName)
+        {
+            if (IsAllowedFileType(contentType))
+                return contentType;
+
+            var ext = Path.GetExtension(fileName);
+            if (!string.IsNullOrEmpty(ext) && ExtensionToContentType.TryGetValue(ext, out var resolved))
+                return resolved;
+
+            return contentType;
         }
 
 
@@ -103,10 +146,16 @@ namespace ChatApp.Modules.Files.Application.Services
 
                 // Archives
                 "application/zip" => ".zip",
+                "application/x-zip-compressed" => ".zip",
+                "application/x-zip" => ".zip",
                 "application/x-rar-compressed" => ".rar",
+                "application/vnd.rar" => ".rar",
                 "application/x-7z-compressed" => ".7z",
                 "application/x-tar" => ".tar",
                 "application/gzip" => ".gz",
+
+                // GIF
+                "image/gif" => ".gif",
 
                 _ => ""
             };
