@@ -32,6 +32,11 @@ function formatRelativeTime(dateStr) {
   return `${yr} year${yr !== 1 ? "s" : ""} ago`;
 }
 
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
 function Avatar({ name, url, size = 28 }) {
   const style = {
     width: size, height: size, borderRadius: "50%", flexShrink: 0,
@@ -47,696 +52,105 @@ function Avatar({ name, url, size = 28 }) {
   );
 }
 
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ user, storage, storageLoading, onUserUpdate }) {
-  const { showToast } = useToast();
-  const name = user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving]   = useState(false);
-  const [positions, setPositions] = useState([]);
-  const [form, setForm] = useState({
-    firstName:   user.firstName   ?? "",
-    lastName:    user.lastName    ?? "",
-    email:       user.email       ?? "",
-    workPhone:   user.workPhone   ?? "",
-    aboutMe:     user.aboutMe     ?? "",
-    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
-    positionId:  user.positionId  ?? "",
-    hiringDate:  user.hiringDate  ? user.hiringDate.split("T")[0] : "",
-  });
+// ─── SVG Donut Chart ─────────────────────────────────────────────────────────
+function StorageDonut({ storage }) {
+  const total = storage.totalMb || 1;
+  const segments = [
+    { label: "Images",    count: storage.imageCount,    mb: storage.imageMb ?? 0,    color: "#2563eb" },
+    { label: "Documents", count: storage.documentCount, mb: storage.documentMb ?? 0, color: "#22c55e" },
+    { label: "Other",     count: storage.otherCount,    mb: storage.otherMb ?? 0,    color: "#94a3b8" },
+  ];
 
-  useEffect(() => {
-    getAllPositions().then(data => {
-      setPositions(Array.isArray(data) ? data : (data?.items ?? []));
-    }).catch(() => {});
-  }, []);
-
-  const resetForm = () => setForm({
-    firstName:   user.firstName   ?? "",
-    lastName:    user.lastName    ?? "",
-    email:       user.email       ?? "",
-    workPhone:   user.workPhone   ?? "",
-    aboutMe:     user.aboutMe     ?? "",
-    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split("T")[0] : "",
-    positionId:  user.positionId  ?? "",
-    hiringDate:  user.hiringDate  ? user.hiringDate.split("T")[0] : "",
-  });
-
-  const setField = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateUser(user.id, {
-        ...form,
-        dateOfBirth: form.dateOfBirth || null,
-        workPhone:   form.workPhone   || null,
-        aboutMe:     form.aboutMe     || null,
-        positionId:  form.positionId  || null,
-        hiringDate:  form.hiringDate  || null,
-      });
-      showToast("Profile updated", "success");
-      setEditing(false);
-      onUserUpdate?.();
-    } catch (err) {
-      showToast(err.message || "Failed to update", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const storageFill = storage
-    ? Math.min((storage.totalMb / 100) * 100, 100)
-    : 0;
+  const radius = 52, stroke = 10, circumference = 2 * Math.PI * radius;
+  let offset = 0;
 
   return (
-    <div className="ud-overview-grid">
-      {/* Sol: info cards */}
-      <div>
-        <div className="ud-card">
-          <div className="ud-card-header">
-            <p className="ud-card-title">Personal Information</p>
-            {!editing ? (
-              <button className="ud-card-edit-btn" onClick={() => setEditing(true)}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-                Edit
-              </button>
-            ) : (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="ud-card-save-btn" onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
-                </button>
-                <button className="ud-card-cancel-btn" onClick={() => { setEditing(false); resetForm(); }}>Cancel</button>
-              </div>
-            )}
-          </div>
-
-          {editing ? (
-            <div className="ud-edit-form">
-              <div className="ud-edit-row">
-                <div className="ud-edit-field">
-                  <label>First Name</label>
-                  <input value={form.firstName} onChange={e => setField("firstName", e.target.value)} />
-                </div>
-                <div className="ud-edit-field">
-                  <label>Last Name</label>
-                  <input value={form.lastName} onChange={e => setField("lastName", e.target.value)} />
-                </div>
-              </div>
-              <div className="ud-edit-field">
-                <label>Email</label>
-                <input type="email" value={form.email} onChange={e => setField("email", e.target.value)} />
-              </div>
-              <div className="ud-edit-field">
-                <label>Phone</label>
-                <input value={form.workPhone} onChange={e => setField("workPhone", e.target.value)} />
-              </div>
-              <div className="ud-edit-field">
-                <label>Date of Birth</label>
-                <input type="date" value={form.dateOfBirth} onChange={e => setField("dateOfBirth", e.target.value)} />
-              </div>
-              <div className="ud-edit-field">
-                <label>Position</label>
-                <select value={form.positionId} onChange={e => setField("positionId", e.target.value)}>
-                  <option value="">— No position —</option>
-                  {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              <div className="ud-edit-field">
-                <label>Hiring Date</label>
-                <input type="date" value={form.hiringDate} onChange={e => setField("hiringDate", e.target.value)} />
-              </div>
-              <div className="ud-edit-field">
-                <label>About</label>
-                <textarea rows={3} value={form.aboutMe} onChange={e => setField("aboutMe", e.target.value)} />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="ud-info-row">
-                <span className="ud-info-label">Full Name</span>
-                <span className="ud-info-value">{name || "—"}</span>
-              </div>
-              <div className="ud-info-row">
-                <span className="ud-info-label">Email</span>
-                <span className="ud-info-value">{user.email || "—"}</span>
-              </div>
-              <div className="ud-info-row">
-                <span className="ud-info-label">Phone</span>
-                <span className={`ud-info-value${!user.workPhone ? " muted" : ""}`}>
-                  {user.workPhone || "—"}
-                </span>
-              </div>
-              <div className="ud-info-row">
-                <span className="ud-info-label">Date of Birth</span>
-                <span className={`ud-info-value${!user.dateOfBirth ? " muted" : ""}`}>
-                  {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : "—"}
-                </span>
-              </div>
-              {user.aboutMe && (
-                <div className="ud-info-row">
-                  <span className="ud-info-label">About</span>
-                  <span className="ud-info-value">{user.aboutMe}</span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="ud-card">
-          <p className="ud-card-title">Employment</p>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Position</span>
-            <span className={`ud-info-value${!user.position ? " muted" : ""}`}>
-              {user.position || "—"}
-            </span>
-          </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Department</span>
-            <span className={`ud-info-value${!user.departmentName ? " muted" : ""}`}>
-              {user.departmentName || "—"}
-            </span>
-          </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Hired</span>
-            <span className={`ud-info-value${!user.hiringDate ? " muted" : ""}`}>
-              {user.hiringDate ? new Date(user.hiringDate).toLocaleDateString() : "—"}
-            </span>
-          </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Account Created</span>
-            <span className="ud-info-value">
-              {formatRelativeTime(user.createdAtUtc ?? user.createdAt)}
-            </span>
-          </div>
-          <div className="ud-info-row">
-            <span className="ud-info-label">Password Changed</span>
-            <span className="ud-info-value">
-              {formatRelativeTime(user.passwordChangedAt)}
-            </span>
-          </div>
+    <div className="ud-donut-section">
+      <div className="ud-donut-wrap">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r={radius} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+          {segments.map((seg, i) => {
+            const pct = seg.mb / total;
+            const dashLen = circumference * pct;
+            const dashOff = circumference * offset;
+            offset += pct;
+            return pct > 0 ? (
+              <circle key={i} cx="70" cy="70" r={radius}
+                fill="none" stroke={seg.color} strokeWidth={stroke}
+                strokeDasharray={`${dashLen} ${circumference - dashLen}`}
+                strokeDashoffset={-dashOff}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dasharray 600ms cubic-bezier(0.16,1,0.3,1)" }}
+              />
+            ) : null;
+          })}
+        </svg>
+        <div className="ud-donut-center">
+          <span className="ud-donut-value">{storage.totalMb.toFixed(1)}</span>
+          <span className="ud-donut-unit">MB</span>
         </div>
       </div>
-
-      {/* Sağ: storage card */}
-      <div>
-        <div className="ud-card">
-          <p className="ud-card-title">Storage</p>
-          {storageLoading ? (
-            <>
-              <div className="ud-skeleton-bar" style={{ width: "60%" }} />
-              <div className="ud-skeleton-bar" style={{ width: "40%" }} />
-            </>
-          ) : storage ? (
-            <>
-              <div className="ud-storage-total">{storage.totalMb.toFixed(1)} MB</div>
-              <div className="ud-storage-sub">{storage.fileCount} files total</div>
-              <div className="ud-storage-bar-bg">
-                <div className="ud-storage-bar-fill" style={{ width: `${storageFill}%` }} />
-              </div>
-              <div className="ud-storage-breakdown">
-                <div className="ud-storage-item">
-                  <span className="ud-storage-dot images" />
-                  Images
-                  <span className="ud-storage-count">{storage.imageCount}</span>
-                </div>
-                <div className="ud-storage-item">
-                  <span className="ud-storage-dot documents" />
-                  Documents
-                  <span className="ud-storage-count">{storage.documentCount}</span>
-                </div>
-                <div className="ud-storage-item">
-                  <span className="ud-storage-dot other" />
-                  Other
-                  <span className="ud-storage-count">{storage.otherCount}</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="ud-empty-note">No storage data</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Organization Tab ─────────────────────────────────────────────────────────
-function OrganizationTab({ user, onUserUpdate }) {
-  const { showToast } = useToast();
-  // Backend SupervisorDto → userId field, id deyil — normalize et
-  const [supervisors, setSupervisors] = useState(
-    (user.supervisors ?? []).map(s => ({
-      ...s,
-      id: s.id ?? s.userId,
-      positionName: s.positionName ?? s.position ?? null,
-    }))
-  );
-  const [subordinates] = useState(user.subordinates ?? []);
-  const [depts, setDepts]             = useState([]);
-  const [changingDept, setChangingDept] = useState(false);
-  const [deptSearch, setDeptSearch]   = useState("");
-  const [selectedDeptId, setSelectedDeptId] = useState(user.departmentId ?? "");
-  const [deptSaving, setDeptSaving]   = useState(false);
-  const [supSearch, setSupSearch]     = useState("");
-  const [supSuggestions, setSupSuggestions] = useState([]);
-  const [addingSupMode, setAddingSupMode]   = useState(false);
-  const supDebounceRef = useRef(null);
-
-  useEffect(() => {
-    getDepartments().then(setDepts).catch(() => {});
-  }, []);
-
-  // Supervisor axtarışı — açılanda dərhal yüklə, yazdıqda debounce
-  useEffect(() => {
-    if (!addingSupMode) { setSupSuggestions([]); return; }
-    clearTimeout(supDebounceRef.current);
-    const fetch = () => {
-      const q = supSearch.trim();
-      const req = q.length >= 2
-        ? searchUsers(q)
-        : getUsers({ pageSize: 50 });
-      req.then(d => {
-          const list = d?.items ?? (Array.isArray(d) ? d : []);
-          const existingIds = new Set(supervisors.map(s => s.id));
-          setSupSuggestions(list.filter(u => !existingIds.has(u.id) && u.id !== user.id));
-        })
-        .catch(() => {});
-    };
-    supDebounceRef.current = setTimeout(fetch, supSearch.trim().length >= 2 ? 300 : 0);
-  }, [supSearch, addingSupMode, supervisors, user.id]);
-
-  const handleDeptSave = async () => {
-    setDeptSaving(true);
-    try {
-      await assignEmployeeToDepartment(user.id, selectedDeptId);
-      setChangingDept(false);
-      showToast("Department updated", "success");
-      onUserUpdate?.();
-    } catch (err) {
-      showToast(err.message || "Failed to update department", "error");
-    } finally {
-      setDeptSaving(false);
-    }
-  };
-
-  const handleRemoveDept = async () => {
-    try {
-      await removeUserFromDepartment(user.id);
-      showToast("Removed from department", "success");
-      onUserUpdate?.();
-    } catch (err) {
-      showToast(err.message || "Failed to remove from department", "error");
-    }
-  };
-
-  const handleRemoveSupervisor = async (supId) => {
-    try {
-      await removeSupervisor(user.id, supId);
-      setSupervisors(prev => prev.filter(s => s.id !== supId));
-      showToast("Supervisor removed", "success");
-    } catch (err) {
-      showToast(err.message || "Failed to remove supervisor", "error");
-    }
-  };
-
-  const handleAddSupervisor = async (supUser) => {
-    try {
-      await addSupervisor(user.id, supUser.id);
-      const name = supUser.fullName ?? `${supUser.firstName ?? ""} ${supUser.lastName ?? ""}`.trim();
-      const pos  = supUser.positionName ?? supUser.position ?? null;
-      setSupervisors(prev => [...prev, { id: supUser.id, fullName: name, avatarUrl: supUser.avatarUrl, positionName: pos }]);
-      setAddingSupMode(false);
-      setSupSearch("");
-      setSupSuggestions([]);
-      showToast("Supervisor added", "success");
-    } catch (err) {
-      showToast(err.message || "Failed to add supervisor", "error");
-    }
-  };
-
-  const filteredDepts = deptSearch.trim()
-    ? depts.filter(d => d.name.toLowerCase().includes(deptSearch.toLowerCase()))
-    : depts;
-
-  return (
-    <div>
-      {/* Department card */}
-      <div className="ud-card">
-        <p className="ud-card-title">Department</p>
-        <div className="ud-dept-row">
-          <span className={`ud-dept-name${!user.departmentName ? " empty" : ""}`}>
-            {user.departmentName || "(No department)"}
-          </span>
-          <button className="ud-dept-change-btn" onClick={() => { setChangingDept(v => !v); setSelectedDeptId(user.departmentId ?? ""); }}>
-            {user.departmentName ? "Change →" : "Assign →"}
-          </button>
-          {user.departmentId && (
-            <button className="ud-dept-remove-btn" onClick={handleRemoveDept}>
-              Remove
-            </button>
-          )}
-        </div>
-
-        {changingDept && (
-          <div className="ud-dept-dropdown">
-            <div className="ud-dept-dropdown-search">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input placeholder="Search..." value={deptSearch}
-                onChange={e => setDeptSearch(e.target.value)} autoFocus />
-            </div>
-            <div className="ud-dept-dropdown-list">
-              {filteredDepts.map(d => (
-                <button key={d.id}
-                  className={`ud-dept-dropdown-item${selectedDeptId === d.id ? " active" : ""}`}
-                  onClick={() => setSelectedDeptId(d.id)}>
-                  {d.name}
-                </button>
-              ))}
-              {filteredDepts.length === 0 && (
-                <div style={{ padding: "12px", fontSize: "13px", color: "#9ca3af" }}>No departments found</div>
-              )}
-            </div>
-            <div className="ud-dept-dropdown-actions">
-              <button className="ud-dept-save-btn" onClick={handleDeptSave}
-                disabled={deptSaving || !selectedDeptId}>
-                {deptSaving ? "Saving..." : "Save Change"}
-              </button>
-              <button className="ud-dept-cancel-btn" onClick={() => { setChangingDept(false); setDeptSearch(""); }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Supervisors card */}
-      <div className="ud-card">
-        <p className="ud-card-title">Supervisors</p>
-        {supervisors.length === 0 && !addingSupMode && (
-          <p className="ud-empty-note">No supervisors assigned</p>
-        )}
-        {supervisors.map(s => {
-          const sName = s.fullName ?? s.name ?? "";
-          return (
-            <div key={s.id} className="ud-supervisor-row">
-              <Avatar name={sName} url={s.avatarUrl} size={28} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="ud-sup-name">{sName}</div>
-                {s.positionName && <div className="ud-sup-pos">{s.positionName}</div>}
-              </div>
-              <button className="ud-sup-remove" title="Remove supervisor"
-                onClick={() => handleRemoveSupervisor(s.id)}>✕</button>
-            </div>
-          );
-        })}
-
-        {addingSupMode ? (
-          <div className="ud-sup-search-wrap">
-            <div className="ud-sup-search-input-row">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input placeholder="Search users..." value={supSearch}
-                onChange={e => setSupSearch(e.target.value)} autoFocus />
-              <button onClick={() => { setAddingSupMode(false); setSupSearch(""); setSupSuggestions([]); }}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "13px" }}>✕</button>
-            </div>
-            <div className="ud-sup-suggestions">
-              {supSuggestions.map(u => {
-                const uName = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
-                return (
-                  <button key={u.id} className="ud-sup-suggestion" onClick={() => handleAddSupervisor(u)}>
-                    <Avatar name={uName} url={u.avatarUrl} size={24} />
-                    <span>{uName}</span>
-                    {(u.positionName ?? u.position) && <span style={{ fontSize: "11px", color: "#9ca3af" }}>{u.positionName ?? u.position}</span>}
-                  </button>
-                );
-              })}
-              {supSearch.trim() && supSuggestions.length === 0 && (
-                <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>No users found</div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <button className="ud-add-sup-btn" onClick={() => setAddingSupMode(true)}>
-            + Add supervisor
-          </button>
-        )}
-      </div>
-
-      {/* Subordinates card (read-only) */}
-      <div className="ud-card">
-        <p className="ud-card-title">Subordinates</p>
-        {subordinates.length === 0 ? (
-          <p className="ud-empty-note">No subordinates</p>
-        ) : (
-          subordinates.map(s => {
-            const sName = s.fullName ?? s.name ?? "";
-            return (
-              <div key={s.id} className="ud-sub-row">
-                <Avatar name={sName} url={s.avatarUrl} size={28} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "13px", fontWeight: 500, color: "#111827" }}>{sName}</div>
-                  {(s.positionName ?? s.position) && <div style={{ fontSize: "11px", color: "#6b7280" }}>{s.positionName ?? s.position}</div>}
-                </div>
-                {!s.isActive && <span className="ud-inactive-badge">Inactive</span>}
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Permissions Tab ──────────────────────────────────────────────────────────
-// allPermissions: GET /api/users/permissions → [{ module, permissions: ["Users.Create",...] }]
-// userPermissions: user.permissions string[] (getUserById-dan gəlir)
-function PermissionsTab({ userId, userPermissions }) {
-  const { showToast } = useToast();
-  const { hasPermission } = useAuth();
-  const canAssign = hasPermission("Permissions.Assign");
-  const [modules, setModules]     = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [overrides, setOverrides] = useState({}); // { [permName]: bool } — optimistic
-
-  useEffect(() => {
-    getAllPermissions()
-      .then(data => setModules(Array.isArray(data) ? data : []))
-      .catch(() => setModules([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const isGranted = (permName) => {
-    if (permName in overrides) return overrides[permName];
-    return (userPermissions ?? []).includes(permName);
-  };
-
-  const handleToggle = async (permName) => {
-    const current = isGranted(permName);
-    setOverrides(prev => ({ ...prev, [permName]: !current }));
-    try {
-      if (current) {
-        await removePermission(userId, permName);
-      } else {
-        await assignPermission(userId, permName);
-      }
-    } catch {
-      setOverrides(prev => ({ ...prev, [permName]: current }));
-      showToast("Failed to update permission", "error");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="ud-card">
-            <div className="ud-skeleton-bar" style={{ width: "30%", marginBottom: "14px" }} />
-            <div className="ud-skeleton-bar" style={{ width: "80%" }} />
-            <div className="ud-skeleton-bar" style={{ width: "65%" }} />
+      <div className="ud-storage-legend">
+        {segments.map((seg, i) => (
+          <div key={i} className="ud-storage-legend-item">
+            <span className="ud-storage-legend-dot" style={{ background: seg.color }} />
+            <span>{seg.label}</span>
+            <span className="ud-storage-legend-meta">
+              <span className="ud-storage-legend-count">{seg.count}</span>
+              <span className="ud-storage-legend-size">{seg.mb.toFixed(1)} MB</span>
+            </span>
           </div>
         ))}
       </div>
-    );
-  }
-
-  if (modules.length === 0) {
-    return <div className="ud-card"><p className="ud-empty-note">No permissions data available</p></div>;
-  }
-
-  return (
-    <div>
-      {modules.map(mod => {
-        const visiblePerms = mod.permissions ?? [];
-        if (visiblePerms.length === 0) return null;
-        return (
-          <div key={mod.module} className="ud-card ud-perm-module">
-            <p className="ud-perm-module-title">{mod.module}</p>
-            <div className="ud-perm-grid">
-              {visiblePerms.map(permName => {
-                const granted = isGranted(permName);
-                const label = permName.split(".").pop();
-                return (
-                  <div key={permName} className="ud-perm-item">
-                    <span className="ud-perm-name">{label}</span>
-                    <button
-                      className={`ud-toggle ${granted ? "on" : "off"}`}
-                      onClick={() => canAssign && handleToggle(permName)}
-                      disabled={!canAssign}
-                      aria-label={`Toggle ${permName}`}
-                    >
-                      <span className="ud-toggle-knob" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
 
-// ─── Security Tab ─────────────────────────────────────────────────────────────
-function SecurityTab({ user, onUserUpdate }) {
+// ─── UserDetailPage — Dashboard Layout (tab yoxdur) ──────────────────────────
+function UserDetailPage({ userId, onDeleted }) {
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const [user, setUser]               = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [storage, setStorage]         = useState(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [toggling, setToggling]       = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]       = useState(false);
+  const [isOnline, setIsOnline]       = useState(false);
+
+  // Personal Details — edit state
+  const [editing, setEditing]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [positions, setPositions]     = useState([]);
+  const [form, setForm]               = useState({});
+
+  // Organization state
+  const [supervisors, setSupervisors] = useState([]);
+  const [subordinates, setSubordinates] = useState([]);
+  const [depts, setDepts]             = useState([]);
+  const [changingDept, setChangingDept] = useState(false);
+  const [deptSearch, setDeptSearch]   = useState("");
+  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const [deptSaving, setDeptSaving]   = useState(false);
+  const [supSearch, setSupSearch]     = useState("");
+  const [supSuggestions, setSupSuggestions] = useState([]);
+  const [addingSupMode, setAddingSupMode] = useState(false);
+  const supDebounceRef = useRef(null);
+
+  // Security state
   const [resetOpen, setResetOpen] = useState(false);
   const [newPwd, setNewPwd]       = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [pwdError, setPwdError]   = useState("");
   const [pwdSaving, setPwdSaving] = useState(false);
-  const [toggling, setToggling]   = useState(false);
 
-  const handlePwdSave = async (e) => {
-    e.preventDefault();
-    if (!newPwd.trim()) { setPwdError("Password is required"); return; }
-    if (newPwd !== confirmPwd) { setPwdError("Passwords do not match"); return; }
-    if (newPwd.length < 8)          { setPwdError("Minimum 8 characters"); return; }
-    if (!/[A-Z]/.test(newPwd))      { setPwdError("Must contain at least one uppercase letter"); return; }
-    if (!/[a-z]/.test(newPwd))      { setPwdError("Must contain at least one lowercase letter"); return; }
-    if (!/[0-9]/.test(newPwd))      { setPwdError("Must contain at least one number"); return; }
-    if (!/[^a-zA-Z0-9]/.test(newPwd)) { setPwdError("Must contain at least one special character"); return; }
-    setPwdSaving(true);
-    setPwdError("");
-    try {
-      await adminChangePassword(user.id, newPwd, confirmPwd);
-      showToast("Password reset successfully", "success");
-      setResetOpen(false);
-      setNewPwd(""); setConfirmPwd("");
-    } catch (err) {
-      setPwdError(err.message || "Failed to reset password");
-    } finally {
-      setPwdSaving(false);
-    }
-  };
+  // Permissions state
+  const [modules, setModules]     = useState([]);
+  const [permLoading, setPermLoading] = useState(true);
+  const [overrides, setOverrides] = useState({});
 
-  const handleToggleStatus = async () => {
-    setToggling(true);
-    try {
-      user.isActive ? await deactivateUser(user.id) : await activateUser(user.id);
-      showToast(user.isActive ? "Account deactivated" : "Account activated", "success");
-      onUserUpdate?.();
-    } catch (err) {
-      showToast(err.message || "Failed to update status", "error");
-    } finally {
-      setToggling(false);
-    }
-  };
-
-  return (
-    <div>
-      {/* Session card */}
-      <div className="ud-card">
-        <p className="ud-card-title">Session</p>
-        <div className="ud-security-item">
-          <span className="ud-security-label">Last Login</span>
-          <span className="ud-security-value">
-            {user.lastVisit ? formatRelativeTime(user.lastVisit) : "—"}
-          </span>
-        </div>
-        <div className="ud-security-item">
-          <span className="ud-security-label">Activity Logs</span>
-          <span className="ud-security-value muted">Coming soon</span>
-        </div>
-      </div>
-
-      {/* Password card */}
-      <div className="ud-card">
-        <p className="ud-card-title">Password</p>
-        <div className="ud-security-item">
-          <span className="ud-security-label">Last Changed</span>
-          <span className="ud-security-value">
-            {formatRelativeTime(user.passwordChangedAt)}
-          </span>
-        </div>
-        {!resetOpen ? (
-          <button className="ud-reset-pwd-btn" onClick={() => setResetOpen(true)}>
-            Reset Password →
-          </button>
-        ) : (
-          <form className="ud-pwd-form" onSubmit={handlePwdSave}>
-            <input className="ud-pwd-input" type="password" placeholder="New password"
-              value={newPwd} onChange={e => setNewPwd(e.target.value)} autoFocus />
-            <input className="ud-pwd-input" type="password" placeholder="Confirm password"
-              value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} />
-            {pwdError && <span className="ud-pwd-error">{pwdError}</span>}
-            <div className="ud-pwd-actions">
-              <button className="ud-pwd-save-btn" type="submit" disabled={pwdSaving}>
-                {pwdSaving ? "Saving..." : "Save"}
-              </button>
-              <button className="ud-pwd-cancel-btn" type="button"
-                onClick={() => { setResetOpen(false); setNewPwd(""); setConfirmPwd(""); setPwdError(""); }}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-
-      {/* Account status card */}
-      <div className="ud-card">
-        <p className="ud-card-title">Account Status</p>
-        <div className="ud-status-wrap">
-          <div className="ud-status-indicator">
-            <span className={`ud-status-dot-lg ${user.isActive ? "active" : "inactive"}`} />
-            {user.isActive ? "Active" : "Inactive"}
-          </div>
-          <button
-            className={`ud-activate-btn ${user.isActive ? "deactivate" : "activate"}`}
-            onClick={handleToggleStatus}
-            disabled={toggling}
-          >
-            {toggling ? "..." : user.isActive ? "Deactivate Account" : "Activate Account"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── UserDetailPage ───────────────────────────────────────────────────────────
-function UserDetailPage({ userId, onDeleted }) {
-  const { showToast } = useToast();
-  const { hasPermission } = useAuth();
-  const [user, setUser]           = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [storage, setStorage]     = useState(null);
-  const [storageLoading, setStorageLoading] = useState(false);
-  const [toggling, setToggling]   = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [deleting, setDeleting]   = useState(false);
-  const [isOnline, setIsOnline]   = useState(false);
-
-  // SignalR ilə online status yoxla
+  // ─── SignalR ilə online status ──────────────────────────────────────────────
   useEffect(() => {
     const conn = getConnection();
     if (!conn || !userId) return;
@@ -753,20 +167,101 @@ function UserDetailPage({ userId, onDeleted }) {
     };
   }, [userId]);
 
+  // ─── Data yüklə ────────────────────────────────────────────────────────────
   const loadUser = useCallback(() => {
     setLoading(true);
     getUserById(userId)
-      .then(setUser)
+      .then(u => {
+        setUser(u);
+        // Organization state-lərini set et
+        setSupervisors((u?.supervisors ?? []).map(s => ({
+          ...s, id: s.id ?? s.userId,
+          positionName: s.positionName ?? s.position ?? null,
+        })));
+        setSubordinates(u?.subordinates ?? []);
+        setSelectedDeptId(u?.departmentId ?? "");
+        // Form state-i set et
+        setForm({
+          firstName: u?.firstName ?? "", lastName: u?.lastName ?? "",
+          email: u?.email ?? "", workPhone: u?.workPhone ?? "",
+          aboutMe: u?.aboutMe ?? "",
+          dateOfBirth: u?.dateOfBirth ? u.dateOfBirth.split("T")[0] : "",
+          positionId: u?.positionId ?? "",
+          hiringDate: u?.hiringDate ? u.hiringDate.split("T")[0] : "",
+        });
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, [userId]);
 
   useEffect(() => { loadUser(); }, [loadUser]);
 
+  // Storage yüklə
+  useEffect(() => {
+    if (!userId) return;
+    setStorageLoading(true);
+    getUserStorageStats(userId)
+      .then(setStorage)
+      .catch(() => {})
+      .finally(() => setStorageLoading(false));
+  }, [userId]);
+
+  // Departments + Positions + Permissions paralel yüklə
+  useEffect(() => {
+    getDepartments().then(setDepts).catch(() => {});
+    getAllPositions().then(data => {
+      setPositions(Array.isArray(data) ? data : (data?.items ?? []));
+    }).catch(() => {});
+    getAllPermissions()
+      .then(data => setModules(Array.isArray(data) ? data : []))
+      .catch(() => setModules([]))
+      .finally(() => setPermLoading(false));
+  }, []);
+
+  // Supervisor axtarışı
+  useEffect(() => {
+    if (!addingSupMode) { setSupSuggestions([]); return; }
+    clearTimeout(supDebounceRef.current);
+    const fetch = () => {
+      const q = supSearch.trim();
+      const req = q.length >= 2 ? searchUsers(q) : getUsers({ pageSize: 50 });
+      req.then(d => {
+        const list = d?.items ?? (Array.isArray(d) ? d : []);
+        const existingIds = new Set(supervisors.map(s => s.id));
+        setSupSuggestions(list.filter(u => !existingIds.has(u.id) && u.id !== userId));
+      }).catch(() => {});
+    };
+    supDebounceRef.current = setTimeout(fetch, supSearch.trim().length >= 2 ? 300 : 0);
+  }, [supSearch, addingSupMode, supervisors, userId]);
+
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+  const setField = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateUser(userId, {
+        ...form,
+        dateOfBirth: form.dateOfBirth || null,
+        workPhone: form.workPhone || null,
+        aboutMe: form.aboutMe || null,
+        positionId: form.positionId || null,
+        hiringDate: form.hiringDate || null,
+      });
+      showToast("Profile updated", "success");
+      setEditing(false);
+      loadUser();
+    } catch (err) {
+      showToast(err.message || "Failed to update", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleToggleStatus = async () => {
     setToggling(true);
     try {
-      user.isActive ? await deactivateUser(user.id) : await activateUser(user.id);
+      user.isActive ? await deactivateUser(userId) : await activateUser(userId);
       showToast(user.isActive ? "Account deactivated" : "Account activated", "success");
       loadUser();
     } catch (err) {
@@ -779,7 +274,7 @@ function UserDetailPage({ userId, onDeleted }) {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await deleteUser(user.id);
+      await deleteUser(userId);
       showToast("User deleted", "success");
       onDeleted?.();
     } catch (err) {
@@ -789,121 +284,510 @@ function UserDetailPage({ userId, onDeleted }) {
     }
   };
 
-  // Storage-i overview tab ilk açıldığında yüklə
-  useEffect(() => {
-    if (activeTab === "overview" && user && !storage && !storageLoading) {
-      setStorageLoading(true);
-      getUserStorageStats(userId)
-        .then(setStorage)
-        .catch(() => {})
-        .finally(() => setStorageLoading(false));
+  const handleDeptSave = async () => {
+    setDeptSaving(true);
+    try {
+      await assignEmployeeToDepartment(userId, selectedDeptId);
+      setChangingDept(false);
+      showToast("Department updated", "success");
+      loadUser();
+    } catch (err) {
+      showToast(err.message || "Failed to update department", "error");
+    } finally {
+      setDeptSaving(false);
     }
-  }, [activeTab, user, userId, storage, storageLoading]);
+  };
 
-  if (loading) {
-    return (
-      <div className="ud-root">
-        <div className="ud-loading">Loading...</div>
-      </div>
-    );
-  }
+  const handleRemoveDept = async () => {
+    try {
+      await removeUserFromDepartment(userId);
+      showToast("Removed from department", "success");
+      loadUser();
+    } catch (err) {
+      showToast(err.message || "Failed to remove from department", "error");
+    }
+  };
 
-  if (!user) {
-    return (
-      <div className="ud-root">
-        <div className="ud-loading">User not found</div>
-      </div>
-    );
-  }
+  const handleRemoveSupervisor = async (supId) => {
+    try {
+      await removeSupervisor(userId, supId);
+      setSupervisors(prev => prev.filter(s => s.id !== supId));
+      showToast("Supervisor removed", "success");
+    } catch (err) {
+      showToast(err.message || "Failed to remove supervisor", "error");
+    }
+  };
+
+  const handleAddSupervisor = async (supUser) => {
+    try {
+      await addSupervisor(userId, supUser.id);
+      const name = supUser.fullName ?? `${supUser.firstName ?? ""} ${supUser.lastName ?? ""}`.trim();
+      setSupervisors(prev => [...prev, { id: supUser.id, fullName: name, avatarUrl: supUser.avatarUrl, positionName: supUser.positionName ?? supUser.position ?? null }]);
+      setAddingSupMode(false);
+      setSupSearch("");
+      showToast("Supervisor added", "success");
+    } catch (err) {
+      showToast(err.message || "Failed to add supervisor", "error");
+    }
+  };
+
+  const handlePwdSave = async (e) => {
+    e.preventDefault();
+    if (!newPwd.trim()) { setPwdError("Password is required"); return; }
+    if (newPwd !== confirmPwd) { setPwdError("Passwords do not match"); return; }
+    if (newPwd.length < 8)          { setPwdError("Minimum 8 characters"); return; }
+    if (!/[A-Z]/.test(newPwd))      { setPwdError("Must contain uppercase letter"); return; }
+    if (!/[a-z]/.test(newPwd))      { setPwdError("Must contain lowercase letter"); return; }
+    if (!/[0-9]/.test(newPwd))      { setPwdError("Must contain a number"); return; }
+    if (!/[^a-zA-Z0-9]/.test(newPwd)) { setPwdError("Must contain special character"); return; }
+    setPwdSaving(true); setPwdError("");
+    try {
+      await adminChangePassword(userId, newPwd, confirmPwd);
+      showToast("Password reset successfully", "success");
+      setResetOpen(false); setNewPwd(""); setConfirmPwd("");
+    } catch (err) {
+      setPwdError(err.message || "Failed to reset password");
+    } finally {
+      setPwdSaving(false);
+    }
+  };
+
+  const isGranted = (permName) => {
+    if (permName in overrides) return overrides[permName];
+    return (user?.permissions ?? []).includes(permName);
+  };
+
+  const handleTogglePerm = async (permName) => {
+    const current = isGranted(permName);
+    setOverrides(prev => ({ ...prev, [permName]: !current }));
+    try {
+      current ? await removePermission(userId, permName) : await assignPermission(userId, permName);
+    } catch {
+      setOverrides(prev => ({ ...prev, [permName]: current }));
+      showToast("Failed to update permission", "error");
+    }
+  };
+
+  // ─── Loading / Not Found ────────────────────────────────────────────────────
+  if (loading) return <div className="ud-root"><div className="ud-loading">Loading...</div></div>;
+  if (!user) return <div className="ud-root"><div className="ud-loading">User not found</div></div>;
 
   const name = user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
-  const allTabs = ["overview", "organization", "permissions", "security"];
-  const tabs = allTabs.filter(t => t !== "permissions" || hasPermission("Permissions.Read"));
-  const tabLabels = { overview: "Overview", organization: "Organization", permissions: "Permissions", security: "Security" };
+  const canAssignPerm = hasPermission("Permissions.Assign");
+  const filteredDepts = deptSearch.trim()
+    ? depts.filter(d => d.name.toLowerCase().includes(deptSearch.toLowerCase()))
+    : depts;
+  const memberDays = daysSince(user.createdAtUtc ?? user.createdAt);
+  const pwdDays = daysSince(user.passwordChangedAt);
 
   return (
     <div className="ud-root">
-      {/* Hero */}
+      {/* ═══ HERO ═══ */}
       <div className="ud-hero">
         <div className="ud-hero-avatar-wrap">
-          <div className="ud-hero-avatar"
-            style={{ background: user.avatarUrl ? "transparent" : getAvatarColor(name) }}>
-            {user.avatarUrl
-              ? <img src={getFileUrl(user.avatarUrl)} alt="" />
-              : getInitials(name)}
+          <div className="ud-hero-avatar" style={{ background: user.avatarUrl ? "transparent" : getAvatarColor(name) }}>
+            {user.avatarUrl ? <img src={getFileUrl(user.avatarUrl)} alt="" /> : getInitials(name)}
           </div>
         </div>
-
         <div className="ud-hero-info">
           <div className="ud-hero-name">{name}</div>
-          {user.position && <div className="ud-hero-position">{user.position}</div>}
+          {(user.position || user.departmentName) && (
+            <div className="ud-hero-position">
+              {user.position}{user.position && user.departmentName ? " · " : ""}{user.departmentName}
+            </div>
+          )}
           <div className="ud-hero-badges">
-            <span className={`ud-badge role-${(user.role ?? "user").toLowerCase()}`}>
-              {user.role ?? "User"}
-            </span>
+            <span className={`ud-badge role-${(user.role ?? "user").toLowerCase()}`}>{user.role ?? "User"}</span>
             <span className={`ud-badge status-${isOnline ? "online" : user.isActive ? "active" : "inactive"}`}>
               {isOnline ? "Online" : user.isActive ? "Active" : "Inactive"}
-              {!isOnline && user.lastVisit && (
-                <span className="ud-badge-time">· {formatRelativeTime(user.lastVisit)}</span>
-              )}
+              {!isOnline && user.lastVisit && <span className="ud-badge-time">· {formatRelativeTime(user.lastVisit)}</span>}
             </span>
+          </div>
+          {/* Əlaqə məlumatları */}
+          <div className="ud-hero-contact">
+            {user.email && (
+              <span className="ud-hero-contact-item">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                </svg>
+                {user.email}
+              </span>
+            )}
+            {user.email && user.workPhone && <span className="ud-hero-contact-sep">·</span>}
+            {user.workPhone && (
+              <span className="ud-hero-contact-item">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                {user.workPhone}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="ud-hero-actions">
+          {hasPermission("Users.Update") && (
+            <button className="ud-btn-outline" onClick={handleToggleStatus} disabled={toggling}>
+              {toggling ? "..." : user.isActive ? "Deactivate" : "Activate"}
+            </button>
+          )}
+          {hasPermission("Users.Delete") && (
+            <button className="ud-btn-danger-outline" onClick={() => setDeleteConfirm(true)}>Delete</button>
+          )}
+        </div>
+      </div>
+
+      {/* ═══ STATS ROW ═══ */}
+      <div className="ud-stats-row">
+        <div className="ud-stat-card storage">
+          <div className="ud-stat-label">Storage</div>
+          <div className="ud-stat-value">{storage ? `${storage.totalMb.toFixed(1)} MB` : "—"}</div>
+          <div className="ud-stat-sub">{storage ? `${storage.fileCount} files` : "No data"}</div>
+          {storage && (
+            <div className="ud-stat-bar-bg">
+              <div className="ud-stat-bar-fill" style={{ width: `${Math.min((storage.totalMb / 100) * 100, 100)}%` }} />
+            </div>
+          )}
+        </div>
+        <div className="ud-stat-card status">
+          <div className="ud-stat-label">Status</div>
+          <div className={`ud-stat-value ${isOnline ? "online" : ""}`}>
+            {isOnline && <span className="ud-stat-online-dot" />}
+            {isOnline ? "Online" : "Offline"}
+          </div>
+          <div className="ud-stat-sub">{isOnline ? "Active now" : user.lastVisit ? formatRelativeTime(user.lastVisit) : "Never logged in"}</div>
+        </div>
+        <div className="ud-stat-card member">
+          <div className="ud-stat-label">Member Since</div>
+          <div className="ud-stat-value">{memberDays != null ? `${memberDays} days` : "—"}</div>
+          <div className="ud-stat-sub">{user.createdAtUtc || user.createdAt ? `Since ${new Date(user.createdAtUtc ?? user.createdAt).toLocaleDateString("en", { month: "short", year: "numeric" })}` : ""}</div>
+        </div>
+        <div className="ud-stat-card security">
+          <div className="ud-stat-label">Password</div>
+          <div className="ud-stat-value">{pwdDays != null ? `${pwdDays} days` : "Never"}</div>
+          <div className={`ud-stat-sub${pwdDays == null ? " warning" : ""}`}>{pwdDays != null ? "Last changed" : "Never changed"}</div>
+        </div>
+      </div>
+
+      {/* ═══ CONTENT GRID ═══ */}
+      <div className="ud-content-grid">
+        {/* Sol sütun */}
+        <div className="ud-content-left">
+          {/* Personal Details */}
+          <div className="ud-detail-card">
+            <div className="ud-detail-card-header">
+              <span className="ud-detail-card-title">Personal Details</span>
+              {!editing ? (
+                <button className="ud-card-edit-btn" onClick={() => setEditing(true)}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  Edit
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="ud-card-save-btn" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                  <button className="ud-card-cancel-btn" onClick={() => { setEditing(false); loadUser(); }}>Cancel</button>
+                </div>
+              )}
+            </div>
+
+            {editing ? (
+              <div className="ud-edit-form">
+                <div className="ud-edit-row">
+                  <div className="ud-edit-field">
+                    <label>First Name</label>
+                    <input value={form.firstName} onChange={e => setField("firstName", e.target.value)} />
+                  </div>
+                  <div className="ud-edit-field">
+                    <label>Last Name</label>
+                    <input value={form.lastName} onChange={e => setField("lastName", e.target.value)} />
+                  </div>
+                </div>
+                <div className="ud-edit-field">
+                  <label>Email</label>
+                  <input type="email" value={form.email} onChange={e => setField("email", e.target.value)} />
+                </div>
+                <div className="ud-edit-field">
+                  <label>Phone</label>
+                  <input value={form.workPhone} onChange={e => setField("workPhone", e.target.value)} />
+                </div>
+                <div className="ud-edit-row">
+                  <div className="ud-edit-field">
+                    <label>Date of Birth</label>
+                    <input type="date" value={form.dateOfBirth} onChange={e => setField("dateOfBirth", e.target.value)} />
+                  </div>
+                  <div className="ud-edit-field">
+                    <label>Hiring Date</label>
+                    <input type="date" value={form.hiringDate} onChange={e => setField("hiringDate", e.target.value)} />
+                  </div>
+                </div>
+                <div className="ud-edit-field">
+                  <label>Position</label>
+                  <select value={form.positionId} onChange={e => setField("positionId", e.target.value)}>
+                    <option value="">— No position —</option>
+                    {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div className="ud-edit-field">
+                  <label>About</label>
+                  <textarea rows={3} value={form.aboutMe} onChange={e => setField("aboutMe", e.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="ud-info-row"><span className="ud-info-label">Full Name</span><span className="ud-info-value">{name || "—"}</span></div>
+                <div className="ud-info-row"><span className="ud-info-label">Email</span><span className="ud-info-value">{user.email || "—"}</span></div>
+                <div className="ud-info-row"><span className="ud-info-label">Phone</span><span className={`ud-info-value${!user.workPhone ? " muted" : ""}`}>{user.workPhone || "—"}</span></div>
+                <div className="ud-info-row"><span className="ud-info-label">Date of Birth</span><span className={`ud-info-value${!user.dateOfBirth ? " muted" : ""}`}>{user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : "—"}</span></div>
+                <div className="ud-info-row"><span className="ud-info-label">Hired</span><span className={`ud-info-value${!user.hiringDate ? " muted" : ""}`}>{user.hiringDate ? new Date(user.hiringDate).toLocaleDateString() : "—"}</span></div>
+                {user.aboutMe && <div className="ud-info-row"><span className="ud-info-label">About</span><span className="ud-info-value">{user.aboutMe}</span></div>}
+              </>
+            )}
+          </div>
+
+          {/* Organization — Dept + Supervisors + Subordinates bir card-da */}
+          <div className="ud-detail-card">
+            <div className="ud-detail-card-header">
+              <span className="ud-detail-card-title">Organization</span>
+            </div>
+
+            {/* Department */}
+            <div className="ud-org-section">
+              <div className="ud-org-section-title">Department</div>
+              <div className="ud-dept-row">
+                <span className={`ud-dept-name${!user.departmentName ? " empty" : ""}`}>{user.departmentName || "(No department)"}</span>
+                <button className="ud-dept-change-btn" onClick={() => { setChangingDept(v => !v); setSelectedDeptId(user.departmentId ?? ""); }}>
+                  {user.departmentName ? "Change →" : "Assign →"}
+                </button>
+                {user.departmentId && <button className="ud-dept-remove-btn" onClick={handleRemoveDept}>Remove</button>}
+              </div>
+              {changingDept && (
+                <div className="ud-dept-dropdown">
+                  <div className="ud-dept-dropdown-search">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input placeholder="Search..." value={deptSearch} onChange={e => setDeptSearch(e.target.value)} autoFocus />
+                  </div>
+                  <div className="ud-dept-dropdown-list">
+                    {filteredDepts.map(d => (
+                      <button key={d.id} className={`ud-dept-dropdown-item${selectedDeptId === d.id ? " active" : ""}`} onClick={() => setSelectedDeptId(d.id)}>{d.name}</button>
+                    ))}
+                    {filteredDepts.length === 0 && <div style={{ padding: "12px", fontSize: "13px", color: "#9ca3af" }}>No departments found</div>}
+                  </div>
+                  <div className="ud-dept-dropdown-actions">
+                    <button className="ud-dept-save-btn" onClick={handleDeptSave} disabled={deptSaving || !selectedDeptId}>{deptSaving ? "Saving..." : "Save"}</button>
+                    <button className="ud-dept-cancel-btn" onClick={() => { setChangingDept(false); setDeptSearch(""); }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Supervisors */}
+            <div className="ud-org-section">
+              <div className="ud-org-section-title">
+                Supervisors
+                {supervisors.length > 0 && <span className="ud-org-count">{supervisors.length}</span>}
+              </div>
+              {supervisors.length === 0 && !addingSupMode && <p className="ud-empty-note">No supervisors assigned</p>}
+              {supervisors.map(s => {
+                const sName = s.fullName ?? s.name ?? "";
+                return (
+                  <div key={s.id} className="ud-supervisor-row">
+                    <Avatar name={sName} url={s.avatarUrl} size={28} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ud-sup-name">{sName}</div>
+                      {s.positionName && <div className="ud-sup-pos">{s.positionName}</div>}
+                    </div>
+                    <button className="ud-sup-remove" title="Remove" onClick={() => handleRemoveSupervisor(s.id)}>✕</button>
+                  </div>
+                );
+              })}
+              {addingSupMode ? (
+                <div className="ud-sup-search-wrap">
+                  <div className="ud-sup-search-input-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input placeholder="Search users..." value={supSearch} onChange={e => setSupSearch(e.target.value)} autoFocus />
+                    <button onClick={() => { setAddingSupMode(false); setSupSearch(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "13px" }}>✕</button>
+                  </div>
+                  <div className="ud-sup-suggestions">
+                    {supSuggestions.map(u => {
+                      const uName = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+                      return (
+                        <button key={u.id} className="ud-sup-suggestion" onClick={() => handleAddSupervisor(u)}>
+                          <Avatar name={uName} url={u.avatarUrl} size={24} />
+                          <span>{uName}</span>
+                          {(u.positionName ?? u.position) && <span style={{ fontSize: "11px", color: "#9ca3af" }}>{u.positionName ?? u.position}</span>}
+                        </button>
+                      );
+                    })}
+                    {supSearch.trim() && supSuggestions.length === 0 && <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>No users found</div>}
+                  </div>
+                </div>
+              ) : (
+                <button className="ud-add-sup-btn" onClick={() => setAddingSupMode(true)}>+ Add supervisor</button>
+              )}
+            </div>
+
+            {/* Subordinates */}
+            <div className="ud-org-section">
+              <div className="ud-org-section-title">
+                Subordinates
+                {subordinates.length > 0 && <span className="ud-org-count">{subordinates.length}</span>}
+              </div>
+              {subordinates.length === 0 ? (
+                <p className="ud-empty-note">No subordinates</p>
+              ) : subordinates.map(s => {
+                const sName = s.fullName ?? s.name ?? "";
+                return (
+                  <div key={s.id} className="ud-sub-row">
+                    <Avatar name={sName} url={s.avatarUrl} size={28} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "13px", fontWeight: 500, color: "#111827" }}>{sName}</div>
+                      {(s.positionName ?? s.position) && <div style={{ fontSize: "11px", color: "#6b7280" }}>{s.positionName ?? s.position}</div>}
+                    </div>
+                    {!s.isActive && <span className="ud-inactive-badge">Inactive</span>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="ud-hero-actions">
-          {hasPermission("Users.Update") && <button className="ud-btn-outline" onClick={() => setActiveTab("security")}>
-            Reset Password
-          </button>}
-          {hasPermission("Users.Update") && <button className="ud-btn-outline" onClick={handleToggleStatus} disabled={toggling}>
-            {toggling ? "..." : user.isActive ? "Deactivate" : "Activate"}
-          </button>}
-          {hasPermission("Users.Delete") && <button className="ud-btn-danger-outline" onClick={() => setDeleteConfirm(true)}>
-            Delete
-          </button>}
+        {/* Sağ sütun */}
+        <div className="ud-content-right">
+          {/* Storage Breakdown */}
+          <div className="ud-detail-card">
+            <div className="ud-detail-card-header">
+              <span className="ud-detail-card-title">Storage Breakdown</span>
+            </div>
+            {storageLoading ? (
+              <>
+                <div className="ud-skeleton-bar" style={{ width: "60%" }} />
+                <div className="ud-skeleton-bar" style={{ width: "40%" }} />
+              </>
+            ) : storage && storage.totalMb > 0 ? (
+              <StorageDonut storage={storage} />
+            ) : (
+              <p className="ud-empty-note">No files uploaded</p>
+            )}
+          </div>
+
+          {/* Security & Access */}
+          <div className="ud-detail-card">
+            <div className="ud-detail-card-header">
+              <span className="ud-detail-card-title">Security & Access</span>
+            </div>
+            <div className="ud-info-row"><span className="ud-info-label">Last Login</span><span className="ud-info-value">{user.lastVisit ? formatRelativeTime(user.lastVisit) : "—"}</span></div>
+            <div className="ud-info-row"><span className="ud-info-label">Pwd Changed</span><span className="ud-info-value">{formatRelativeTime(user.passwordChangedAt)}</span></div>
+            <div className="ud-info-row">
+              <span className="ud-info-label">Status</span>
+              <span className="ud-info-value">
+                <span className={`ud-status-dot-lg ${user.isActive ? "active" : "inactive"}`} style={{ display: "inline-block", marginRight: 6, verticalAlign: "middle" }} />
+                {user.isActive ? "Active" : "Inactive"}
+              </span>
+            </div>
+
+            <div className="ud-security-actions-divider">Actions</div>
+
+            {/* Reset Password */}
+            {!resetOpen ? (
+              <button className="ud-security-action" onClick={() => setResetOpen(true)}>
+                <div className="ud-security-action-icon key">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                  </svg>
+                </div>
+                <span>Reset Password</span>
+                <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: "12px" }}>→</span>
+              </button>
+            ) : (
+              <form className="ud-pwd-form" onSubmit={handlePwdSave}>
+                <input className="ud-pwd-input" type="password" placeholder="New password" value={newPwd} onChange={e => setNewPwd(e.target.value)} autoFocus />
+                <input className="ud-pwd-input" type="password" placeholder="Confirm password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} />
+                {pwdError && <span className="ud-pwd-error">{pwdError}</span>}
+                <div className="ud-pwd-actions">
+                  <button className="ud-pwd-save-btn" type="submit" disabled={pwdSaving}>{pwdSaving ? "Saving..." : "Save"}</button>
+                  <button className="ud-pwd-cancel-btn" type="button" onClick={() => { setResetOpen(false); setNewPwd(""); setConfirmPwd(""); setPwdError(""); }}>Cancel</button>
+                </div>
+              </form>
+            )}
+
+            {/* Deactivate/Activate */}
+            <button className={`ud-security-action${user.isActive ? " danger" : ""}`} onClick={handleToggleStatus} disabled={toggling}>
+              <div className={`ud-security-action-icon ${user.isActive ? "deactivate" : "activate"}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {user.isActive
+                    ? <><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></>
+                    : <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>
+                  }
+                </svg>
+              </div>
+              <span>{toggling ? "..." : user.isActive ? "Deactivate Account" : "Activate Account"}</span>
+              <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: "12px" }}>→</span>
+            </button>
+
+            <div className="ud-security-actions-divider">Activity</div>
+            <p className="ud-empty-note">Coming soon</p>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="ud-tabs">
-        {tabs.map(tab => (
-          <button key={tab}
-            className={`ud-tab${activeTab === tab ? " active" : ""}`}
-            onClick={() => setActiveTab(tab)}>
-            {tabLabels[tab]}
-          </button>
-        ))}
-      </div>
+      {/* ═══ PERMISSIONS ═══ */}
+      {hasPermission("Permissions.Read") && (
+        <div className="ud-permissions-section">
+          <div className="ud-detail-card-header">
+            <span className="ud-detail-card-title">Permissions</span>
+          </div>
+          {permLoading ? (
+            <div className="ud-perm-modules-grid">
+              {[1, 2, 3].map(i => <div key={i} className="ud-skeleton-bar" style={{ height: 120, borderRadius: 10 }} />)}
+            </div>
+          ) : modules.length === 0 ? (
+            <p className="ud-empty-note">No permissions data available</p>
+          ) : (
+            <div className="ud-perm-modules-grid">
+              {modules.map(mod => {
+                const perms = mod.permissions ?? [];
+                if (perms.length === 0) return null;
+                const grantedCount = perms.filter(p => isGranted(p)).length;
+                return (
+                  <div key={mod.module} className="ud-perm-module-card">
+                    <div className="ud-perm-module-card-header">
+                      <span className="ud-perm-module-card-title">{mod.module}</span>
+                      {grantedCount > 0 && <span className="ud-perm-granted-count">{grantedCount}/{perms.length}</span>}
+                    </div>
+                    {perms.map(permName => {
+                      const granted = isGranted(permName);
+                      const label = permName.split(".").pop();
+                      return (
+                        <div key={permName} className="ud-perm-toggle-row">
+                          <span className="ud-perm-toggle-label">{label}</span>
+                          <button className={`ud-toggle ${granted ? "on" : "off"}`}
+                            onClick={() => canAssignPerm && handleTogglePerm(permName)}
+                            disabled={!canAssignPerm}
+                            aria-label={`Toggle ${permName}`}>
+                            <span className="ud-toggle-knob" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Tab content */}
-      {activeTab === "overview" && (
-        <OverviewTab user={user} storage={storage} storageLoading={storageLoading} onUserUpdate={loadUser} />
-      )}
-      {activeTab === "organization" && (
-        <OrganizationTab user={user} onUserUpdate={loadUser} />
-      )}
-      {activeTab === "permissions" && (
-        <PermissionsTab userId={userId} userPermissions={user.permissions ?? []} />
-      )}
-      {activeTab === "security" && (
-        <SecurityTab user={user} onUserUpdate={loadUser} />
-      )}
-
-      {/* Delete confirmation modal */}
+      {/* ═══ DELETE MODAL ═══ */}
       {deleteConfirm && (
         <div className="ud-modal-backdrop" onClick={() => setDeleteConfirm(false)}>
           <div className="ud-modal" onClick={e => e.stopPropagation()}>
             <p className="ud-modal-title">Delete User</p>
-            <p className="ud-modal-body">
-              Are you sure you want to delete <strong>{name}</strong>?
-              This only removes the account — messages and files are preserved.
-            </p>
+            <p className="ud-modal-body">Are you sure you want to delete <strong>{name}</strong>? This only removes the account — messages and files are preserved.</p>
             <div className="ud-modal-actions">
-              <button className="ud-modal-cancel" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
-                Cancel
-              </button>
-              <button className="ud-modal-confirm danger" onClick={handleDelete} disabled={deleting}>
-                {deleting ? "Deleting..." : "Delete"}
-              </button>
+              <button className="ud-modal-cancel" onClick={() => setDeleteConfirm(false)} disabled={deleting}>Cancel</button>
+              <button className="ud-modal-confirm danger" onClick={handleDelete} disabled={deleting}>{deleting ? "Deleting..." : "Delete"}</button>
             </div>
           </div>
         </div>

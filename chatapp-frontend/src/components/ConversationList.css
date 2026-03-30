@@ -51,8 +51,7 @@
 }
 
 .header-icon-btn.create-btn:hover {
-  background: var(--primary-hover);
-  color: var(--white);
+  filter: brightness(0.9);
 }
 
 .search-wrapper {
@@ -90,11 +89,7 @@
 .search-input:focus {
   border-color: var(--selected-chat);
   background: var(--white);
-  box-shadow: 0 0 0 3px rgba(0, 172, 227, 0.12);
-}
-.search-input:focus-visible {
-  outline: 2px solid var(--selected-chat);
-  outline-offset: 1px;
+  outline: none;
 }
 
 /* Focus olduqda search ikonunun rəngi */
