@@ -68,7 +68,8 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
   const [members, setMembers]               = useState(null); // null = loading
   const [deleteConfirm, setDeleteConfirm]   = useState(false);
   const [deleting, setDeleting]             = useState(false);
-  const [subPanel, setSubPanel]             = useState(null); // 'edit' | 'head' | null
+  const [subPanel, setSubPanel]             = useState(null); // 'edit' | null
+  const [headMode, setHeadMode]             = useState(false); // inline head assign
   const [formName, setFormName]             = useState("");
   const [formParentId, setFormParentId]     = useState("");
   const [formError, setFormError]           = useState("");
@@ -146,7 +147,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
 
   // headSearch dəyişdikdə debounce ilə server-side axtarış — min 2 simvol
   useEffect(() => {
-    if (subPanel !== "head") return;
+    if (!headMode) return;
     const q = headSearch.trim();
     if (q.length < 2) { setAllUsers([]); return; }
     clearTimeout(headDebounce.current);
@@ -157,10 +158,10 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
         .catch(() => setAllUsers([]))
         .finally(() => setUsersLoading(false));
     }, 300);
-  }, [headSearch, subPanel]);
+  }, [headSearch, headMode]);
 
   const openHead = () => {
-    setHeadSearch(""); setSelectedHeadId(null); setAllUsers([]); setSubPanel("head");
+    setHeadSearch(""); setSelectedHeadId(null); setAllUsers([]); setHeadMode(true);
   };
 
   const handleAssignHead = async () => {
@@ -168,7 +169,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
     setHeadSaving(true);
     try {
       await assignDepartmentHead(node.id, selectedHeadId);
-      setSubPanel(null); onClose(); onAfterMutation();
+      setHeadMode(false); onClose(); onAfterMutation();
     } catch (err) {
       alert(err?.message ?? "Assign failed.");
     } finally { setHeadSaving(false); }
@@ -178,7 +179,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
     setHeadSaving(true);
     try {
       await removeDepartmentHead(node.id);
-      setSubPanel(null); onClose(); onAfterMutation();
+      setHeadMode(false); onClose(); onAfterMutation();
     } catch (err) {
       alert(err?.message ?? "Remove failed.");
     } finally { setHeadSaving(false); }
@@ -219,7 +220,62 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
         <div className="hi-dept-detail-body">
           <div className="hi-detail-section">
             <p className="hi-detail-section-label">Head of Department</p>
-            {node.headOfDepartmentId ? (
+            {headMode ? (
+              <div className="dm-inline-head">
+                {node.headOfDepartmentId && (
+                  <>
+                    <div className="dm-current-head">
+                      <div className="dm-head-avatar" style={{ background: getAvatarColor(node.headOfDepartmentName ?? "") }}>
+                        {getInitials(node.headOfDepartmentName ?? "")}
+                      </div>
+                      <span className="dm-head-name">{node.headOfDepartmentName}</span>
+                      <button className="dm-btn-ghost-danger" onClick={handleRemoveHead} disabled={headSaving}>Remove</button>
+                    </div>
+                    <hr className="dm-divider" />
+                  </>
+                )}
+                <div className="dm-search-wrap dm-head-search">
+                  <svg className="dm-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input className="dm-search-input" placeholder="Search users..."
+                    value={headSearch} onChange={e => setHeadSearch(e.target.value)} autoFocus />
+                </div>
+                <div className="dm-user-pick-list">
+                  {usersLoading ? (
+                    <div className="dm-empty">Loading...</div>
+                  ) : headSearch.trim().length < 2 ? (
+                    <div className="dm-empty">Type at least 2 characters to search</div>
+                  ) : allUsers.length === 0 ? (
+                    <div className="dm-empty">No users found.</div>
+                  ) : allUsers.map(u => {
+                    const n = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+                    return (
+                      <div key={u.id}
+                        className={`dm-user-pick-row${selectedHeadId === u.id ? " selected" : ""}`}
+                        onClick={() => setSelectedHeadId(u.id)}>
+                        <div className="dm-user-avatar-sm" style={{ background: getAvatarColor(n) }}>
+                          {getInitials(n)}
+                        </div>
+                        <div className="dm-user-info-sm">
+                          <span>{n}</span>
+                          {(u.position ?? u.positionName) && (
+                            <span className="dm-user-dept">{u.position ?? u.positionName}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="dm-inline-head-actions">
+                  <button type="button" className="dm-btn dm-btn-ghost" onClick={() => setHeadMode(false)}>Cancel</button>
+                  <button className="dm-btn dm-btn-primary" onClick={handleAssignHead}
+                    disabled={!selectedHeadId || headSaving}>
+                    {headSaving ? <span className="dm-spinner" /> : "Assign"}
+                  </button>
+                </div>
+              </div>
+            ) : node.headOfDepartmentId ? (
               <div className="hi-detail-supervisor">
                 <div className="hi-dept-head-avatar" style={{ background: getAvatarColor(node.headOfDepartmentName ?? "") }}>
                   {getInitials(node.headOfDepartmentName ?? "")}
@@ -359,78 +415,6 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
         </>
       )}
 
-      {subPanel === "head" && (
-        <>
-          <div className="dm-form-overlay" onClick={() => setSubPanel(null)} />
-          <div className="dm-head-panel">
-            <div className="dm-form-header">
-              <h3 className="dm-form-title">Assign Head — {node.name}</h3>
-              <button className="dm-form-close" onClick={() => setSubPanel(null)} aria-label="Close"><CloseIcon /></button>
-            </div>
-            <div className="dm-form-body">
-              {node.headOfDepartmentId && (
-                <>
-                  <div className="dm-form-field">
-                    <label className="dm-form-label">Current Head</label>
-                    <div className="dm-current-head">
-                      <div className="dm-head-avatar" style={{ background: getAvatarColor(node.headOfDepartmentName ?? "") }}>
-                        {getInitials(node.headOfDepartmentName ?? "")}
-                      </div>
-                      <span className="dm-head-name">{node.headOfDepartmentName}</span>
-                      <button className="dm-btn-ghost-danger" onClick={handleRemoveHead} disabled={headSaving}>
-                        {headSaving ? <span className="dm-spinner dm-spinner--dark" /> : "Remove Head"}
-                      </button>
-                    </div>
-                  </div>
-                  <hr className="dm-divider" />
-                </>
-              )}
-              <div className="dm-form-field">
-                <label className="dm-form-label">Assign New Head</label>
-                <div className="dm-search-wrap dm-head-search">
-                  <svg className="dm-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                  <input className="dm-search-input" placeholder="Search users..."
-                    value={headSearch} onChange={e => setHeadSearch(e.target.value)} />
-                </div>
-                <div className="dm-user-pick-list">
-                  {usersLoading ? (
-                    <div className="dm-empty">Loading...</div>
-                  ) : headSearch.trim().length < 2 ? (
-                    <div className="dm-empty">Type at least 2 characters to search</div>
-                  ) : allUsers.length === 0 ? (
-                    <div className="dm-empty">No users found.</div>
-                  ) : allUsers.map(u => {
-                    const n = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
-                    return (
-                      <div key={u.id}
-                        className={`dm-user-pick-row${selectedHeadId === u.id ? " selected" : ""}`}
-                        onClick={() => setSelectedHeadId(u.id)}>
-                        <div className="dm-user-avatar-sm" style={{ background: getAvatarColor(n) }}>
-                          {getInitials(n)}
-                        </div>
-                        <div className="dm-user-info-sm">
-                          <span>{n}</span>
-                          {(u.position ?? u.positionName) && (
-                            <span className="dm-user-dept">{u.position ?? u.positionName}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="dm-form-actions">
-                <button type="button" className="dm-btn dm-btn-ghost" onClick={() => setSubPanel(null)}>Cancel</button>
-                <button className="dm-btn dm-btn-primary" onClick={handleAssignHead} disabled={!selectedHeadId || headSaving}>
-                  {headSaving ? <span className="dm-spinner" /> : "Assign"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 }

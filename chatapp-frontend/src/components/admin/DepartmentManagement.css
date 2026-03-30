@@ -392,3 +392,12 @@
   text-align: center; padding: 8px;
 }
 .dm-required { color: #e53e3e; }
+
+/* Inline head assignment */
+.dm-inline-head {
+  display: flex; flex-direction: column; gap: 10px;
+  animation: section-enter 200ms ease;
+}
+.dm-inline-head-actions {
+  display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px;
+}

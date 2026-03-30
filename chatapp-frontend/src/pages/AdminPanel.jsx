@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AuthContext, useAuth } from "../context/AuthContext";
 import CompanyManagement from "../components/admin/CompanyManagement";
 import HierarchyView from "../components/admin/HierarchyView";
@@ -20,7 +20,8 @@ function AdminPanel() {
   const { user } = useContext(AuthContext);
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
-  const { section: urlSection } = useParams();
+  const { section: urlSection, userId: urlUserId } = useParams();
+  const location = useLocation();
   const isSuperAdmin = user?.role === "SuperAdmin";
 
   const validSections = isSuperAdmin
@@ -29,18 +30,32 @@ function AdminPanel() {
   const defaultSection = isSuperAdmin ? "companies" : "users";
 
   // URL-dən alınan section (yoxlanılmış)
-  const urlActiveSection =
-    urlSection && validSections.includes(urlSection) ? urlSection : defaultSection;
+  const isUserDetailUrl = !!urlUserId;
+  const urlActiveSection = isUserDetailUrl
+    ? "users"
+    : (urlSection && validSections.includes(urlSection) ? urlSection : defaultSection);
 
-  // user_detail yalnız local state-də saxlanılır (URL-ə yazılmır)
-  const [subSection, setSubSection] = useState(null); // null | "user_detail"
   // "out-fwd" | "in-fwd" | "out-back" | "in-back" | "out-fade" | "in-fade" | ""
   const [transition, setTransition] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  // subSection yalnız user_detail üçün — URL-dən sync olunur
+  const [subSection, setSubSection] = useState(isUserDetailUrl ? "user_detail" : null);
+
+  // URL-dəki userId dəyişəndə state-i sync et (refresh, browser back/forward)
+  useEffect(() => {
+    if (urlUserId) {
+      setSubSection("user_detail");
+      if (!selectedUser || selectedUser.id !== urlUserId) {
+        setSelectedUser({ id: urlUserId, name: location.state?.userName ?? "" });
+      }
+    } else {
+      setSubSection(null);
+    }
+  }, [urlUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // /admin (section yoxdur) → default section-a yönləndir
   useEffect(() => {
-    if (!urlSection || !validSections.includes(urlSection)) {
+    if (!urlUserId && (!urlSection || !validSections.includes(urlSection))) {
       navigate(`/admin/${defaultSection}`, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,8 +73,10 @@ function AdminPanel() {
     setTimeout(() => {
       if (newSection === "user_detail") {
         setSubSection("user_detail");
+        navigate(`/admin/users/${selectedUser?.id}`, { state: { userName: selectedUser?.name } });
       } else {
         setSubSection(null);
+        setSelectedUser(null);
         navigate(`/admin/${newSection}`);
       }
       setTransition(`in-${dir}`);
@@ -69,8 +86,17 @@ function AdminPanel() {
 
   const openUserDetail = (userId, userName) => {
     setSelectedUser({ id: userId, name: userName });
-    changeSection("user_detail");
+    setTransition("out-fwd");
+    setTimeout(() => {
+      setSubSection("user_detail");
+      navigate(`/admin/users/${userId}`, { state: { userName } });
+      setTransition("in-fwd");
+      setTimeout(() => setTransition(""), 260);
+    }, 160);
   };
+
+  // Breadcrumb üçün ad — local state və ya location.state-dən
+  const userDetailName = selectedUser?.name || location.state?.userName || "User";
 
   return (
     <div className="ap-page">
@@ -92,8 +118,8 @@ function AdminPanel() {
                 Users
               </button>
               <span className="ap-breadcrumb-sep">›</span>
-              <span key={selectedUser?.name} className="ap-breadcrumb-page">
-                {selectedUser?.name}
+              <span key={userDetailName} className="ap-breadcrumb-page">
+                {userDetailName}
               </span>
             </>
           ) : (

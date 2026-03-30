@@ -7,15 +7,26 @@ import {
 import { getInitials, getAvatarColor } from "../../utils/chatUtils";
 import { useAuth } from "../../context/AuthContext";
 import "./DepartmentManagement.css";
+import "./HierarchyView.css";
 
-// ─── DeptDetailPanel ──────────────────────────────────────────────────────────
+// ─── DeptDetailPanel — HierarchyView dizaynı ilə uyğunlaşdırılıb ────────────
 const DeptDetailPanel = memo(function DeptDetailPanel({
-  dept, allDepts, closing, onClose, onDeleted, onEdit, onChangeHead,
+  dept, allDepts, closing, onClose, onDeleted, onEdit, onRefresh,
 }) {
-  const [members, setMembers]       = useState(null); // null = loading
-  const [deleteConfirm, setDeleteConfirm]   = useState(false);
-  const [deleting, setDeleting]     = useState(false);
+  const [members, setMembers]             = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting]           = useState(false);
 
+  // Inline head assignment
+  const [headMode, setHeadMode]               = useState(false);
+  const [headSearch, setHeadSearch]           = useState("");
+  const [headUsers, setHeadUsers]             = useState([]);
+  const [headUsersLoading, setHeadUsersLoading] = useState(false);
+  const [selectedHeadId, setSelectedHeadId]   = useState(null);
+  const [headSaving, setHeadSaving]           = useState(false);
+  const headDebounce                          = useRef(null);
+
+  // Members yüklə
   useEffect(() => {
     if (!dept) return;
     let active = true;
@@ -25,6 +36,21 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
     return () => { active = false; };
   }, [dept]);
 
+  // Head axtarışı — debounce, min 2 simvol
+  useEffect(() => {
+    if (!headMode) return;
+    const q = headSearch.trim();
+    if (q.length < 2) { setHeadUsers([]); return; }
+    clearTimeout(headDebounce.current);
+    setHeadUsersLoading(true);
+    headDebounce.current = setTimeout(() => {
+      searchUsers(q)
+        .then(d => setHeadUsers(d?.items ?? (Array.isArray(d) ? d : [])))
+        .catch(() => setHeadUsers([]))
+        .finally(() => setHeadUsersLoading(false));
+    }, 300);
+  }, [headSearch, headMode]);
+
   const subDeptCount = allDepts.filter(d => d.parentDepartmentId === dept.id).length;
   const parentDept   = allDepts.find(d => d.id === dept.parentDepartmentId);
 
@@ -32,7 +58,7 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
     setDeleting(true);
     try {
       await deleteDepartment(dept.id);
-      onDeleted(); // panel bağla + depts siyahısını yenilə
+      onDeleted();
     } catch (err) {
       alert(err.message || "Delete failed.");
       setDeleting(false);
@@ -40,105 +66,188 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
     }
   };
 
+  const openHeadMode = () => {
+    setHeadSearch("");
+    setSelectedHeadId(null);
+    setHeadUsers([]);
+    setHeadMode(true);
+  };
+
+  const handleAssignHead = async () => {
+    if (!selectedHeadId) return;
+    setHeadSaving(true);
+    try {
+      await assignDepartmentHead(dept.id, selectedHeadId);
+      setHeadMode(false);
+      onClose();
+      onRefresh();
+    } catch (err) {
+      alert(err?.message ?? "Assign failed.");
+    } finally {
+      setHeadSaving(false);
+    }
+  };
+
+  const handleRemoveHead = async () => {
+    setHeadSaving(true);
+    try {
+      await removeDepartmentHead(dept.id);
+      setHeadMode(false);
+      onClose();
+      onRefresh();
+    } catch (err) {
+      alert(err?.message ?? "Remove failed.");
+    } finally {
+      setHeadSaving(false);
+    }
+  };
+
   return (
     <>
-      <div className="dm-detail-overlay" onClick={onClose} />
-      <div className={`dm-detail-panel${closing ? " closing" : ""}`}>
-        <div className="dm-detail-header">
-          <div>
-            <div className="dm-detail-title">{dept.name}</div>
-            {parentDept && (
-              <div className="dm-detail-parent">↳ {parentDept.name}</div>
+      <div className="hi-panel-backdrop" onClick={onClose} />
+      <div className={`hi-dept-detail-panel${closing ? " closing" : ""}`}>
+
+        {/* Hero — tünd gradient, avatar, ad */}
+        <div className="hi-dept-detail-hero">
+          <button className="hi-detail-hero-close" onClick={onClose}>✕</button>
+          <div className="hi-dept-detail-avatar-wrap">
+            {dept.avatarUrl ? (
+              <img src={getFileUrl(dept.avatarUrl)} alt="" className="hi-dept-detail-avatar-img" />
+            ) : (
+              <div className="hi-dept-detail-avatar-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/>
+                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                </svg>
+              </div>
             )}
           </div>
-          <button className="dm-detail-close" onClick={onClose}>✕</button>
+          <div className="hi-dept-detail-name">{dept.name}</div>
+          {parentDept && <div className="hi-dept-detail-parent">↳ {parentDept.name}</div>}
         </div>
 
-        <div className="dm-detail-body">
-          {/* Head */}
-          <div className="dm-detail-section">
-            <p className="dm-detail-section-label">Head</p>
-            {dept.headOfDepartmentId ? (
-              <div className="dm-detail-head-row">
-                <div className="dm-detail-head-avatar"
-                  style={{ background: getAvatarColor(dept.headOfDepartmentName ?? "") }}>
+        <div className="hi-dept-detail-body">
+          {/* Head of Department — inline assign */}
+          <div className="hi-detail-section">
+            <p className="hi-detail-section-label">Head of Department</p>
+            {headMode ? (
+              <div className="dm-inline-head">
+                {dept.headOfDepartmentId && (
+                  <>
+                    <div className="dm-current-head">
+                      <div className="dm-head-avatar" style={{ background: getAvatarColor(dept.headOfDepartmentName ?? "") }}>
+                        {getInitials(dept.headOfDepartmentName ?? "")}
+                      </div>
+                      <span className="dm-head-name">{dept.headOfDepartmentName}</span>
+                      <button className="dm-btn-ghost-danger" onClick={handleRemoveHead} disabled={headSaving}>Remove</button>
+                    </div>
+                    <hr className="dm-divider" />
+                  </>
+                )}
+                <div className="dm-search-wrap dm-head-search">
+                  <svg className="dm-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input className="dm-search-input" placeholder="Search users..."
+                    value={headSearch} onChange={e => setHeadSearch(e.target.value)} autoFocus />
+                </div>
+                <div className="dm-user-pick-list">
+                  {headUsersLoading ? (
+                    <div className="dm-empty">Loading...</div>
+                  ) : headSearch.trim().length < 2 ? (
+                    <div className="dm-empty">Type at least 2 characters to search</div>
+                  ) : headUsers.length === 0 ? (
+                    <div className="dm-empty">No users found.</div>
+                  ) : headUsers.map(u => {
+                    const name = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+                    return (
+                      <div key={u.id}
+                        className={`dm-user-pick-row${selectedHeadId === u.id ? " selected" : ""}`}
+                        onClick={() => setSelectedHeadId(u.id)}>
+                        <div className="dm-user-avatar-sm" style={{ background: getAvatarColor(name) }}>
+                          {getInitials(name)}
+                        </div>
+                        <div className="dm-user-info-sm">
+                          <span>{name}</span>
+                          {u.positionName && <span className="dm-user-dept">{u.positionName}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="dm-inline-head-actions">
+                  <button type="button" className="dm-btn dm-btn-ghost" onClick={() => setHeadMode(false)}>Cancel</button>
+                  <button className="dm-btn dm-btn-primary" onClick={handleAssignHead}
+                    disabled={!selectedHeadId || headSaving}>
+                    {headSaving ? <span className="dm-spinner" /> : "Assign"}
+                  </button>
+                </div>
+              </div>
+            ) : dept.headOfDepartmentId ? (
+              <div className="hi-detail-supervisor">
+                <div className="hi-dept-head-avatar" style={{ background: getAvatarColor(dept.headOfDepartmentName ?? "") }}>
                   {getInitials(dept.headOfDepartmentName ?? "")}
                 </div>
-                <span style={{ flex: 1, fontWeight: 500, fontSize: "13px" }}>
-                  {dept.headOfDepartmentName}
-                </span>
-                <button className="dm-change-head-btn" onClick={() => onChangeHead(dept)}>
-                  Change
-                </button>
+                <span style={{ flex: 1, fontWeight: 500, fontSize: "13px" }}>{dept.headOfDepartmentName}</span>
+                <button className="hi-change-head-btn" onClick={openHeadMode}>Change</button>
               </div>
             ) : (
-              <div className="dm-detail-head-row">
-                <span style={{ fontSize: "13px", color: "#9ca3af", flex: 1 }}>No head assigned</span>
-                <button className="dm-change-head-btn" onClick={() => onChangeHead(dept)}>
-                  Assign
-                </button>
+              <div className="hi-detail-supervisor">
+                <span style={{ flex: 1, fontSize: "13px", color: "#9ca3af", fontStyle: "italic" }}>No head assigned</span>
+                <button className="hi-change-head-btn" onClick={openHeadMode}>Assign</button>
               </div>
             )}
           </div>
 
-          {/* Stats */}
-          <div className="dm-detail-section">
-            <p className="dm-detail-section-label">Stats</p>
-            <div className="dm-detail-stats">
-              <div className="dm-detail-stat-card">
-                <div className="dm-detail-stat-num">{members?.length ?? 0}</div>
-                <div className="dm-detail-stat-label">Members</div>
+          {/* Overview */}
+          <div className="hi-detail-section">
+            <p className="hi-detail-section-label">Overview</p>
+            <div className="hi-dept-stats">
+              <div className="hi-dept-stat-card">
+                <div className="hi-dept-stat-num">{members?.length ?? 0}</div>
+                <div className="hi-dept-stat-label">Members</div>
               </div>
-              <div className="dm-detail-stat-card">
-                <div className="dm-detail-stat-num">{subDeptCount}</div>
-                <div className="dm-detail-stat-label">Sub-depts</div>
+              <div className="hi-dept-stat-card">
+                <div className="hi-dept-stat-num">{subDeptCount}</div>
+                <div className="hi-dept-stat-label">Sub-depts</div>
               </div>
             </div>
           </div>
 
           {/* Members */}
           {(members === null || members.length > 0) && (
-            <div className="dm-detail-section">
-              <p className="dm-detail-section-label">Members</p>
+            <div className="hi-detail-section">
+              <p className="hi-detail-section-label">Members</p>
               {members === null ? (
                 <div style={{ fontSize: "13px", color: "#9ca3af" }}>Loading...</div>
-              ) : (
-                members.map(m => {
-                  const mName = m.fullName ?? `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
-                  return (
-                    <div key={m.id} className="dm-detail-member">
-                      <div className="dm-detail-member-avatar"
-                        style={{ background: getAvatarColor(mName) }}>
-                        {getInitials(mName)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 500, fontSize: "13px" }}>{mName}</div>
-                        {m.positionName && (
-                          <div style={{ fontSize: "11px", color: "#6b7280" }}>{m.positionName}</div>
-                        )}
-                      </div>
-                      {m.id === dept.headOfDepartmentId && (
-                        <span className="dm-head-badge">HEAD</span>
+              ) : members.map(m => {
+                const mName = m.fullName ?? `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
+                return (
+                  <div key={m.id} className="hi-dept-member">
+                    <div className="hi-dept-member-avatar" style={{ background: getAvatarColor(mName) }}>
+                      {getInitials(mName)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: "13px" }}>{mName}</div>
+                      {m.positionName && (
+                        <div style={{ fontSize: "11px", color: "#6b7280" }}>{m.positionName}</div>
                       )}
                     </div>
-                  );
-                })
-              )}
+                    {m.id === dept.headOfDepartmentId && <span className="hi-head-badge">HEAD</span>}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
-        <div className="dm-detail-footer">
-          <button className="dm-btn dm-btn-primary" onClick={() => onEdit(dept)}>
-            Edit Department
-          </button>
-          <button className="dm-btn-delete-outline" onClick={() => setDeleteConfirm(true)}>
-            Delete
-          </button>
+        <div className="hi-dept-detail-footer">
+          <button className="hi-btn-primary" onClick={() => onEdit(dept)}>Edit Department</button>
+          <button className="delete-btn" onClick={() => setDeleteConfirm(true)}>Delete</button>
         </div>
       </div>
 
-      {/* Delete confirm modal */}
+      {/* Silmə təsdiqi */}
       {deleteConfirm && (
         <>
           <div className="dm-modal-backdrop" onClick={() => !deleting && setDeleteConfirm(false)} />
@@ -157,9 +266,7 @@ const DeptDetailPanel = memo(function DeptDetailPanel({
               This action cannot be undone.
             </p>
             <div className="dm-modal-actions">
-              <button className="dm-btn dm-btn-ghost" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
-                Cancel
-              </button>
+              <button className="dm-btn dm-btn-ghost" onClick={() => setDeleteConfirm(false)} disabled={deleting}>Cancel</button>
               <button className="dm-btn dm-btn-danger" onClick={handleDelete} disabled={deleting}>
                 {deleting ? "Deleting..." : "Yes, Delete"}
               </button>
@@ -179,13 +286,13 @@ function DepartmentManagement() {
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
   const [collapsed, setCollapsed]   = useState(new Set());
-  const [rowDeleteConfirm, setRowDeleteConfirm] = useState(null); // deptId
+  const [rowDeleteConfirm, setRowDeleteConfirm] = useState(null);
 
   // Detail panel
-  const [detailDept, setDetailDept] = useState(null);
+  const [detailDept, setDetailDept]       = useState(null);
   const [detailClosing, setDetailClosing] = useState(false);
 
-  // panel: null | 'create' | 'edit' | 'head'
+  // panel: null | 'create' | 'edit'
   const [panel, setPanel]           = useState(null);
   const [activeDept, setActiveDept] = useState(null);
 
@@ -201,14 +308,6 @@ function DepartmentManagement() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef                        = useRef(null);
 
-  // Head panel
-  const [users, setUsers]                   = useState([]);
-  const [usersLoading, setUsersLoading]     = useState(false);
-  const [headSearch, setHeadSearch]         = useState("");
-  const [selectedHeadId, setSelectedHeadId] = useState(null);
-  const [headSaving, setHeadSaving]         = useState(false);
-  const headSearchDebounce                  = useRef(null);
-
   const loadDepts = useCallback(async () => {
     setLoading(true);
     try {
@@ -223,18 +322,6 @@ function DepartmentManagement() {
 
   useEffect(() => { loadDepts(); }, [loadDepts]);
 
-  // Head panel açılanda və ya headSearch dəyişəndə server-side axtarış
-  const fetchHeadUsers = useCallback((q) => {
-    setUsersLoading(true);
-    const req = q.length >= 2
-      ? searchUsers(q)
-      : getUsers({ pageSize: 100 });
-    req
-      .then(d => setUsers(d?.items ?? (Array.isArray(d) ? d : [])))
-      .catch(() => setUsers([]))
-      .finally(() => setUsersLoading(false));
-  }, []);
-
   // Collapse/expand
   const toggleCollapse = useCallback((id) => {
     setCollapsed(prev => {
@@ -244,7 +331,6 @@ function DepartmentManagement() {
     });
   }, []);
 
-  // Dept visible-dırmı? (yuxarı ancestor collapsed-dırsa görünmür)
   const isVisible = useCallback((dept) => {
     if (!dept.parentDepartmentId) return true;
     if (collapsed.has(dept.parentDepartmentId)) return false;
@@ -252,10 +338,8 @@ function DepartmentManagement() {
     return parent ? isVisible(parent) : true;
   }, [depts, collapsed]);
 
-  // Dept-in child-ı varmı?
   const hasChildren = useCallback((deptId) => depts.some(d => d.parentDepartmentId === deptId), [depts]);
 
-  // Dept level-i (kök=0)
   const getLevel = useCallback((dept) => {
     let level = 0;
     let current = dept;
@@ -338,24 +422,6 @@ function DepartmentManagement() {
     closeDetailPanel();
   }, [closeDetailPanel]);
 
-  // headSearch dəyişdikdə debounce ilə axtarış et — minimum 2 simvol tələb olunur
-  useEffect(() => {
-    if (panel !== "head") return;
-    const q = headSearch.trim();
-    if (q.length < 2) { setUsers([]); return; }
-    clearTimeout(headSearchDebounce.current);
-    headSearchDebounce.current = setTimeout(() => fetchHeadUsers(q), 300);
-  }, [headSearch, panel, fetchHeadUsers]);
-
-  const openHeadPanel = useCallback((dept) => {
-    setActiveDept(dept);
-    setHeadSearch("");
-    setSelectedHeadId(null);
-    setUsers([]);
-    setPanel("head");
-    closeDetailPanel();
-  }, [closeDetailPanel]);
-
   const closePanel = useCallback(() => {
     setPanel(null);
     setActiveDept(null);
@@ -392,33 +458,6 @@ function DepartmentManagement() {
     }
   }, [loadDepts]);
 
-  const handleAssignHead = useCallback(async () => {
-    if (!selectedHeadId) return;
-    setHeadSaving(true);
-    try {
-      await assignDepartmentHead(activeDept.id, selectedHeadId);
-      await loadDepts();
-      closePanel();
-    } catch (err) {
-      alert(err?.message ?? "Assign failed.");
-    } finally {
-      setHeadSaving(false);
-    }
-  }, [selectedHeadId, activeDept, loadDepts, closePanel]);
-
-  const handleRemoveHead = useCallback(async () => {
-    setHeadSaving(true);
-    try {
-      await removeDepartmentHead(activeDept.id);
-      await loadDepts();
-      closePanel();
-    } catch (err) {
-      alert(err?.message ?? "Remove failed.");
-    } finally {
-      setHeadSaving(false);
-    }
-  }, [activeDept, loadDepts, closePanel]);
-
   const parentOptions = useMemo(() => {
     if (panel !== "edit" || !activeDept) return depts;
     const excluded = new Set([activeDept.id]);
@@ -430,7 +469,6 @@ function DepartmentManagement() {
   }, [depts, activeDept, panel]);
 
   const canDelete = useCallback((dept) => !depts.some(d => d.parentDepartmentId === dept.id), [depts]);
-
 
   return (
     <div className="dm-root">
@@ -492,7 +530,6 @@ function DepartmentManagement() {
                 className={`dm-dept-row${isRowDeleteConfirm ? " dm-dept-row--confirm" : ""}`}
                 style={{ paddingLeft: `${level * 24 + 12}px` }}>
 
-                {/* Expand/collapse chevron */}
                 {!isLeaf ? (
                   <button className={`dm-chevron${open ? " dm-chevron--open" : ""}`}
                     onClick={() => toggleCollapse(dept.id)}>▶</button>
@@ -508,7 +545,6 @@ function DepartmentManagement() {
                   </div>
                 ) : (
                   <>
-                    {/* Avatar */}
                     <div className="dm-dept-avatar">
                       {dept.avatarUrl ? (
                         <img src={getFileUrl(dept.avatarUrl)} alt={dept.name} />
@@ -518,7 +554,6 @@ function DepartmentManagement() {
                         </div>
                       )}
                     </div>
-                    {/* Name — click to open detail panel */}
                     <span className="dm-dept-name" onClick={() => openDetailPanel(dept)}>
                       {dept.name}
                     </span>
@@ -531,7 +566,6 @@ function DepartmentManagement() {
                       {!isLeaf ? `${depts.filter(d => d.parentDepartmentId === dept.id).length} sub-depts` : ""}
                     </span>
 
-                    {/* Hover actions */}
                     <div className="dm-row-actions">
                       <button className="dm-action-btn" title="Edit"
                         onClick={() => openEditPanel(dept)}>
@@ -577,7 +611,6 @@ function DepartmentManagement() {
               </button>
             </div>
             <form className="dm-form-body" onSubmit={handleSubmit}>
-              {/* Avatar upload — yalnız Avatar.Upload permission varsa */}
               {canUploadAvatar && (
                 <div className="dm-form-field">
                   <label className="dm-form-label">
@@ -638,86 +671,6 @@ function DepartmentManagement() {
         </>
       )}
 
-      {/* Assign Head Panel */}
-      {panel === "head" && (
-        <>
-          <div className="dm-form-overlay" onClick={closePanel} />
-          <div className="dm-head-panel">
-            <div className="dm-form-header">
-              <h3 className="dm-form-title">Assign Head — {activeDept?.name}</h3>
-              <button className="dm-form-close" onClick={closePanel} aria-label="Close">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-            <div className="dm-form-body">
-              {activeDept?.headOfDepartmentId && (
-                <>
-                  <div className="dm-form-field">
-                    <label className="dm-form-label">Current Head</label>
-                    <div className="dm-current-head">
-                      <div className="dm-head-avatar"
-                        style={{ background: getAvatarColor(activeDept.headOfDepartmentName ?? "") }}>
-                        {getInitials(activeDept.headOfDepartmentName ?? "")}
-                      </div>
-                      <span className="dm-head-name">{activeDept.headOfDepartmentName}</span>
-                      <button className="dm-btn-ghost-danger" onClick={handleRemoveHead} disabled={headSaving}>
-                        {headSaving ? <span className="dm-spinner dm-spinner--dark" /> : "Remove Head"}
-                      </button>
-                    </div>
-                  </div>
-                  <hr className="dm-divider" />
-                </>
-              )}
-              <div className="dm-form-field">
-                <label className="dm-form-label">Assign New Head</label>
-                <div className="dm-search-wrap dm-head-search">
-                  <svg className="dm-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                  <input className="dm-search-input" placeholder="Search users..."
-                    value={headSearch} onChange={e => setHeadSearch(e.target.value)} />
-                </div>
-                <div className="dm-user-pick-list">
-                  {usersLoading ? (
-                    <div className="dm-empty">Loading...</div>
-                  ) : headSearch.trim().length < 2 ? (
-                    <div className="dm-empty">Type at least 2 characters to search</div>
-                  ) : users.length === 0 ? (
-                    <div className="dm-empty">No users found.</div>
-                  ) : (
-                    users.map(u => {
-                      const name = u.fullName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
-                      return (
-                        <div key={u.id}
-                          className={`dm-user-pick-row${selectedHeadId === u.id ? " selected" : ""}`}
-                          onClick={() => setSelectedHeadId(u.id)}>
-                          <div className="dm-user-avatar-sm" style={{ background: getAvatarColor(name) }}>
-                            {getInitials(name)}
-                          </div>
-                          <div className="dm-user-info-sm">
-                            <span>{name}</span>
-                            {u.positionName && <span className="dm-user-dept">{u.positionName}</span>}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-              <div className="dm-form-actions">
-                <button type="button" className="dm-btn dm-btn-ghost" onClick={closePanel}>Cancel</button>
-                <button className="dm-btn dm-btn-primary" onClick={handleAssignHead}
-                  disabled={!selectedHeadId || headSaving}>
-                  {headSaving ? <span className="dm-spinner" /> : "Assign"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
       {/* Detail panel */}
       {detailDept && (
         <DeptDetailPanel
@@ -727,7 +680,7 @@ function DepartmentManagement() {
           onClose={closeDetailPanel}
           onDeleted={async () => { closeDetailPanel(); await loadDepts(); }}
           onEdit={openEditPanel}
-          onChangeHead={openHeadPanel}
+          onRefresh={loadDepts}
         />
       )}
     </div>

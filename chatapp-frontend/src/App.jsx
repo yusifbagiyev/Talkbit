@@ -99,6 +99,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/users/:userId"
+          element={
+            <ProtectedRoute requireRole={["Admin", "SuperAdmin"]}>
+              <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </AuthProvider>
     </ToastProvider>
