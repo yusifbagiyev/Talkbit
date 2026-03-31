@@ -39,5 +39,13 @@ namespace ChatApp.Modules.Files.Application.Interfaces
         /// Used for avatar cleanup — URL-dən filename extract edilib axtarılır.
         /// </summary>
         Task<FileMetadata?> GetActiveByFileNameAsync(string fileName, CancellationToken cancellationToken = default);
+
+        // Drive-spesifik metodlar
+        Task<List<FileMetadata>> GetDriveFilesAsync(Guid ownerId, Guid? folderId,
+            string? sortBy, string? sortOrder, string? search,
+            CancellationToken cancellationToken = default);
+        Task<List<FileMetadata>> GetDeletedDriveFilesAsync(Guid ownerId, CancellationToken cancellationToken = default);
+        Task<long> GetDriveUsageAsync(Guid ownerId, CancellationToken cancellationToken = default);
+        Task<List<FileMetadata>> GetFilesByFolderIdAsync(Guid folderId, CancellationToken cancellationToken = default);
     }
 }

@@ -13,6 +13,8 @@ namespace ChatApp.Modules.Files.Domain.Entities
         public string StoragePath { get; private set; } = string.Empty;
         public Guid UploadedBy { get; private set; }
         public Guid? CompanyId { get; private set; }
+        public Guid? FolderId { get; private set; }
+        public bool IsDriveFile { get; private set; }
         public bool IsDeleted { get; private set; }
         public DateTime? DeletedAtUtc { get; private set; }
         public string? DeletedBy { get; private set; }
@@ -89,6 +91,36 @@ namespace ChatApp.Modules.Files.Domain.Entities
             DeletedAtUtc=DateTime.UtcNow;
             DeletedBy = deletedBy;
             UpdatedAtUtc= DateTime.UtcNow;
+        }
+
+        public void Restore()
+        {
+            IsDeleted = false;
+            DeletedAtUtc = null;
+            DeletedBy = null;
+            UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        public void MarkAsDriveFile(Guid? folderId = null)
+        {
+            IsDriveFile = true;
+            FolderId = folderId;
+            UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        public void MoveToFolder(Guid? folderId)
+        {
+            FolderId = folderId;
+            UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        public void RenameOriginal(string newName)
+        {
+            if (string.IsNullOrWhiteSpace(newName))
+                throw new ArgumentException("File name cannot be empty", nameof(newName));
+
+            OriginalFileName = newName.Trim();
+            UpdatedAtUtc = DateTime.UtcNow;
         }
     }
 }

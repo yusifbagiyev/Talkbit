@@ -200,5 +200,57 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence.Repositories
             return await _context.FileMetadata
                 .FirstOrDefaultAsync(f => f.FileName == fileName && !f.IsDeleted, cancellationToken);
         }
+
+        // Drive-spesifik metodlar
+        public async Task<List<FileMetadata>> GetDriveFilesAsync(
+            Guid ownerId, Guid? folderId, string? sortBy, string? sortOrder, string? search,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.FileMetadata
+                .Where(f => f.UploadedBy == ownerId && f.IsDriveFile && !f.IsDeleted && f.FolderId == folderId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(f => EF.Functions.ILike(f.OriginalFileName, $"%{search}%"));
+
+            query = (sortBy?.ToLower(), sortOrder?.ToLower()) switch
+            {
+                ("name", "asc") => query.OrderBy(f => f.OriginalFileName),
+                ("name", _) => query.OrderByDescending(f => f.OriginalFileName),
+                ("size", "asc") => query.OrderBy(f => f.FileSizeInBytes),
+                ("size", _) => query.OrderByDescending(f => f.FileSizeInBytes),
+                ("type", "asc") => query.OrderBy(f => f.FileType),
+                ("type", _) => query.OrderByDescending(f => f.FileType),
+                (_, "asc") => query.OrderBy(f => f.CreatedAtUtc),
+                _ => query.OrderByDescending(f => f.CreatedAtUtc)
+            };
+
+            return await query.AsNoTracking().ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<FileMetadata>> GetDeletedDriveFilesAsync(
+            Guid ownerId, CancellationToken cancellationToken = default)
+        {
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            return await _context.FileMetadata
+                .Where(f => f.UploadedBy == ownerId && f.IsDriveFile && f.IsDeleted && f.DeletedAtUtc > thirtyDaysAgo)
+                .OrderByDescending(f => f.DeletedAtUtc)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<long> GetDriveUsageAsync(Guid ownerId, CancellationToken cancellationToken = default)
+        {
+            return await _context.FileMetadata
+                .Where(f => f.UploadedBy == ownerId && f.IsDriveFile && !f.IsDeleted)
+                .SumAsync(f => f.FileSizeInBytes, cancellationToken);
+        }
+
+        public async Task<List<FileMetadata>> GetFilesByFolderIdAsync(
+            Guid folderId, CancellationToken cancellationToken = default)
+        {
+            return await _context.FileMetadata
+                .Where(f => f.FolderId == folderId && !f.IsDeleted && f.IsDriveFile)
+                .ToListAsync(cancellationToken);
+        }
     }
 }

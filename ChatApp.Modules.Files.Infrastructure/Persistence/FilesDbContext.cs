@@ -12,6 +12,7 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence
         }
 
         public DbSet<FileMetadata> FileMetadata=>Set<FileMetadata>();
+        public DbSet<DriveFolder> DriveFolders => Set<DriveFolder>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -19,6 +20,7 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence
 
             // Apply Files module configurations
             modelBuilder.ApplyConfiguration(new FileMetadataConfiguration());
+            modelBuilder.ApplyConfiguration(new DriveFolderConfiguration());
 
             // Map Identity module's users table(read only for queries)
             modelBuilder.Entity<UserReadModel>(entity =>

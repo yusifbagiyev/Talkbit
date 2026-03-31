@@ -101,9 +101,15 @@
 - [ ] Backend: posts, likes, comments module
 - [ ] Frontend: company-wide and department feeds
 
-### Employee Drive (New Module)
-- [ ] Backend: personal file storage, folders, sharing
-- [ ] Frontend: drive UI
+### Employee Drive — IN PROGRESS
+- [ ] UI/UX: Drive dizayn spec (grid/list view, selection toolbar, details panel, recycle bin)
+- [ ] Backend: DriveFolder entity, FileMetadata genişləndirilməsi (FolderId, IsDriveFile)
+- [ ] Backend: Drive API endpoint-ləri (folders CRUD, files CRUD, trash, quota)
+- [ ] Backend: 3GB quota enforcement, soft delete (30 gün)
+- [ ] Frontend: DrivePage, DriveFileGrid, DriveFileList, DriveFileCard komponentləri
+- [ ] Frontend: Folder navigation (breadcrumb), selection toolbar, context menu
+- [ ] Frontend: Details panel, Recycle Bin, Storage quota bar
+- [ ] Frontend: Drag-drop upload, sort, search
 
 ---
 

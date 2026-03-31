@@ -52,6 +52,14 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence.Configurations
             builder.Property(f => f.CompanyId)
                 .HasColumnName("company_id");
 
+            builder.Property(f => f.FolderId)
+                .HasColumnName("folder_id");
+
+            builder.Property(f => f.IsDriveFile)
+                .HasColumnName("is_drive_file")
+                .IsRequired()
+                .HasDefaultValue(false);
+
             builder.Property(f => f.IsDeleted)
                 .HasColumnName("is_deleted")
                 .IsRequired()
@@ -104,6 +112,12 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(f => new { f.UploadedBy, f.CreatedAtUtc })
                 .HasDatabaseName("ix_file_metadata_uploaded_by_created");
+
+            builder.HasIndex(f => f.FolderId)
+                .HasDatabaseName("ix_file_metadata_folder_id");
+
+            builder.HasIndex(f => new { f.UploadedBy, f.IsDriveFile })
+                .HasDatabaseName("ix_file_metadata_uploaded_by_drive");
         }
     }
 }

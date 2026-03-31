@@ -9,10 +9,12 @@ namespace ChatApp.Modules.Files.Infrastructure.Persistence.Repositories
         private IDbContextTransaction? _transaction;
 
         public IFileRepository Files { get; }
+        public IDriveFolderRepository DriveFolders { get; }
         public UnitOfWork(FilesDbContext context)
         {
             _context = context;
             Files = new FileRepository(context);
+            DriveFolders = new DriveFolderRepository(context);
         }
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

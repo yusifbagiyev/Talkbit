@@ -3,6 +3,7 @@
     public interface IUnitOfWork:IDisposable
     {
         IFileRepository Files { get; }
+        IDriveFolderRepository DriveFolders { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task BeginTransactionAsync(CancellationToken cancellationToken = default);

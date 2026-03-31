@@ -33,6 +33,9 @@ namespace ChatApp.Modules.Identity.Domain.Constants
         // Avatar Module
         public const string AvatarUpload = "Avatar.Upload";
 
+        // Drive Module
+        public const string DriveAccess = "Drive.Access";
+
         // Channels Module
         public const string ChannelsCreate = "Channels.Create";
         public const string ChannelsRead = "Channels.Read";
@@ -86,7 +89,9 @@ namespace ChatApp.Modules.Identity.Domain.Constants
                     // Channel permissions
                     ChannelsCreate,
                     ChannelsRead,
-                    ChannelsDelete
+                    ChannelsDelete,
+                    // Drive permission
+                    DriveAccess
                 ],
                 Role.User =>
                 [
@@ -100,7 +105,8 @@ namespace ChatApp.Modules.Identity.Domain.Constants
                     FilesDownload,
                     AvatarUpload,
                     ChannelsCreate,
-                    ChannelsRead
+                    ChannelsRead,
+                    DriveAccess
                 ],
                 _ => []
             };
