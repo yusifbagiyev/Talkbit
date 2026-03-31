@@ -415,7 +415,9 @@ function DetailSidebar({
           </div>
           <div className="ds-favorites-list">
             {sidebar.favoritesLoading ? (
-              <div className="ds-favorites-empty">Loading...</div>
+              <div className="ds-inline-skeleton">
+                {[1,2,3].map(i => <div key={i} className="ds-skeleton-row"><div className="ds-skeleton" style={{width:28,height:28,borderRadius:"50%"}} /><div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}><div className="ds-skeleton" style={{width:`${60+i*10}%`,height:10,borderRadius:5}} /><div className="ds-skeleton" style={{width:`${40+i*8}%`,height:8,borderRadius:4}} /></div></div>)}
+              </div>
             ) : (() => {
               // Axtarış mətninə görə filterlə
               const query = sidebar.favSearchText.trim().toLowerCase();
@@ -778,7 +780,9 @@ function DetailSidebar({
               })()
             )}
             {search.searchLoading && (
-              <div className="ds-search-empty" style={{ padding: "20px" }}>Loading...</div>
+              <div className="ds-inline-skeleton" style={{ padding: "12px 16px" }}>
+                {[1,2,3].map(i => <div key={i} className="ds-skeleton-row"><div className="ds-skeleton" style={{width:28,height:28,borderRadius:"50%"}} /><div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}><div className="ds-skeleton" style={{width:`${50+i*12}%`,height:10,borderRadius:5}} /><div className="ds-skeleton" style={{width:`${35+i*10}%`,height:8,borderRadius:4}} /></div></div>)}
+              </div>
             )}
           </div>
         </div>

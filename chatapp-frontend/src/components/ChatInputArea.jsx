@@ -466,7 +466,7 @@ function ChatInputArea({
       {/* Emoji picker panel — Apple stilində modern emojilər */}
       {emojiOpen && (
         <div className="emoji-panel" ref={emojiPanelRef}>
-          <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>Loading...</div>}>
+          <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", background: "#fff" }}><div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid #e5e7eb", borderTopColor: "#2fc6f6", animation: "chatMsgShimmer 0.8s linear infinite" }} /></div>}>
           <EmojiPicker
             emojiStyle="apple"
             theme="light"

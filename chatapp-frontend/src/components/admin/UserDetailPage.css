@@ -526,7 +526,15 @@
   height: 14px; border-radius: 4px;
   background: linear-gradient(90deg, #f0f2f5 25%, #e8eaed 50%, #f0f2f5 75%);
   background-size: 200% 100%; animation: adm-shimmer 1.2s infinite;
-  margin-bottom: 10px;
+}
+.ud-skeleton-hero {
+  display: flex; align-items: center; gap: 16px;
+  background: linear-gradient(135deg, #1a2332 0%, #243447 100%);
+  border-radius: 14px; padding: 32px 36px;
+}
+.ud-skeleton-hero .ud-skeleton-bar {
+  background: linear-gradient(90deg, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.08) 75%);
+  background-size: 200% 100%; animation: adm-shimmer 1.2s infinite;
 }
 .ud-empty-note {
   font-size: 13px; color: #9ca3af; font-style: italic; text-align: center; padding: 12px 0;

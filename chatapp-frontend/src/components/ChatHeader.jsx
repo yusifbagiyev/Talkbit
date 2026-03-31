@@ -214,7 +214,9 @@ function ChatHeader({
               : selectedChat.type === 0
                 ? selectedChat.otherUserPosition || selectedChat.otherUserRole || "User"
                 : selectedChat.type === 1
-                  ? `${selectedChat.memberCount || 0} members`
+                  ? selectedChat.memberCount != null
+                    ? `${selectedChat.memberCount} members`
+                    : <span className="chat-header-status-skeleton" />
                   : selectedChat.positionName || "User"}
           </span>
         </div>

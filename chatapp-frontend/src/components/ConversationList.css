@@ -311,7 +311,6 @@
   background: var(--gray-300);
 }
 
-.loading-state,
 .empty-state {
   display: flex;
   align-items: center;
@@ -319,6 +318,34 @@
   padding: 40px 20px;
   color: var(--gray-400);
   font-size: 14px;
+}
+
+/* ─── Conversation Skeleton ───────────────────────────────────────────────── */
+.conv-skeleton-list { padding: 4px 0; }
+.conv-skeleton-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; height: 68px; box-sizing: border-box;
+}
+.conv-skeleton-avatar {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(90deg, #e8ecef 25%, #f3f5f7 50%, #e8ecef 75%);
+  background-size: 200% 100%; animation: convShimmer 1.4s infinite;
+}
+.conv-skeleton-text { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.conv-skeleton-bar {
+  height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, #e8ecef 25%, #f3f5f7 50%, #e8ecef 75%);
+  background-size: 200% 100%; animation: convShimmer 1.4s infinite;
+}
+.conv-skeleton-bar--short { height: 10px; }
+.conv-skeleton-time {
+  width: 32px; height: 10px; border-radius: 5px; flex-shrink: 0; align-self: flex-start; margin-top: 2px;
+  background: linear-gradient(90deg, #e8ecef 25%, #f3f5f7 50%, #e8ecef 75%);
+  background-size: 200% 100%; animation: convShimmer 1.4s infinite;
+}
+@keyframes convShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* ===================================

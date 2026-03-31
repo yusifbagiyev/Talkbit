@@ -3313,11 +3313,11 @@ function Chat() {
                   />
                 )}
 
-                {/* chatLoading — mesajlar yüklənərkən overlay göstər */}
+                {/* chatLoading — mesajlar yüklənərkən Bitrix24 stili spinner */}
                 {chatLoading && (
                   <div className="chat-loading-overlay">
                     <div className="chat-loading-spinner" />
-                    <span>Loading chat...</span>
+                    <span className="chat-loading-text">Loading chat...</span>
                   </div>
                 )}
 

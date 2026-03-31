@@ -6,7 +6,7 @@
   height: 56px;
   min-height: 56px;
   background: var(--white);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--gray-200, #e5e7eb);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -62,6 +62,19 @@
 .chat-header-status {
   font-size: 13px;
   color: var(--gray-400);
+}
+
+.chat-header-status-skeleton {
+  display: inline-block;
+  width: 80px; height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, #e8ecef 25%, #f3f5f7 50%, #e8ecef 75%);
+  background-size: 200% 100%;
+  animation: headerShimmer 1.4s infinite;
+  vertical-align: middle;
+}
+@keyframes headerShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .chat-header-name-row {

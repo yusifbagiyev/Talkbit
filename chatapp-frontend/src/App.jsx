@@ -17,8 +17,56 @@ function ProtectedRoute({ children, requireRole }) {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", color: "#2fc6f6", fontSize: "18px" }}>
-        Loading...
+      <div className="app-loader">
+        <div className="app-loader-ring">
+          <svg className="app-loader-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </div>
+        <span className="app-loader-title">ChatApp</span>
+        <div className="app-loader-dots">
+          <span /><span /><span />
+        </div>
+        <style>{`
+          .app-loader {
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            height:100vh; background:#fff; gap:20px; user-select:none;
+          }
+          .app-loader-ring {
+            width:88px; height:88px; border-radius:50%;
+            background: linear-gradient(135deg, #063f7a 0%, #0a4a8a 50%, #2fc6f6 100%);
+            display:flex; align-items:center; justify-content:center;
+            animation: loaderPop 0.6s cubic-bezier(0.16,1,0.3,1);
+            box-shadow: 0 8px 32px rgba(47,198,246,0.2);
+          }
+          .app-loader-icon { color:rgba(255,255,255,0.9); }
+          .app-loader-title {
+            font-size:22px; font-weight:600; color:#1f2937; letter-spacing:-0.5px;
+            animation: loaderFade 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both;
+          }
+          .app-loader-dots {
+            display:flex; gap:6px;
+            animation: loaderFade 0.5s cubic-bezier(0.16,1,0.3,1) 0.3s both;
+          }
+          .app-loader-dots span {
+            width:7px; height:7px; border-radius:50%; background:#2fc6f6;
+            animation: loaderBounce 1.2s cubic-bezier(0.16,1,0.3,1) infinite;
+          }
+          .app-loader-dots span:nth-child(2) { animation-delay:0.15s; }
+          .app-loader-dots span:nth-child(3) { animation-delay:0.3s; }
+          @keyframes loaderPop {
+            from { transform:scale(0.7); opacity:0; }
+            to   { transform:scale(1);   opacity:1; }
+          }
+          @keyframes loaderFade {
+            from { opacity:0; transform:translateY(8px); }
+            to   { opacity:1; transform:translateY(0); }
+          }
+          @keyframes loaderBounce {
+            0%,80%,100% { transform:scale(0.6); opacity:0.4; }
+            40%         { transform:scale(1);   opacity:1; }
+          }
+        `}</style>
       </div>
     );
   }

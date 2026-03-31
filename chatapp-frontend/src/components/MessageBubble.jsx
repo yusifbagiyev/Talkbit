@@ -375,9 +375,8 @@ function MessageBubble({
           <div className="reaction-tooltip visible" ref={tooltipRef}>
             {reactionDetailsLoading ? (
               <div className="reaction-tooltip-item">
-                <span className="reaction-tooltip-name reaction-tooltip-loading">
-                  Loading...
-                </span>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.2)" }} />
+                <span className="reaction-tooltip-name" style={{ width: 60, height: 10, borderRadius: 5, background: "rgba(255,255,255,0.15)", display: "inline-block" }} />
               </div>
             ) : r.userFullNames && r.userFullNames.length > 0 ? (
               r.userFullNames.map((name, i) => (

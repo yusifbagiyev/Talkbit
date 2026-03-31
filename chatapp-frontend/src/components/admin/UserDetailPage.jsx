@@ -369,7 +369,13 @@ function UserDetailPage({ userId, onDeleted }) {
   };
 
   // ─── Loading / Not Found ────────────────────────────────────────────────────
-  if (loading) return <div className="ud-root"><div className="ud-loading">Loading...</div></div>;
+  if (loading) return (
+    <div className="ud-root">
+      <div className="ud-skeleton-hero"><div className="ud-skeleton-bar" style={{width:60,height:60,borderRadius:"50%"}} /><div style={{display:"flex",flexDirection:"column",gap:8}}><div className="ud-skeleton-bar" style={{width:180,height:16,borderRadius:8}} /><div className="ud-skeleton-bar" style={{width:120,height:12,borderRadius:6}} /></div></div>
+      <div className="ud-stats-row">{[1,2,3,4].map(i=><div key={i} className="ud-stat-card"><div className="ud-skeleton-bar" style={{width:60,height:8,borderRadius:4,marginBottom:8}} /><div className="ud-skeleton-bar" style={{width:80,height:20,borderRadius:6}} /></div>)}</div>
+      <div className="ud-content-grid"><div className="ud-content-left"><div className="ud-detail-card" style={{minHeight:200}}><div className="ud-skeleton-bar" style={{width:"40%",height:14,borderRadius:7,marginBottom:16}} />{[1,2,3,4].map(i=><div key={i} style={{display:"flex",gap:12,marginBottom:12}}><div className="ud-skeleton-bar" style={{width:80,height:10,borderRadius:5}} /><div className="ud-skeleton-bar" style={{width:`${50+i*10}%`,height:10,borderRadius:5}} /></div>)}</div></div><div className="ud-content-right"><div className="ud-detail-card" style={{minHeight:160}}><div className="ud-skeleton-bar" style={{width:"50%",height:14,borderRadius:7,marginBottom:16}} /><div className="ud-skeleton-bar" style={{width:"70%",height:10,borderRadius:5,marginBottom:8}} /><div className="ud-skeleton-bar" style={{width:"55%",height:10,borderRadius:5}} /></div></div></div>
+    </div>
+  );
   if (!user) return <div className="ud-root"><div className="ud-loading">User not found</div></div>;
 
   const name = user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();

@@ -591,8 +591,18 @@ function ConversationList({
         {searchMode ? (
           renderSearchResults()
         ) : isLoading ? (
-          // Yüklənir...
-          <div className="loading-state">Loading...</div>
+          <div className="conv-skeleton-list">
+            {[1,2,3,4,5,6,7,8].map(i => (
+              <div key={i} className="conv-skeleton-item">
+                <div className="conv-skeleton-avatar" />
+                <div className="conv-skeleton-text">
+                  <div className="conv-skeleton-bar" style={{ width: `${55 + (i % 3) * 15}%` }} />
+                  <div className="conv-skeleton-bar conv-skeleton-bar--short" style={{ width: `${35 + (i % 4) * 10}%` }} />
+                </div>
+                <div className="conv-skeleton-time" />
+              </div>
+            ))}
+          </div>
         ) : sortedConversations.length === 0 ? (
           // Nəticə yoxdur
           <div className="empty-state">No conversations yet</div>

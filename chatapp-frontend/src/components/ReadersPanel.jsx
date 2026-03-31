@@ -75,7 +75,14 @@ function ReadersPanel({ readByIds, channelMembers, onClose }) {
             </div>
           ))}
           {hasMore && (
-            <div className="readers-panel-loading">Loading...</div>
+            <div className="readers-panel-loading">
+              {[1,2].map(i => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e8ecef", flexShrink: 0 }} />
+                  <div style={{ width: `${50 + i * 15}%`, height: 10, borderRadius: 5, background: "#e8ecef" }} />
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
