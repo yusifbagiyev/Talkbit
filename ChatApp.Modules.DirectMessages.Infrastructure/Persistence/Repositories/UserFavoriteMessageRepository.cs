@@ -2,6 +2,7 @@ using ChatApp.Modules.DirectMessages.Application.DTOs.Request;
 using ChatApp.Modules.DirectMessages.Application.DTOs.Response;
 using ChatApp.Modules.DirectMessages.Application.Interfaces;
 using ChatApp.Modules.DirectMessages.Domain.Entities;
+using ChatApp.Shared.Kernel.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
@@ -33,7 +34,7 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
 
         public async Task<List<FavoriteDirectMessageDto>> GetFavoriteMessagesAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken = default)
         {
-            return await (
+            var favorites = await (
                 from favorite in _context.UserFavoriteMessages
                 join message in _context.DirectMessages on favorite.MessageId equals message.Id
                 join sender in _context.Set<UserReadModel>() on message.SenderId equals sender.Id
@@ -53,6 +54,8 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
                     message.FileId
                 )
             ).ToListAsync(cancellationToken);
+
+            return favorites.Select(f => f with { SenderAvatarUrl = FileUrlHelper.ToAvatarUrl(f.SenderAvatarUrl) }).ToList();
         }
 
         public async Task<bool> IsFavoriteAsync(Guid userId, Guid messageId, CancellationToken cancellationToken = default)

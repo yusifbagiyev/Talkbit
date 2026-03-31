@@ -3,6 +3,7 @@ using ChatApp.Modules.Search.Application.DTOs.Responses;
 using ChatApp.Modules.Search.Application.Interfaces;
 using ChatApp.Modules.Search.Domain.Enums;
 using ChatApp.Modules.Search.Infrastructure.Persistence;
+using ChatApp.Shared.Kernel.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -82,7 +83,7 @@ namespace ChatApp.Modules.Search.Infrastructure.Repositories
                 r.SenderId,
                 r.SenderEmail,
                 r.SenderFullName,
-                r.SenderAvatarUrl,
+                FileUrlHelper.ToAvatarUrl(r.SenderAvatarUrl),
                 r.MessageCreatedAtUtc,
                 r.MessageChannelId,
                 r.ChannelName,
@@ -171,7 +172,7 @@ namespace ChatApp.Modules.Search.Infrastructure.Repositories
                     item.Sender.Id,
                     item.Sender.Email,
                     item.Sender.FullName,
-                    item.Sender.AvatarUrl,
+                    FileUrlHelper.ToAvatarUrl(item.Sender.AvatarUrl),
                     item.Message.CreatedAtUtc,
                     null,
                     null,

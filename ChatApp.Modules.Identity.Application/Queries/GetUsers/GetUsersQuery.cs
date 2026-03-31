@@ -57,7 +57,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetUsers
                     .AsNoTracking()
                     .ToListAsync(cancellationToken);
 
-                return Result.Success(users);
+                var result = users.Select(u => u with { AvatarUrl = FileUrlHelper.ToAvatarUrl(u.AvatarUrl) }).ToList();
+                return Result.Success(result);
             }
             catch (Exception ex)
             {

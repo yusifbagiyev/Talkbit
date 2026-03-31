@@ -47,7 +47,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.Companies
                 return Result.Success(new CompanyDetailDto(
                     result.Id,
                     result.Name,
-                    result.LogoUrl,
+                    FileUrlHelper.ToAvatarUrl(result.LogoUrl),
                     result.Description,
                     result.IsActive,
                     result.HeadOfCompanyId,

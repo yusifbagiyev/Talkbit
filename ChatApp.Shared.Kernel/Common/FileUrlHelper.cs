@@ -6,12 +6,15 @@ namespace ChatApp.Shared.Kernel.Common;
 /// </summary>
 public static class FileUrlHelper
 {
+    private const string ServePrefix = "/api/files/serve/";
+    private const string AvatarPrefix = "/api/files/avatar/";
+
     public static string? ToServeUrl(Guid? fileId)
     {
         if (!fileId.HasValue || fileId == Guid.Empty)
             return null;
 
-        return $"/api/files/serve/{fileId}";
+        return $"{ServePrefix}{fileId}";
     }
 
     public static string? ToServeUrl(string? fileId)
@@ -19,7 +22,7 @@ public static class FileUrlHelper
         if (string.IsNullOrEmpty(fileId))
             return null;
 
-        return $"/api/files/serve/{fileId}";
+        return $"{ServePrefix}{fileId}";
     }
 
     public static string? ToAvatarUrl(Guid? fileId)
@@ -27,14 +30,29 @@ public static class FileUrlHelper
         if (!fileId.HasValue || fileId == Guid.Empty)
             return null;
 
-        return $"/api/files/avatar/{fileId}";
+        return $"{AvatarPrefix}{fileId}";
     }
 
-    public static string? ToAvatarUrl(string? fileId)
+    /// <summary>
+    /// Avatar URL transform — idempotent.
+    /// Yeni format (/api/files/avatar/{id}) → dəyişməz qaytarır.
+    /// GUID string → /api/files/avatar/{guid} yaradır.
+    /// Köhnə format (/uploads/... və ya http://...) → dəyişmədən qaytarır.
+    /// </summary>
+    public static string? ToAvatarUrl(string? input)
     {
-        if (string.IsNullOrEmpty(fileId))
+        if (string.IsNullOrEmpty(input))
             return null;
 
-        return $"/api/files/avatar/{fileId}";
+        // Artıq yeni formatdadır — idempotent
+        if (input.StartsWith("/api/files/"))
+            return input;
+
+        // GUID fileId olaraq gəlirsə
+        if (Guid.TryParse(input, out _))
+            return $"{AvatarPrefix}{input}";
+
+        // Köhnə format — dəyişmədən qaytar (UseStaticFiles silinib, frontend handle edəcək)
+        return input;
     }
 }

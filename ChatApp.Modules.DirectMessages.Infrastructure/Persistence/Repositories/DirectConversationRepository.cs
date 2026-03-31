@@ -181,7 +181,7 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
                 var roleName = c.Role == 1 ? "Administrator" : "User";
 
                 return new DirectConversationDto(
-                    c.Id, c.OtherUserId, c.OtherUserEmail, c.OtherUserFullName, c.AvatarUrl,
+                    c.Id, c.OtherUserId, c.OtherUserEmail, c.OtherUserFullName, FileUrlHelper.ToAvatarUrl(c.AvatarUrl),
                     c.PositionName, // OtherUserPosition - from employees+positions join
                     roleName, // OtherUserRole
                     c.LastVisit, // OtherUserLastSeenAtUtc

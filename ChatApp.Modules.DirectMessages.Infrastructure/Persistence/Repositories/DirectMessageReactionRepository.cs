@@ -2,6 +2,7 @@ using ChatApp.Modules.DirectMessages.Application.Commands.DirectMessageReactions
 using ChatApp.Modules.DirectMessages.Application.DTOs.Request;
 using ChatApp.Modules.DirectMessages.Application.Interfaces;
 using ChatApp.Modules.DirectMessages.Domain.Entities;
+using ChatApp.Shared.Kernel.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
@@ -30,7 +31,7 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
             Guid messageId,
             CancellationToken cancellationToken = default)
         {
-            return await (
+            var reactions = await (
                 from reaction in _context.DirectMessageReactions
                 join user in _context.Set<UserReadModel>() on reaction.UserId equals user.Id
                 where reaction.MessageId == messageId
@@ -43,6 +44,10 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
                     g.Select(x => x.user.AvatarUrl).ToList()
                 ))
                 .ToListAsync(cancellationToken);
+
+            return reactions.Select(r => r with {
+                UserAvatarUrls = r.UserAvatarUrls.Select(a => FileUrlHelper.ToAvatarUrl(a)).ToList()
+            }).ToList();
         }
 
         public async Task<DirectMessageReaction?> GetReactionAsync(Guid messageId, Guid userId, string reaction, CancellationToken cancellationToken = default)

@@ -2,6 +2,7 @@
 using ChatApp.Modules.Channels.Application.Interfaces;
 using ChatApp.Modules.Channels.Domain.Entities;
 using ChatApp.Modules.Channels.Domain.Enums;
+using ChatApp.Shared.Kernel.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
@@ -43,7 +44,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             CancellationToken cancellationToken = default)
         {
             // Database join with users table + pagination
-            return await _context.ChannelMembers
+            var members = await _context.ChannelMembers
                 .AsNoTracking()
                 .Where(m=> m.ChannelId == channelId)
                 .Join(
@@ -67,6 +68,8 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                     x.member.LastReadLaterMessageId
                 ))
                 .ToListAsync(cancellationToken);
+
+            return members.Select(m => m with { AvatarUrl = FileUrlHelper.ToAvatarUrl(m.AvatarUrl) }).ToList();
         }
 
         public async Task<MemberRole?> GetUserRoleAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)

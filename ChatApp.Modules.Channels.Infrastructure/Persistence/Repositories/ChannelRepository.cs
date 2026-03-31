@@ -98,13 +98,15 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
 
         public async Task<List<ChannelDto>> GetUserChannelsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
-            return await _context.Channels
+            var channels = await _context.Channels
                 .Where(c => c.Members.Any(m => m.UserId == userId))
                 .OrderByDescending(c => c.CreatedAtUtc)
                 .Select(c => new ChannelDto(
                     c.Id, c.Name, c.Description, c.Type, c.CreatedBy,
                     c.Members.Count, c.CreatedAtUtc, c.AvatarUrl))
                 .ToListAsync(cancellationToken);
+
+            return channels.Select(c => c with { AvatarUrl = FileUrlHelper.ToAvatarUrl(c.AvatarUrl) }).ToList();
         }
 
         /// <summary>
@@ -283,7 +285,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                     c.CreatedBy,
                     memberCount,
                     c.CreatedAtUtc,
-                    c.AvatarUrl,
+                    FileUrlHelper.ToAvatarUrl(c.AvatarUrl),
                     lastMsgContent,
                     hasLastMsg ? lm!.CreatedAtUtc : null,
                     unreadCounts.TryGetValue(c.Id, out var uc) ? uc : 0,
@@ -292,7 +294,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                     hasLastMsg ? lm!.Id : null,
                     hasLastMsg ? lm!.SenderId : null,
                     status,
-                    hasLastMsg ? lm!.AvatarUrl : null,
+                    hasLastMsg ? FileUrlHelper.ToAvatarUrl(lm!.AvatarUrl) : null,
                     hasLastMsg ? lm!.SenderFullName : null,
                     firstUnreadIds.TryGetValue(c.Id, out var fui) ? fui : null,
                     c.IsPinned,
@@ -350,12 +352,14 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
             if (!isSuperAdmin && callerCompanyId.HasValue)
                 query = query.Where(c => c.CompanyId == callerCompanyId);
 
-            return await query
+            var channels = await query
                 .OrderByDescending(c => c.CreatedAtUtc)
                 .Select(c => new ChannelDto(
                     c.Id, c.Name, c.Description, c.Type, c.CreatedBy,
                     c.Members.Count, c.CreatedAtUtc, c.AvatarUrl))
                 .ToListAsync(cancellationToken);
+
+            return channels.Select(c => c with { AvatarUrl = FileUrlHelper.ToAvatarUrl(c.AvatarUrl) }).ToList();
         }
 
         public async Task<bool> IsUserMemberAsync(Guid channelId, Guid userId, CancellationToken cancellationToken = default)
@@ -375,7 +379,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
         public async Task<List<SharedChannelDto>> GetSharedChannelsAsync(Guid userId1, Guid userId2, CancellationToken cancellationToken = default)
         {
             // İki istifadəçinin ortaq olduğu kanalları tapır (INTERSECT)
-            return await (
+            var channels = await (
                 from channel in _context.Channels
                 where _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId1)
                    && _context.ChannelMembers.Any(m => m.ChannelId == channel.Id && m.UserId == userId2)
@@ -393,6 +397,8 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                     lastMessage
                 )
             ).ToListAsync(cancellationToken);
+
+            return channels.Select(c => c with { AvatarUrl = FileUrlHelper.ToAvatarUrl(c.AvatarUrl) }).ToList();
         }
 
         public async Task<bool> ExistsAsync(Expression<Func<Channel, bool>> predicate, CancellationToken cancellationToken = default)

@@ -159,7 +159,8 @@ public class GetDepartmentUsersQueryHandler(
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            return Result.Success(PagedResult<DepartmentUserDto>.Create(users, query.PageNumber, pageSize, totalCount));
+            var result = users.Select(u => u with { AvatarUrl = FileUrlHelper.ToAvatarUrl(u.AvatarUrl) }).ToList();
+            return Result.Success(PagedResult<DepartmentUserDto>.Create(result, query.PageNumber, pageSize, totalCount));
         }
         catch (Exception ex)
         {

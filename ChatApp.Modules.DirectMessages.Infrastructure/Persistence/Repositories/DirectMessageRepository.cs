@@ -468,7 +468,7 @@ namespace ChatApp.Modules.DirectMessages.Infrastructure.Persistence.Repositories
                 r.SenderId,
                 r.SenderEmail,
                 r.SenderFullName,
-                r.AvatarUrl,
+                FileUrlHelper.ToAvatarUrl(r.AvatarUrl),
                 r.ReceiverId,
                 sanitizeContent && r.IsDeleted ? "This message was deleted" : r.Content, // SECURITY: Sanitize deleted content when applicable
                 r.FileId,

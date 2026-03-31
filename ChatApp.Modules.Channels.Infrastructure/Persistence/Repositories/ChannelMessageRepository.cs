@@ -123,7 +123,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                 result.SenderId,
                 result.Email,
                 result.FullName,
-                result.AvatarUrl,
+                FileUrlHelper.ToAvatarUrl(result.AvatarUrl),
                 result.IsDeleted ? "This message was deleted" : result.Content, // SECURITY: Sanitize deleted content
                 result.FileId,
                 result.FileName,
@@ -589,7 +589,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                         g.Count(),
                         g.Select(x => x.UserId).ToList(),
                         g.Select(x => x.FullName).ToList(),
-                        g.Select(x => (string?)x.AvatarUrl).ToList()
+                        g.Select(x => FileUrlHelper.ToAvatarUrl(x.AvatarUrl)).ToList()
                     )).ToList();
             }
 
@@ -655,7 +655,7 @@ namespace ChatApp.Modules.Channels.Infrastructure.Persistence.Repositories
                 r.SenderId,
                 r.Email,
                 r.FullName,
-                r.AvatarUrl,
+                FileUrlHelper.ToAvatarUrl(r.AvatarUrl),
                 sanitizeContent && r.IsDeleted ? "This message was deleted" : r.Content,
                 r.FileId,
                 r.FileName,

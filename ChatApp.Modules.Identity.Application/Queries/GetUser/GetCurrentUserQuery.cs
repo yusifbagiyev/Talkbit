@@ -58,7 +58,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetUser
                 .Select(sl => new SupervisorDto(
                     sl.SupervisorEmployee.UserId,
                     sl.SupervisorEmployee.User?.FullName ?? "Unknown",
-                    sl.SupervisorEmployee.User?.AvatarUrl,
+                    FileUrlHelper.ToAvatarUrl(sl.SupervisorEmployee.User?.AvatarUrl),
                     sl.SupervisorEmployee.Position?.Name,
                     sl.AssignedAtUtc))
                 .ToList() ?? [];
@@ -75,7 +75,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.GetUser
                 user.CompanyId,
                 user.Employee?.Position?.Name,
                 user.Employee?.PositionId,
-                user.AvatarUrl,
+                FileUrlHelper.ToAvatarUrl(user.AvatarUrl),
                 user.Employee?.AboutMe,
                 user.Employee?.DateOfBirth,
                 user.Employee?.WorkPhone,

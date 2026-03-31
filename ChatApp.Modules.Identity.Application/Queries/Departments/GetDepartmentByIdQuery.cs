@@ -41,7 +41,7 @@ namespace ChatApp.Modules.Identity.Application.Queries.Departments
                 if (department == null)
                     return Result.Failure<DepartmentDto>("Department not found");
 
-                return Result.Success(department);
+                return Result.Success(department with { AvatarUrl = FileUrlHelper.ToAvatarUrl(department.AvatarUrl) });
             }
             catch (Exception ex)
             {

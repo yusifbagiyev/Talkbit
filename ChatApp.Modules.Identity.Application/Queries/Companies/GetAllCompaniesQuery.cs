@@ -63,7 +63,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.Companies
                         c.CreatedAtUtc))
                     .ToListAsync(cancellationToken);
 
-                return Result.Success(PagedResult<CompanyDto>.Create(companies, query.PageNumber, pageSize, totalCount));
+                var result = companies.Select(c => c with { LogoUrl = FileUrlHelper.ToAvatarUrl(c.LogoUrl) }).ToList();
+                return Result.Success(PagedResult<CompanyDto>.Create(result, query.PageNumber, pageSize, totalCount));
             }
             catch (Exception ex)
             {

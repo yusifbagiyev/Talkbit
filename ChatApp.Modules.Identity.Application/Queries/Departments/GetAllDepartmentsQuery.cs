@@ -36,7 +36,8 @@ namespace ChatApp.Modules.Identity.Application.Queries.Departments
                     .AsNoTracking()
                     .ToListAsync(cancellationToken);
 
-                return Result.Success<IEnumerable<DepartmentDto>>(departments);
+                var result = departments.Select(d => d with { AvatarUrl = FileUrlHelper.ToAvatarUrl(d.AvatarUrl) }).ToList();
+                return Result.Success<IEnumerable<DepartmentDto>>(result);
             }
             catch (Exception ex)
             {
