@@ -592,13 +592,6 @@
   font-weight: 450;
 }
 
-/* Sidebar açıq olduqda chat-panel sağ border-radius sıfırlanır */
-.chat-panel:has(~ .detail-sidebar) {
-  border-radius: 0;
-}
-.chat-panel:has(~ .detail-sidebar-backdrop) {
-  border-radius: 0;
-}
 
 /* ===================================
    EMPTY CHAT STATE (no selected chat)
@@ -719,17 +712,14 @@
   .mobile-bottom-tabs { display: none; }
 }
 
-/* ─── Tablet: conversation list daralt, sidebar backdrop ───────────────────── */
-@media (min-width: 768px) and (max-width: 1200px) {
-  .conversation-panel { width: 280px; min-width: 240px; }
-  .detail-sidebar-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.3);
-    z-index: 49;
-  }
-}
-@media (min-width: 1201px) {
+/* Desktop/tablet: sidebar inline — backdrop lazım deyil */
+@media (min-width: 768px) {
   .detail-sidebar-backdrop { display: none; }
+}
+
+/* Sidebar inline olduqda chat-panel sağ radius sıfırlanır */
+.chat-panel:has(~ .detail-sidebar) {
+  border-radius: 0;
 }
 
 /* ─── Avatar Context Menu ─────────────────────────────────────────────────── */
