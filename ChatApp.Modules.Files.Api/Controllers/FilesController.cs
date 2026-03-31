@@ -65,14 +65,18 @@ namespace ChatApp.Modules.Files.Api.Controllers
 
             var (companyId, companySlug) = GetCompanyClaims();
 
+            // SuperAdmin company avatar yükləyirsə, TargetCompanyId-ni companyId olaraq istifadə et
+            var effectiveCompanyId = request.TargetCompanyId ?? companyId;
+
             var result = await _mediator.Send(
                 new UploadFileCommand(
                     request.File,
                     userId,
-                    companyId,
+                    effectiveCompanyId,
                     companySlug,
                     request.ChannelId,
-                    request.ConversationId),
+                    request.ConversationId,
+                    IsCompanyAvatar: request.IsCompanyAvatar),
                 cancellationToken);
 
             if (result.IsFailure)

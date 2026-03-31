@@ -35,6 +35,8 @@ const CompanyForm = memo(({ company, onSave, onClose }) => {
       if (logoFile) {
         const fd = new FormData();
         fd.append("File", logoFile);
+        fd.append("IsCompanyAvatar", "true");
+        if (company?.id) fd.append("TargetCompanyId", company.id);
         const res = await apiUpload("/api/files/upload", fd);
         if (res?.downloadUrl) logoUrl = res.downloadUrl;
       }

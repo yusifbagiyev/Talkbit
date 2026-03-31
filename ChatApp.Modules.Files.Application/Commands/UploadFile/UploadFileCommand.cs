@@ -299,13 +299,16 @@ namespace ChatApp.Modules.Files.Application.Commands.UploadFile
             bool isDepartmentAvatar = false,
             Guid? departmentId = null)
         {
+            // companyId varsa company qovluğu, yoxdursa (SuperAdmin) global qovluq
             var companySegment = companyId.HasValue
-                ? $"company/{companyId}"
-                : "shared";
+                ? $"companies/{companyId}"
+                : "global";
 
             // 1. Company avatar
             if (isCompanyAvatar)
-                return $"{companySegment}/avatar";
+                return companyId.HasValue
+                    ? $"companies/{companyId}/avatar"
+                    : "companies/avatar";
 
             // 2. Department avatar
             if (isDepartmentAvatar)
