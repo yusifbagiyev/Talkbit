@@ -4,7 +4,7 @@
 
 ## Current Infrastructure State
 
-- VPS: AlmaLinux 10.1, yusif@alma-machine (Hetzner), 8GB RAM, 75GB disk, no swap
+- VPS: AlmaLinux 10.1, yusif@alma-machine (Hetzner), 8GB RAM, 75GB disk, no swap, SSH port 4624
 - Domain: ittech.az → Cloudflare (proxy enabled)
 - SSL: Let's Encrypt, auto-renew
 - Docker Compose: 11 services (postgres, redis, backend, frontend, nginx, prometheus, grafana, loki, promtail, cadvisor, node-exporter)
