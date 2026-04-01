@@ -93,6 +93,7 @@ Multi-agent system powered by markdown files. Agents live in `agents/` and commu
 | Frontend Developer | `agents/frontend-developer/` | Wednesday | Component Development, SignalR Integration, State Management |
 | UI/UX Developer | `agents/uiux-developer/` | Monday PM | User Research, Wireframing, Interaction Design |
 | Database Developer | `agents/database-developer/` | Tuesday | Schema Design, Query Optimization, Migration Management |
+| DevOps & Security Admin | `agents/devops-security/` | Friday | CI/CD Pipeline, Container Security, Security Audit, Infrastructure, Monitoring, Incident Response, SSL & Network, Backup & Recovery |
 
 ### Agent System Files
 
@@ -107,6 +108,8 @@ Multi-agent system powered by markdown files. Agents live in `agents/` and commu
 
 ```
 product-owner → journal → uiux-developer → journal → database-developer → journal → backend-developer → journal → frontend-developer
+                                                                                                                        ↓
+                                                                                                              devops-security (deploy, audit)
 ```
 
 Agents never talk directly. All communication flows through `journal/entries/`.

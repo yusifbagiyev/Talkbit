@@ -9,3 +9,4 @@
 | Frontend Developer | `agents/frontend-developer/` | UI responsiveness, real-time reliability, component quality, feature parity | Component Development, SignalR Integration, State Management | Weekly (Wednesday) | Active |
 | UI/UX Developer | `agents/uiux-developer/` | Usability, design consistency, user satisfaction, handoff quality | User Research, Wireframing, Interaction Design | Weekly (Monday PM) | Active |
 | Database Developer | `agents/database-developer/` | Query performance, schema quality, migration safety, data integrity | Schema Design, Query Optimization, Migration Management | Weekly (Tuesday) | Active |
+| DevOps & Security Admin | `agents/devops-security/` | Deployment reliability, security posture, uptime, incident response | CI/CD Pipeline, Container Security, Security Audit, Infrastructure, Monitoring, Incident Response, SSL & Network, Backup & Recovery | Weekly (Friday) | Active |

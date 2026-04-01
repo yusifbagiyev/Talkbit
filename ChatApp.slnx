@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="ChatApp.Api/ChatApp.Api.csproj" Id="6cbedc78-e811-4631-a224-7712ad18de2f" />
-    <Project Path="ChatApp.Blazor.Client/ChatApp.Blazor.Client.csproj" Id="aa3045aa-5031-4601-8d62-4207a6ea570b" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Channels/">
