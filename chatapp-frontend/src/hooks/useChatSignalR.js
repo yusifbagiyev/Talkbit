@@ -145,6 +145,7 @@ export default function useChatSignalR(
               lastMessageSenderId: message.senderId,
               lastMessageSenderFullName: message.senderFullName,
               lastMessageSenderAvatarUrl: message.senderAvatarUrl,
+              // Öz mesajımızın echo-su: Sent yaz — MessageBubble da eyni anda echo alır
               lastMessageStatus: message.senderId === userId ? "Sent" : c.lastMessageStatus,
               unreadCount:
                 message.senderId !== userId && !isDuplicate

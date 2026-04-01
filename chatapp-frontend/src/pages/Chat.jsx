@@ -40,7 +40,14 @@ import { AuthContext } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
 // API servis — HTTP metodları (GET, POST, PUT, DELETE)
-import { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl } from "../services/api";
+import {
+  apiGet,
+  apiPost,
+  apiPut,
+  apiDelete,
+  apiUpload,
+  getFileUrl,
+} from "../services/api";
 
 // UI komponentlər — hər biri ayrı bir visual blok
 // Sidebar silinib — TopNavbar App.jsx-dən global render olunur // sol nav bar
@@ -200,7 +207,6 @@ function Chat() {
 
   // profileUserId — görüntülənəcək profil (null = panel bağlı)
   const [profileUserId, setProfileUserId] = useState(null);
-
 
   // avatarMenu — mesaj avatarına klik menyu: { userId, fullName, rect } | null
   const [avatarMenu, setAvatarMenu] = useState(null);
@@ -466,7 +472,11 @@ function Chat() {
           // Açıq chat varsa — mesajları yenidən yüklə
           setSelectedChat((current) => {
             if (current) {
-              const msgBase = getChatEndpoint(current.id, current.type, "/messages");
+              const msgBase = getChatEndpoint(
+                current.id,
+                current.type,
+                "/messages",
+              );
               if (msgBase) {
                 apiGet(`${msgBase}?pageSize=${MESSAGE_PAGE_SIZE}`)
                   .then((data) => {
@@ -637,7 +647,13 @@ function Chat() {
         items.push(run);
         continue;
       }
-      const { messages: runMsgs, isOwn, senderFullName, senderAvatarUrl, senderId } = run;
+      const {
+        messages: runMsgs,
+        isOwn,
+        senderFullName,
+        senderAvatarUrl,
+        senderId,
+      } = run;
       for (let i = 0; i < runMsgs.length; i++) {
         items.push({
           type: "message",
@@ -879,9 +895,10 @@ function Chat() {
     );
 
     // Backend-ə tək batch request göndər (N request əvəzinə 1)
-    const endpoint = chatType === "0"
-      ? `/api/conversations/${chatId}/messages/batch-read`
-      : `/api/channels/${chatId}/messages/batch-read`;
+    const endpoint =
+      chatType === "0"
+        ? `/api/conversations/${chatId}/messages/batch-read`
+        : `/api/channels/${chatId}/messages/batch-read`;
     apiPost(endpoint, { messageIds: batch }).catch(() => {});
   }
 
@@ -1457,7 +1474,11 @@ function Chat() {
     if (!selectedChat) return false;
     try {
       await apiPut(`/api/channels/${selectedChat.id}`, { name });
-      handleChannelUpdated({ id: selectedChat.id, name, avatarUrl: selectedChat.avatarUrl });
+      handleChannelUpdated({
+        id: selectedChat.id,
+        name,
+        avatarUrl: selectedChat.avatarUrl,
+      });
       return true;
     } catch (err) {
       showToast(err.message || "Failed to update channel name", "error");
@@ -1471,10 +1492,19 @@ function Chat() {
     try {
       const formData = new FormData();
       formData.append("File", file);
-      const result = await apiUpload(`/api/files/upload/channel-avatar/${selectedChat.id}`, formData);
+      const result = await apiUpload(
+        `/api/files/upload/channel-avatar/${selectedChat.id}`,
+        formData,
+      );
       if (!result?.fileUrl) return;
-      await apiPut(`/api/channels/${selectedChat.id}`, { avatarUrl: result.fileUrl });
-      handleChannelUpdated({ id: selectedChat.id, name: selectedChat.name, avatarUrl: result.fileUrl });
+      await apiPut(`/api/channels/${selectedChat.id}`, {
+        avatarUrl: result.fileUrl,
+      });
+      handleChannelUpdated({
+        id: selectedChat.id,
+        name: selectedChat.name,
+        avatarUrl: result.fileUrl,
+      });
     } catch (err) {
       showToast(err.message || "Failed to update channel avatar", "error");
     }
@@ -1575,7 +1605,8 @@ function Chat() {
     sidebar.resetSidebarPanels();
     // Cache-dən sidebar data-nı bərpa et (favorites, previewFiles, linkMessages)
     if (usableCache) {
-      if (cached.favoriteMessages) sidebar.setFavoriteMessages(cached.favoriteMessages);
+      if (cached.favoriteMessages)
+        sidebar.setFavoriteMessages(cached.favoriteMessages);
       if (cached.previewFiles) sidebar.setPreviewFiles(cached.previewFiles);
       if (cached.linkMessages) sidebar.setLinkMessages(cached.linkMessages);
     }
@@ -2455,14 +2486,9 @@ function Chat() {
       // Echo gəldikdə bütün field-lər (status, id, _optimistic) bir dəfəyə yenilənir
       // Bu, aralıq re-render-i və scroll sıçramasını aradan qaldırır
 
-      // ConversationList-də statusu Sent et — Pending yoxlaması yox, birbaşa set et
-      // Tez-tez göndərəndə əvvəlki API "Sent" etmişdi, sonrakı hələ "Pending" olmalıdır
-      // Amma lastMessage artıq sonuncu mesajdır, ona görə birbaşa "Sent" düzgündür
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === chatId ? { ...c, lastMessageStatus: "Sent" } : c,
-        ),
-      );
+      // ConversationList statusunu dəyişmə — echo gəldikdə SignalR handler yeniləyəcək
+      // API cavabından sonra Sent yazmaq MessageBubble ilə uyğunsuzluq yaradır
+      // (MessageBubble hələ optimistic status=0 göstərir, echo gəlməyib)
 
       // Hidden conversation — siyahıda yoxdursa əlavə et
       setConversations((prev) => {
@@ -2582,7 +2608,11 @@ function Chat() {
         channel.setAddMemberSelected(new Set());
       }
       // Avatar menyu
-      if (avatarMenu && avatarMenuRef.current && !avatarMenuRef.current.contains(e.target)) {
+      if (
+        avatarMenu &&
+        avatarMenuRef.current &&
+        !avatarMenuRef.current.contains(e.target)
+      ) {
         setAvatarMenu(null);
       }
     }
@@ -2795,9 +2825,18 @@ function Chat() {
   );
 
   // ─── Stabil callback-lar — inline arrow əvəzinə useCallback ────────────────
-  const handleTogglePinExpand = useCallback(() => setPinBarExpanded((v) => !v), []);
-  const handleOpenAddMember = useCallback(() => channel.setShowAddMember(true), [channel]);
-  const handleToggleSidebar = useCallback(() => sidebar.setShowSidebar((v) => !v), [sidebar]);
+  const handleTogglePinExpand = useCallback(
+    () => setPinBarExpanded((v) => !v),
+    [],
+  );
+  const handleOpenAddMember = useCallback(
+    () => channel.setShowAddMember(true),
+    [channel],
+  );
+  const handleToggleSidebar = useCallback(
+    () => sidebar.setShowSidebar((v) => !v),
+    [sidebar],
+  );
   const handleCloseReadersPanel = useCallback(() => setReadersPanel(null), []);
 
   // AddMember close/cancel handler (eyni handler — 2 yerdə istifadə olunur)
@@ -2835,7 +2874,11 @@ function Chat() {
       channel.setAddMemberSelectedInfo((prev) => {
         const next = new Map(prev);
         if (next.has(userId)) next.delete(userId);
-        else next.set(userId, { name: userFullName || "User", avatarUrl: userAvatarUrl });
+        else
+          next.set(userId, {
+            name: userFullName || "User",
+            avatarUrl: userAvatarUrl,
+          });
         return next;
       });
       channel.setAddMemberSelected((prev) => {
@@ -2860,14 +2903,13 @@ function Chat() {
       ? new Set(Object.keys(channelMembers[selectedChat.id]))
       : new Set();
     if (query.length >= 2) {
-      return channel.addMemberSearchResults
-        .map((u) => ({
-          id: u.id,
-          fullName: u.fullName || `${u.firstName} ${u.lastName}`,
-          avatarUrl: u.avatarUrl,
-          position: u.position || "User",
-          isMember: existingIds.has(u.id),
-        }));
+      return channel.addMemberSearchResults.map((u) => ({
+        id: u.id,
+        fullName: u.fullName || `${u.firstName} ${u.lastName}`,
+        avatarUrl: u.avatarUrl,
+        position: u.position || "User",
+        isMember: existingIds.has(u.id),
+      }));
     }
     return channel.addMemberUsers;
   }, [
@@ -2888,11 +2930,17 @@ function Chat() {
     // Əlavə mənbələr (selectedInfo-da olmayan user-lər üçün fallback)
     for (const u of channel.addMemberUsers) {
       if (!map.has(u.id))
-        map.set(u.id, { name: u.fullName || u.name || "User", avatarUrl: u.avatarUrl });
+        map.set(u.id, {
+          name: u.fullName || u.name || "User",
+          avatarUrl: u.avatarUrl,
+        });
     }
     for (const c of conversations) {
       if (c.otherUserId && !map.has(c.otherUserId))
-        map.set(c.otherUserId, { name: c.name || "User", avatarUrl: c.avatarUrl });
+        map.set(c.otherUserId, {
+          name: c.name || "User",
+          avatarUrl: c.avatarUrl,
+        });
     }
     return map;
   }, [
@@ -2919,26 +2967,38 @@ function Chat() {
   // favoriteIds, linkMessages, fileMessages → useSidebarPanels hook-unda (sidebar.*)
 
   // messagesWrapperStyle — inline style memoize (hər render yeni obyekt yaratmasın)
-  const messagesWrapperStyle = useMemo(() => ({
-    position: "relative",
-    flex: 1,
-    minHeight: 0,
-    display: chatLoading ? "none" : "flex",
-    flexDirection: "column",
-  }), [chatLoading]);
+  const messagesWrapperStyle = useMemo(
+    () => ({
+      position: "relative",
+      flex: 1,
+      minHeight: 0,
+      display: chatLoading ? "none" : "flex",
+      flexDirection: "column",
+    }),
+    [chatLoading],
+  );
 
   // imageMessages — yalnız şəkillər, xronoloji sıra (köhnə → yeni, thumbnail strip üçün)
   // Sidebar açıqdırsa fileMessages, əks halda mövcud messages-dan şəkilləri tap
   const imageMessages = useMemo(() => {
     if (sidebar.fileMessages.length > 0) {
-      return sidebar.fileMessages.filter((f) => f.isImage || f.fileContentType?.startsWith("image/")).reverse();
+      return sidebar.fileMessages
+        .filter((f) => f.isImage || f.fileContentType?.startsWith("image/"))
+        .reverse();
     }
     if (sidebar.previewFiles.length > 0) {
-      return sidebar.previewFiles.filter((f) => f.isImage || f.fileContentType?.startsWith("image/")).reverse();
+      return sidebar.previewFiles
+        .filter((f) => f.isImage || f.fileContentType?.startsWith("image/"))
+        .reverse();
     }
     // Sidebar açılmayıb — mövcud mesajlardan şəkilləri tap
     return messages
-      .filter((m) => !m.isDeleted && m.fileId && (m.isImage || m.fileContentType?.startsWith("image/")))
+      .filter(
+        (m) =>
+          !m.isDeleted &&
+          m.fileId &&
+          (m.isImage || m.fileContentType?.startsWith("image/")),
+      )
       .reverse();
   }, [sidebar.fileMessages, sidebar.previewFiles, messages]);
 
@@ -3171,8 +3231,21 @@ function Chat() {
       }
     }
     if (visibleUnreadRef.current.size > 0) {
+      console.log(
+        "[mark-as-read] detected unread in viewport:",
+        visibleUnreadRef.current.size,
+      );
       if (readBatchTimerRef.current) clearTimeout(readBatchTimerRef.current);
       readBatchTimerRef.current = setTimeout(flushReadBatch, 300);
+    } else {
+      console.log(
+        "[mark-as-read] no unread detected. bubbles:",
+        bubbles.length,
+        "flatItems:",
+        curFlatItems?.length,
+        "metadata keys:",
+        curMetadata?.msgIdToIndex?.size,
+      );
     }
 
     // Scrollbar CSS — user scroll zamanı göstər, sonra gizlət
@@ -3191,6 +3264,11 @@ function Chat() {
     const area = messagesAreaRef.current;
     if (!area) return;
     area.addEventListener("scroll", handleScroll, { passive: true });
+
+    // İlk yüklənmədə ekranda görünən unread mesajları detect et
+    requestAnimationFrame(() => {
+      handleScroll();
+    });
 
     // Floating date — throttle-sız, hər scroll event-də işləyir
     // Throttle olunsa sürətli scroll zamanı floating date yenilənmir → dublikat görünür
@@ -3242,7 +3320,10 @@ function Chat() {
       {/* main-body — content (sidebar silinib, TopNavbar App.jsx-dədir) */}
       <div className="main-body">
         {/* main-content — söhbət siyahısı + chat paneli yan-yana */}
-        <div className="main-content" data-mobile-panel={isMobile ? mobilePanel : undefined}>
+        <div
+          className="main-content"
+          data-mobile-panel={isMobile ? mobilePanel : undefined}
+        >
           {/* ConversationList — sol panel, söhbət siyahısı */}
           <ConversationList
             conversations={conversations}
@@ -3283,7 +3364,9 @@ function Chat() {
                 {/* ChatHeader — chat adı, online status, action düymələr */}
                 <ChatHeader
                   selectedChat={selectedChat}
-                  mobileBackBtn={isMobile ? () => setMobilePanel("conversations") : null}
+                  mobileBackBtn={
+                    isMobile ? () => setMobilePanel("conversations") : null
+                  }
                   onlineUsers={onlineUsers}
                   pinnedMessages={pinnedMessages}
                   onTogglePinExpand={handleTogglePinExpand}
@@ -3295,7 +3378,10 @@ function Chat() {
                   searchOpen={search.showSearchPanel}
                   canEdit={(() => {
                     const r = channelMembers[selectedChat?.id]?.[user.id]?.role;
-                    return selectedChat?.type === 1 && (r === 3 || r === "Owner" || r === 2 || r === "Admin");
+                    return (
+                      selectedChat?.type === 1 &&
+                      (r === 3 || r === "Owner" || r === 2 || r === "Admin")
+                    );
                   })()}
                   onSaveChannelName={handleSaveChannelName}
                   onSaveChannelAvatar={handleSaveChannelAvatar}
@@ -3467,20 +3553,42 @@ function Chat() {
                               <div
                                 className="sender-group-avatar"
                                 style={{
-                                  background: senderAvatarUrl ? "transparent" : getAvatarColor(senderFullName),
+                                  background: senderAvatarUrl
+                                    ? "transparent"
+                                    : getAvatarColor(senderFullName),
                                   cursor: "pointer",
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setAvatarMenu(prev =>
-                                    prev?.userId === msg.senderId ? null : { userId: msg.senderId, fullName: senderFullName, rect }
+                                  const rect =
+                                    e.currentTarget.getBoundingClientRect();
+                                  setAvatarMenu((prev) =>
+                                    prev?.userId === msg.senderId
+                                      ? null
+                                      : {
+                                          userId: msg.senderId,
+                                          fullName: senderFullName,
+                                          rect,
+                                        },
                                   );
                                 }}
                               >
                                 {senderAvatarUrl ? (
-                                  <img src={getFileUrl(senderAvatarUrl)} alt={senderFullName} className="sender-group-avatar-img" onError={(e) => { e.target.style.display = "none"; e.target.parentNode.style.background = getAvatarColor(senderFullName); e.target.parentNode.textContent = getInitials(senderFullName); }} />
-                                ) : getInitials(senderFullName)}
+                                  <img
+                                    src={getFileUrl(senderAvatarUrl)}
+                                    alt={senderFullName}
+                                    className="sender-group-avatar-img"
+                                    onError={(e) => {
+                                      e.target.style.display = "none";
+                                      e.target.parentNode.style.background =
+                                        getAvatarColor(senderFullName);
+                                      e.target.parentNode.textContent =
+                                        getInitials(senderFullName);
+                                    }}
+                                  />
+                                ) : (
+                                  getInitials(senderFullName)
+                                )}
                               </div>
                             ) : (
                               <div className="sender-group-avatar-space" />
@@ -3614,62 +3722,132 @@ function Chat() {
                 )}
 
                 {/* Avatar menyu — mesajda avatar klikləndikdə açılır */}
-                {avatarMenu && (() => {
-                  const myRole = channelMembers[selectedChat?.id]?.[user.id]?.role;
-                  const viewerCanRemove = myRole === 3 || myRole === "Owner" || myRole === 2 || myRole === "Admin";
-                  const targetRole = channelMembers[selectedChat?.id]?.[avatarMenu.userId]?.role;
-                  const targetIsOwner = targetRole === 3 || targetRole === "Owner";
-                  const showRemove = selectedChat?.type === 1 && viewerCanRemove && !targetIsOwner;
-                  const MENU_HEIGHT = showRemove ? 164 : 124;
-                  const posStyle = avatarMenu.rect.top >= MENU_HEIGHT
-                    ? { bottom: window.innerHeight - avatarMenu.rect.top + 4, left: avatarMenu.rect.left }
-                    : { top: avatarMenu.rect.bottom + 4, left: avatarMenu.rect.left };
-                  return (
-                    <div
-                      ref={avatarMenuRef}
-                      className="avatar-ctx-menu"
-                      style={posStyle}
-                    >
-                      <button className="avatar-ctx-item" onClick={() => {
-                        const textarea = inputRef.current;
-                        const caretPos = textarea ? textarea.selectionStart : messageText.length;
-                        const before = messageText.substring(0, caretPos);
-                        const after = messageText.substring(caretPos);
-                        const mentionText = avatarMenu.fullName + " ";
-                        setMessageText(before + mentionText + after);
-                        mention.activeMentionsRef.current.push({ userId: avatarMenu.userId, userFullName: avatarMenu.fullName, isAllMention: false });
-                        requestAnimationFrame(() => {
-                          if (inputRef.current) {
-                            const pos = before.length + mentionText.length;
-                            inputRef.current.setSelectionRange(pos, pos);
-                            inputRef.current.focus();
+                {avatarMenu &&
+                  (() => {
+                    const myRole =
+                      channelMembers[selectedChat?.id]?.[user.id]?.role;
+                    const viewerCanRemove =
+                      myRole === 3 ||
+                      myRole === "Owner" ||
+                      myRole === 2 ||
+                      myRole === "Admin";
+                    const targetRole =
+                      channelMembers[selectedChat?.id]?.[avatarMenu.userId]
+                        ?.role;
+                    const targetIsOwner =
+                      targetRole === 3 || targetRole === "Owner";
+                    const showRemove =
+                      selectedChat?.type === 1 &&
+                      viewerCanRemove &&
+                      !targetIsOwner;
+                    const MENU_HEIGHT = showRemove ? 164 : 124;
+                    const posStyle =
+                      avatarMenu.rect.top >= MENU_HEIGHT
+                        ? {
+                            bottom:
+                              window.innerHeight - avatarMenu.rect.top + 4,
+                            left: avatarMenu.rect.left,
                           }
-                        });
-                        setAvatarMenu(null);
-                      }}>Mention</button>
-                      <button className="avatar-ctx-item" onClick={async () => {
-                        const uid = avatarMenu.userId;
-                        setAvatarMenu(null);
-                        const existing = conversations.find(c => c.type === 0 && c.otherUserId === uid);
-                        if (existing) { handleSelectChat(existing); return; }
-                        try {
-                          const result = await apiPost("/api/conversations", { otherUserId: uid });
-                          handleSelectChat({ id: result.conversationId, type: 0, otherUserId: uid, name: "", unreadCount: 0, lastMessage: null, lastMessageAtUtc: null });
-                        } catch (err) { showToast(err.message || "Failed to open conversation", "error"); }
-                      }}>Send private message</button>
-                      <button className="avatar-ctx-item" onClick={() => {
-                        setProfileUserId(avatarMenu.userId);
-                        setAvatarMenu(null);
-                      }}>View profile</button>
-                      {showRemove && (
-                        <button className="avatar-ctx-item avatar-ctx-danger" onClick={() => {
-                          setRemoveConfirm({ userId: avatarMenu.userId, name: avatarMenu.fullName });
-                          setAvatarMenu(null);
-                        }}>Remove from chat</button>
-                      )}
-                    </div>
-                  );
-                })()}
+                        : {
+                            top: avatarMenu.rect.bottom + 4,
+                            left: avatarMenu.rect.left,
+                          };
+                    return (
+                      <div
+                        ref={avatarMenuRef}
+                        className="avatar-ctx-menu"
+                        style={posStyle}
+                      >
+                        <button
+                          className="avatar-ctx-item"
+                          onClick={() => {
+                            const textarea = inputRef.current;
+                            const caretPos = textarea
+                              ? textarea.selectionStart
+                              : messageText.length;
+                            const before = messageText.substring(0, caretPos);
+                            const after = messageText.substring(caretPos);
+                            const mentionText = avatarMenu.fullName + " ";
+                            setMessageText(before + mentionText + after);
+                            mention.activeMentionsRef.current.push({
+                              userId: avatarMenu.userId,
+                              userFullName: avatarMenu.fullName,
+                              isAllMention: false,
+                            });
+                            requestAnimationFrame(() => {
+                              if (inputRef.current) {
+                                const pos = before.length + mentionText.length;
+                                inputRef.current.setSelectionRange(pos, pos);
+                                inputRef.current.focus();
+                              }
+                            });
+                            setAvatarMenu(null);
+                          }}
+                        >
+                          Mention
+                        </button>
+                        <button
+                          className="avatar-ctx-item"
+                          onClick={async () => {
+                            const uid = avatarMenu.userId;
+                            setAvatarMenu(null);
+                            const existing = conversations.find(
+                              (c) => c.type === 0 && c.otherUserId === uid,
+                            );
+                            if (existing) {
+                              handleSelectChat(existing);
+                              return;
+                            }
+                            try {
+                              const result = await apiPost(
+                                "/api/conversations",
+                                { otherUserId: uid },
+                              );
+                              handleSelectChat({
+                                id: result.conversationId,
+                                type: 0,
+                                otherUserId: uid,
+                                name: "",
+                                unreadCount: 0,
+                                lastMessage: null,
+                                lastMessageAtUtc: null,
+                              });
+                            } catch (err) {
+                              showToast(
+                                err.message || "Failed to open conversation",
+                                "error",
+                              );
+                            }
+                          }}
+                        >
+                          Send private message
+                        </button>
+                        <button
+                          className="avatar-ctx-item"
+                          onClick={() => {
+                            setProfileUserId(avatarMenu.userId);
+                            setAvatarMenu(null);
+                          }}
+                        >
+                          View profile
+                        </button>
+                        {showRemove && (
+                          <button
+                            className="avatar-ctx-item avatar-ctx-danger"
+                            onClick={() => {
+                              setRemoveConfirm({
+                                userId: avatarMenu.userId,
+                                name: avatarMenu.fullName,
+                              });
+                              setAvatarMenu(null);
+                            }}
+                          >
+                            Remove from chat
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                 {removeConfirm && (
                   <ConfirmDialog
@@ -3743,32 +3921,166 @@ function Chat() {
               <div className="chat-empty">
                 {/* Bitrix24-ə oxşar composite icon — chat + təqvim + bildiriş */}
                 <div className="chat-empty-icon">
-                  <svg width="120" height="100" viewBox="0 0 120 100" fill="none">
+                  <svg
+                    width="120"
+                    height="100"
+                    viewBox="0 0 120 100"
+                    fill="none"
+                  >
                     {/* Əsas ekran/board */}
-                    <rect x="20" y="15" width="65" height="55" rx="8" fill="#c8d8ec" stroke="#b0c4de" strokeWidth="1.5"/>
+                    <rect
+                      x="20"
+                      y="15"
+                      width="65"
+                      height="55"
+                      rx="8"
+                      fill="#c8d8ec"
+                      stroke="#b0c4de"
+                      strokeWidth="1.5"
+                    />
                     {/* Xətlər */}
-                    <rect x="30" y="30" width="30" height="4" rx="2" fill="#a0b8d0"/>
-                    <rect x="30" y="40" width="22" height="4" rx="2" fill="#a0b8d0"/>
-                    <rect x="30" y="50" width="35" height="4" rx="2" fill="#a0b8d0"/>
+                    <rect
+                      x="30"
+                      y="30"
+                      width="30"
+                      height="4"
+                      rx="2"
+                      fill="#a0b8d0"
+                    />
+                    <rect
+                      x="30"
+                      y="40"
+                      width="22"
+                      height="4"
+                      rx="2"
+                      fill="#a0b8d0"
+                    />
+                    <rect
+                      x="30"
+                      y="50"
+                      width="35"
+                      height="4"
+                      rx="2"
+                      fill="#a0b8d0"
+                    />
                     {/* Progress bar */}
-                    <rect x="30" y="58" width="40" height="3" rx="1.5" fill="#d0dce8"/>
-                    <rect x="30" y="58" width="18" height="3" rx="1.5" fill="#6aab6a"/>
+                    <rect
+                      x="30"
+                      y="58"
+                      width="40"
+                      height="3"
+                      rx="1.5"
+                      fill="#d0dce8"
+                    />
+                    <rect
+                      x="30"
+                      y="58"
+                      width="18"
+                      height="3"
+                      rx="1.5"
+                      fill="#6aab6a"
+                    />
                     {/* Chat bubble — yuxarı sağda */}
-                    <rect x="60" y="5" width="28" height="22" rx="6" fill="#6aab6a"/>
-                    <path d="M70 27 L66 33 L74 27" fill="#6aab6a"/>
-                    <rect x="66" y="11" width="16" height="2.5" rx="1.25" fill="rgba(255,255,255,0.7)"/>
-                    <rect x="66" y="16" width="10" height="2.5" rx="1.25" fill="rgba(255,255,255,0.7)"/>
+                    <rect
+                      x="60"
+                      y="5"
+                      width="28"
+                      height="22"
+                      rx="6"
+                      fill="#6aab6a"
+                    />
+                    <path d="M70 27 L66 33 L74 27" fill="#6aab6a" />
+                    <rect
+                      x="66"
+                      y="11"
+                      width="16"
+                      height="2.5"
+                      rx="1.25"
+                      fill="rgba(255,255,255,0.7)"
+                    />
+                    <rect
+                      x="66"
+                      y="16"
+                      width="10"
+                      height="2.5"
+                      rx="1.25"
+                      fill="rgba(255,255,255,0.7)"
+                    />
                     {/* Təqvim icon — sol aşağıda */}
-                    <rect x="8" y="50" width="22" height="20" rx="4" fill="#4a7fc4" stroke="#3b6cb5" strokeWidth="1"/>
-                    <rect x="11" y="47" width="3" height="6" rx="1.5" fill="#3b6cb5"/>
-                    <rect x="24" y="47" width="3" height="6" rx="1.5" fill="#3b6cb5"/>
-                    <rect x="12" y="57" width="4" height="3" rx="1" fill="rgba(255,255,255,0.6)"/>
-                    <rect x="18" y="57" width="4" height="3" rx="1" fill="rgba(255,255,255,0.6)"/>
-                    <rect x="12" y="62" width="4" height="3" rx="1" fill="rgba(255,255,255,0.6)"/>
-                    <rect x="18" y="62" width="4" height="3" rx="1" fill="rgba(255,255,255,0.6)"/>
+                    <rect
+                      x="8"
+                      y="50"
+                      width="22"
+                      height="20"
+                      rx="4"
+                      fill="#4a7fc4"
+                      stroke="#3b6cb5"
+                      strokeWidth="1"
+                    />
+                    <rect
+                      x="11"
+                      y="47"
+                      width="3"
+                      height="6"
+                      rx="1.5"
+                      fill="#3b6cb5"
+                    />
+                    <rect
+                      x="24"
+                      y="47"
+                      width="3"
+                      height="6"
+                      rx="1.5"
+                      fill="#3b6cb5"
+                    />
+                    <rect
+                      x="12"
+                      y="57"
+                      width="4"
+                      height="3"
+                      rx="1"
+                      fill="rgba(255,255,255,0.6)"
+                    />
+                    <rect
+                      x="18"
+                      y="57"
+                      width="4"
+                      height="3"
+                      rx="1"
+                      fill="rgba(255,255,255,0.6)"
+                    />
+                    <rect
+                      x="12"
+                      y="62"
+                      width="4"
+                      height="3"
+                      rx="1"
+                      fill="rgba(255,255,255,0.6)"
+                    />
+                    <rect
+                      x="18"
+                      y="62"
+                      width="4"
+                      height="3"
+                      rx="1"
+                      fill="rgba(255,255,255,0.6)"
+                    />
                     {/* Dairəvi icon — sağ aşağı */}
-                    <circle cx="78" cy="72" r="12" fill="#6a7fc4" stroke="#5a6fb5" strokeWidth="1"/>
-                    <path d="M73 72 L78 67 L83 72 M78 67 V78" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle
+                      cx="78"
+                      cy="72"
+                      r="12"
+                      fill="#6a7fc4"
+                      stroke="#5a6fb5"
+                      strokeWidth="1"
+                    />
+                    <path
+                      d="M73 72 L78 67 L83 72 M78 67 V78"
+                      stroke="rgba(255,255,255,0.7)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
                 <h2>Select a chat to start communicating</h2>
@@ -3778,7 +4090,10 @@ function Chat() {
 
           {/* Detail Sidebar — tablet/mobile-da overlay backdrop */}
           {sidebar.showSidebar && selectedChat && !isMobile && (
-            <div className="detail-sidebar-backdrop" onClick={() => sidebar.setShowSidebar(false)} />
+            <div
+              className="detail-sidebar-backdrop"
+              onClick={() => sidebar.setShowSidebar(false)}
+            />
           )}
           {sidebar.showSidebar && selectedChat && (
             <DetailSidebar
@@ -3838,13 +4153,24 @@ function Chat() {
                   channel.addMemberSelected.size > 0 ? (
                     <div className="ds-am-search-box">
                       {[...channel.addMemberSelected].map((uid) => {
-                        const info = addMemberChipMap.get(uid) || { name: "User" };
+                        const info = addMemberChipMap.get(uid) || {
+                          name: "User",
+                        };
                         return (
                           <span key={uid} className="ds-am-chip">
                             {info.avatarUrl ? (
-                              <img src={info.avatarUrl} alt="" className="ds-am-chip-avatar" />
+                              <img
+                                src={info.avatarUrl}
+                                alt=""
+                                className="ds-am-chip-avatar"
+                              />
                             ) : (
-                              <span className="ds-am-chip-avatar-placeholder" style={{ background: getAvatarColor(info.name) }}>
+                              <span
+                                className="ds-am-chip-avatar-placeholder"
+                                style={{
+                                  background: getAvatarColor(info.name),
+                                }}
+                              >
                                 {getInitials(info.name)}
                               </span>
                             )}
@@ -3876,11 +4202,21 @@ function Chat() {
                             setAddMemberNavIndex((i) => (i + 1) % len);
                           } else if (e.key === "ArrowUp") {
                             e.preventDefault();
-                            setAddMemberNavIndex((i) => (i <= 0 ? len - 1 : i - 1));
-                          } else if (e.key === "Enter" && addMemberNavIndex >= 0) {
+                            setAddMemberNavIndex((i) =>
+                              i <= 0 ? len - 1 : i - 1,
+                            );
+                          } else if (
+                            e.key === "Enter" &&
+                            addMemberNavIndex >= 0
+                          ) {
                             e.preventDefault();
-                            const navUser = addMemberFilteredUsers[addMemberNavIndex];
-                            handleToggleAddMemberUser(navUser.id, navUser.fullName, navUser.avatarUrl);
+                            const navUser =
+                              addMemberFilteredUsers[addMemberNavIndex];
+                            handleToggleAddMemberUser(
+                              navUser.id,
+                              navUser.fullName,
+                              navUser.avatarUrl,
+                            );
                           }
                         }}
                         onBlur={() => {
@@ -3939,11 +4275,22 @@ function Chat() {
                         <div
                           key={u.id}
                           className={`ds-am-user${isSelected ? " selected" : ""}${isNav ? " nav-active" : ""}${isMember ? " is-member" : ""}`}
-                          onClick={() => !isMember && handleToggleAddMemberUser(u.id, u.fullName, u.avatarUrl)}
+                          onClick={() =>
+                            !isMember &&
+                            handleToggleAddMemberUser(
+                              u.id,
+                              u.fullName,
+                              u.avatarUrl,
+                            )
+                          }
                         >
                           <div
                             className="ds-am-user-avatar"
-                            style={{ background: u.avatarUrl ? "transparent" : getAvatarColor(u.fullName) }}
+                            style={{
+                              background: u.avatarUrl
+                                ? "transparent"
+                                : getAvatarColor(u.fullName),
+                            }}
                           >
                             {u.avatarUrl ? (
                               <img
@@ -4015,20 +4362,49 @@ function Chat() {
         {isMobile && mobilePanel === "conversations" && (
           <nav className="mobile-bottom-tabs">
             <button className="tab active">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               Chats
             </button>
             <button className="tab" onClick={() => navigate("/admin")}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
               Admin
             </button>
             <button className="tab" onClick={() => setProfileUserId(user.id)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
               </svg>
               Profile
             </button>
@@ -4041,27 +4417,44 @@ function Chat() {
         <UserProfilePanel
           userId={profileUserId}
           currentUserId={user?.id}
-          isAdmin={user?.isSuperAdmin || user?.role === "Admin" || user?.role === "SuperAdmin"}
+          isAdmin={
+            user?.isSuperAdmin ||
+            user?.role === "Admin" ||
+            user?.role === "SuperAdmin"
+          }
           onClose={() => setProfileUserId(null)}
           onStartChat={async (uid) => {
             setProfileUserId(null);
             // Mövcud DM axtarışı — type 0 (DM) və type 2 (DepartmentUser) hər ikisi DM-dir
-            const existing = conversations.find((c) =>
-              (c.type === 0 || c.type === 2) && (c.otherUserId === uid || c.userId === uid)
+            const existing = conversations.find(
+              (c) =>
+                (c.type === 0 || c.type === 2) &&
+                (c.otherUserId === uid || c.userId === uid),
             );
-            if (existing) { handleSelectChat(existing); return; }
+            if (existing) {
+              handleSelectChat(existing);
+              return;
+            }
             try {
-              const result = await apiPost("/api/conversations", { otherUserId: uid });
+              const result = await apiPost("/api/conversations", {
+                otherUserId: uid,
+              });
               if (result?.conversationId) {
                 // Conversation list-i yenilə ki, yeni DM tam datası ilə gəlsin
-                const data = await apiGet(`/api/unified-conversations?pageNumber=1&pageSize=${CONVERSATION_PAGE_SIZE}`);
+                const data = await apiGet(
+                  `/api/unified-conversations?pageNumber=1&pageSize=${CONVERSATION_PAGE_SIZE}`,
+                );
                 if (data?.items) {
                   setConversations(data.items);
-                  const newConv = data.items.find((c) => c.id === result.conversationId);
+                  const newConv = data.items.find(
+                    (c) => c.id === result.conversationId,
+                  );
                   if (newConv) handleSelectChat(newConv);
                 }
               }
-            } catch (err) { showToast(err.message || "Failed to open DM", "error"); }
+            } catch (err) {
+              showToast(err.message || "Failed to open DM", "error");
+            }
           }}
           onlineUsers={onlineUsers}
         />

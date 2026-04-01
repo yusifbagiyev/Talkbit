@@ -15,6 +15,7 @@ import { createContext, useState, useEffect, useCallback, useMemo, useContext } 
 // scheduleRefresh: token expire olmadan 5 dəq əvvəl refresh edir
 // stopRefreshTimer: logout zamanı timer-i dayandırır
 import { apiGet, apiPost, scheduleRefresh, stopRefreshTimer, resetSessionExpired } from "../services/api";
+import { stopConnection } from "../services/signalr";
 
 // ─── createContext ────────────────────────────────────────────────────────────
 // "Kanal" yaradırıq. Bu kanal vasitəsilə user, login, logout bütün app-a çatır.
@@ -82,12 +83,12 @@ function AuthProvider({ children }) {
   // ─── logout ─────────────────────────────────────────────────────────────────
   // Sidebar-dan çağırılır. Cookie-ni server silir, frontend-i də təmizlər.
   const logout = useCallback(async () => {
-    stopRefreshTimer(); // Refresh timer-i dayandır (boşuna refresh etməsin)
+    stopRefreshTimer(); // Refresh timer-i dayandır
+    await stopConnection(); // SignalR bağlantısını bağla — login-dən sonra yeni bağlantı qurulsun
     try {
       await apiPost("/api/auth/logout"); // Server-də session-u sil
     } catch {
       // Network xətası olsa belə — frontend-i mütləq təmizlə
-      // İstifadəçi "sıxışıb qalmasın"
     }
     setUser(null); // user = null → ProtectedRoute /login-ə yönləndirir
   }, []);
