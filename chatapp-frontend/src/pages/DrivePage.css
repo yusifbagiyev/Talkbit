@@ -1039,6 +1039,12 @@
   border-radius: 8px;
 }
 
+/* Recycle bin thumbnail */
+.drive-trash-thumb {
+  width: 32px; height: 32px;
+  border-radius: 4px; object-fit: cover;
+}
+
 /* Skeleton kart */
 .drive-card.skeleton {
   pointer-events: none;

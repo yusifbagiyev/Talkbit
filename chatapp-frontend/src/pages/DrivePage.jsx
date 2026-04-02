@@ -280,7 +280,7 @@ const DriveBreadcrumb = memo(function DriveBreadcrumb({
 
 // ─── DriveFileCard — Tək fayl/qovluq kartı ──────────────────────────────────
 const DriveFileCard = memo(function DriveFileCard({
-  item, isFolder, selected, viewMode,
+  item, isFolder, selected, viewMode, hasSelection,
   onSelect, onClick, onContextMenu, onRename, renameItem,
 }) {
   const renameRef = useCallback((node) => {
@@ -304,7 +304,7 @@ const DriveFileCard = memo(function DriveFileCard({
       className={`drive-card${selected ? " selected" : ""}${viewMode === "grid-medium" ? " medium" : ""}`}
       onClick={(e) => {
         if (isRenaming) return;
-        if (e.ctrlKey || e.metaKey) { onSelect(item, isFolder); return; }
+        if (e.ctrlKey || e.metaKey || hasSelection) { onSelect(item, isFolder); return; }
         onClick(item, isFolder);
       }}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, item, isFolder); }}
@@ -352,14 +352,16 @@ const DriveFileGrid = memo(function DriveFileGrid({
   folders, files, viewMode, selectedItems,
   onSelect, onClick, onContextMenu, onRename, renameItem,
 }) {
+  const hasSelection = selectedItems.size > 0;
   return (
     <div className={`drive-grid${viewMode === "grid-medium" ? " medium" : ""}`}>
       {folders.map((f) => (
         <DriveFileCard
-          key={`folder-${f.id}`}
+          key={`folder:${f.id}`}
           item={f}
           isFolder
-          selected={selectedItems.has(`folder-${f.id}`)}
+          selected={selectedItems.has(`folder:${f.id}`)}
+          hasSelection={hasSelection}
           viewMode={viewMode}
           onSelect={onSelect}
           onClick={onClick}
@@ -370,10 +372,11 @@ const DriveFileGrid = memo(function DriveFileGrid({
       ))}
       {files.map((f) => (
         <DriveFileCard
-          key={`file-${f.id}`}
+          key={`file:${f.id}`}
           item={f}
           isFolder={false}
-          selected={selectedItems.has(`file-${f.id}`)}
+          selected={selectedItems.has(`file:${f.id}`)}
+          hasSelection={hasSelection}
           viewMode={viewMode}
           onSelect={onSelect}
           onClick={onClick}
@@ -428,7 +431,7 @@ const DriveFileList = memo(function DriveFileList({
       </div>
       {allItems.map((it) => {
         const isFolder = it._isFolder;
-        const key = `${isFolder ? "folder" : "file"}-${it.id}`;
+        const key = `${isFolder ? "folder" : "file"}:${it.id}`;
         const name = isFolder ? it.name : it.originalFileName;
         const selected = selectedItems.has(key);
         const isRenaming = renameItem?.id === it.id;
@@ -441,6 +444,7 @@ const DriveFileList = memo(function DriveFileList({
             name={name}
             selected={selected}
             isRenaming={isRenaming}
+            hasSelection={selectedItems.size > 0}
             onSelect={onSelect}
             onClick={onClick}
             onContextMenu={onContextMenu}
@@ -454,7 +458,7 @@ const DriveFileList = memo(function DriveFileList({
 
 // ─── DriveListRow — List görünüşünün tək sətri ──────────────────────────────
 const DriveListRow = memo(function DriveListRow({
-  item, isFolder, name, selected, isRenaming,
+  item, isFolder, name, selected, isRenaming, hasSelection,
   onSelect, onClick, onContextMenu, onRename,
 }) {
   const renameRef = useCallback((node) => {
@@ -473,7 +477,7 @@ const DriveListRow = memo(function DriveListRow({
       className={`drive-list-row${selected ? " selected" : ""}`}
       onClick={(e) => {
         if (isRenaming) return;
-        if (e.ctrlKey || e.metaKey) { onSelect(item, isFolder); return; }
+        if (e.ctrlKey || e.metaKey || hasSelection) { onSelect(item, isFolder); return; }
         onClick(item, isFolder);
       }}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, item, isFolder); }}
@@ -928,7 +932,13 @@ const DriveRecycleBin = memo(function DriveRecycleBin({ onBack }) {
             return (
               <div key={item.id} className="drive-list-row">
                 <div className="drive-list-cell drive-list-icon">
-                  {isFolder ? <FolderIcon size={24} /> : <FileTypeIcon fileName={name} size={24} />}
+                  {isFolder ? (
+                    <FolderIcon size={24} />
+                  ) : item.serveUrl && isImageFile(name) ? (
+                    <img src={getFileUrl(item.serveUrl)} alt="" className="drive-trash-thumb" />
+                  ) : (
+                    <FileTypeIcon fileName={name} size={24} />
+                  )}
                 </div>
                 <div className="drive-list-cell drive-list-name">
                   <span>{name}</span>
@@ -1008,6 +1018,9 @@ export default function DrivePage() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showQuota, setShowQuota] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [newFolderDialog, setNewFolderDialog] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderSaving, setNewFolderSaving] = useState(false);
 
   // Debounced axtarış
   const searchTimerRef = useRef(null);
@@ -1067,7 +1080,7 @@ export default function DrivePage() {
   }, [folderPath, navigateToFolder]);
 
   const handleSelect = useCallback((item, isFolder, forceRemove = false) => {
-    const key = `${isFolder ? "folder" : "file"}-${item.id}`;
+    const key = `${isFolder ? "folder" : "file"}:${item.id}`;
     setSelectedItems((prev) => {
       const next = new Set(prev);
       if (next.has(key) || forceRemove) next.delete(key);
@@ -1103,18 +1116,28 @@ export default function DrivePage() {
     }
   }, [currentFolderId, loadData, showToast]);
 
-  // ── Yeni qovluq ──
-  const handleNewFolder = useCallback(async () => {
-    const name = prompt("Folder name:");
-    if (!name?.trim()) return;
+  // ── Yeni qovluq dialog açma ──
+  const handleNewFolder = useCallback(() => {
+    setNewFolderName("");
+    setNewFolderDialog(true);
+  }, []);
+
+  // ── Yeni qovluq yaratma ──
+  const handleCreateFolder = useCallback(async () => {
+    if (!newFolderName.trim()) return;
+    setNewFolderSaving(true);
     try {
-      await createDriveFolder(name.trim(), currentFolderId);
+      await createDriveFolder(newFolderName.trim(), currentFolderId);
       showToast("Folder created", "success");
+      setNewFolderDialog(false);
+      setNewFolderName("");
       loadData();
     } catch {
       showToast("Failed to create folder", "error");
+    } finally {
+      setNewFolderSaving(false);
     }
-  }, [currentFolderId, loadData, showToast]);
+  }, [currentFolderId, newFolderName, loadData, showToast]);
 
   // ── Rename ──
   const handleRename = useCallback(async (item, newName, isFolder) => {
@@ -1156,9 +1179,10 @@ export default function DrivePage() {
   // ── Çox seçimdə silmə ──
   const handleBulkDelete = useCallback(async () => {
     const items = Array.from(selectedItems);
+    if (!items.length) return;
     try {
       await Promise.all(items.map((key) => {
-        const [type, id] = key.split("-");
+        const [type, id] = key.split(":");
         return type === "folder" ? deleteDriveFolder(id) : deleteDriveFile(id);
       }));
       showToast(`${items.length} item(s) deleted`, "success");
@@ -1182,7 +1206,7 @@ export default function DrivePage() {
   // ── Çox seçimdə yükləmə ──
   const handleBulkDownload = useCallback(async () => {
     for (const key of selectedItems) {
-      const [type, id] = key.split("-");
+      const [type, id] = key.split(":");
       if (type === "file") {
         const file = files.find((f) => f.id === id);
         if (file) await handleDownload(file);
@@ -1236,7 +1260,7 @@ export default function DrivePage() {
   const getFirstSelectedItem = useCallback(() => {
     const firstKey = Array.from(selectedItems)[0];
     if (!firstKey) return null;
-    const [type, id] = firstKey.split("-");
+    const [type, id] = firstKey.split(":");
     const isFolder = type === "folder";
     const item = isFolder
       ? folders.find((f) => f.id === id)
@@ -1405,6 +1429,40 @@ export default function DrivePage() {
         onConfirm={handleMoveConfirm}
         currentFolderId={currentFolderId}
       />
+
+      {/* Yeni qovluq dialog */}
+      {newFolderDialog && (
+        <div className="drive-move-overlay" onClick={(e) => { if (e.target === e.currentTarget) setNewFolderDialog(false); }}>
+          <div className="drive-move-dialog" style={{ maxHeight: "none" }}>
+            <div className="drive-move-header">
+              <span className="drive-move-header-title">New Folder</span>
+              <button className="drive-details-close" onClick={() => setNewFolderDialog(false)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div style={{ padding: "20px" }}>
+              <label style={{ fontSize: 12, fontWeight: 500, color: "#6b7280", display: "block", marginBottom: 6 }}>Folder name</label>
+              <input
+                className="drive-search-input"
+                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13 }}
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
+                placeholder="Enter folder name..."
+                autoFocus
+              />
+            </div>
+            <div className="drive-move-actions">
+              <button className="drive-move-cancel-btn" onClick={() => setNewFolderDialog(false)}>Cancel</button>
+              <button className="drive-move-confirm-btn" onClick={handleCreateFolder} disabled={!newFolderName.trim() || newFolderSaving}>
+                {newFolderSaving ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
