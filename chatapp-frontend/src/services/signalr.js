@@ -180,12 +180,12 @@ function scheduleRetry() {
 function handleVisibilityChange() {
   if (document.hidden || stopRequested) return;
   if (connection) return; // artıq bağlıdır
+  // Login səhifəsində connection heç vaxt qurulmayıb — retry etmə
+  if (!retryTimerId) return;
   // Mövcud retry timer-i ləğv et — dərhal cəhd edəcəyik
-  if (retryTimerId) {
-    clearTimeout(retryTimerId);
-    retryTimerId = null;
-  }
-  retryCount = 0; // Tab aktiv oldu — sayğacı sıfırla, sürətli retry-dən başla
+  clearTimeout(retryTimerId);
+  retryTimerId = null;
+  retryCount = 0;
   startConnection().catch(() => {});
 }
 document.addEventListener("visibilitychange", handleVisibilityChange);

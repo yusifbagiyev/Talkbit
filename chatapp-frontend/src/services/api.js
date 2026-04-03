@@ -120,7 +120,10 @@ function resetSessionExpired() {
 // setTimeout sleep zamanı pauzaya düşür → token expire ola bilər.
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && !sessionExpired && refreshTimerId) {
-    refreshToken().catch(() => {});
+    // Timer-i ləğv et — ikiqat refresh (race condition) olmasın
+    clearTimeout(refreshTimerId);
+    refreshTimerId = null;
+    refreshToken().then(() => scheduleRefresh()).catch(() => {});
   }
 });
 
