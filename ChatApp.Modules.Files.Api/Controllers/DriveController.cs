@@ -337,6 +337,106 @@ namespace ChatApp.Modules.Files.Api.Controllers
             return Ok(new { message = "File deleted" });
         }
 
+        // ─── Batch əməliyyatlar — çoxlu fayl/folder üçün tək request ────────
+
+        [HttpPost("batch/delete")]
+        public async Task<IActionResult> BatchDelete(
+            [FromBody] BatchItemsRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty) return Unauthorized();
+
+            int deleted = 0;
+
+            // Folder-ləri sil
+            if (request.FolderIds?.Count > 0)
+            {
+                foreach (var folderId in request.FolderIds)
+                {
+                    var folder = await unitOfWork.DriveFolders.GetByIdAsync(folderId, cancellationToken);
+                    if (folder == null || folder.OwnerId != userId) continue;
+
+                    var descendants = await unitOfWork.DriveFolders.GetAllDescendantsAsync(folderId, cancellationToken);
+                    var allFolders = new List<DriveFolder> { folder };
+                    allFolders.AddRange(descendants);
+
+                    foreach (var f in allFolders)
+                    {
+                        f.Delete();
+                        var files = await unitOfWork.Files.GetFilesByFolderIdAsync(f.Id, cancellationToken);
+                        foreach (var file in files)
+                            file.Delete("drive-folder-delete");
+                    }
+                    deleted++;
+                }
+            }
+
+            // Faylları sil
+            if (request.FileIds?.Count > 0)
+            {
+                foreach (var fileId in request.FileIds)
+                {
+                    var file = await unitOfWork.Files.GetByIdAsync(fileId, cancellationToken);
+                    if (file == null || file.UploadedBy != userId || !file.IsDriveFile) continue;
+                    file.Delete("drive-user-delete");
+                    deleted++;
+                }
+            }
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return Ok(new { deleted });
+        }
+
+        [HttpPost("batch/move")]
+        public async Task<IActionResult> BatchMove(
+            [FromBody] BatchMoveRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty) return Unauthorized();
+
+            int moved = 0;
+
+            // Folder-ləri köçür
+            if (request.FolderIds?.Count > 0)
+            {
+                foreach (var folderId in request.FolderIds)
+                {
+                    var folder = await unitOfWork.DriveFolders.GetByIdAsync(folderId, cancellationToken);
+                    if (folder == null || folder.OwnerId != userId) continue;
+
+                    // Özünə və ya alt folder-inə köçürülməsinin qarşısını al
+                    if (request.TargetFolderId.HasValue)
+                    {
+                        var descendants = await unitOfWork.DriveFolders.GetAllDescendantsAsync(folderId, cancellationToken);
+                        if (descendants.Any(d => d.Id == request.TargetFolderId.Value))
+                            continue;
+                        if (folderId == request.TargetFolderId.Value)
+                            continue;
+                    }
+
+                    folder.MoveTo(request.TargetFolderId);
+                    moved++;
+                }
+            }
+
+            // Faylları köçür
+            if (request.FileIds?.Count > 0)
+            {
+                foreach (var fileId in request.FileIds)
+                {
+                    var file = await unitOfWork.Files.GetByIdAsync(fileId, cancellationToken);
+                    if (file == null || file.UploadedBy != userId || !file.IsDriveFile) continue;
+                    file.MoveToFolder(request.TargetFolderId);
+                    moved++;
+                }
+            }
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return Ok(new { moved });
+        }
+
         // ─── Recycle Bin ────────────────────────────────────────────────────
 
         [HttpGet("trash")]
@@ -511,4 +611,6 @@ namespace ChatApp.Modules.Files.Api.Controllers
     public record RenameFolderRequest(string Name);
     public record RenameFileRequest(string Name);
     public record MoveRequest(Guid? TargetFolderId);
+    public record BatchItemsRequest(List<Guid>? FolderIds, List<Guid>? FileIds);
+    public record BatchMoveRequest(List<Guid>? FolderIds, List<Guid>? FileIds, Guid? TargetFolderId);
 }

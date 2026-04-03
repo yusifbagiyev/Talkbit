@@ -21,6 +21,8 @@ import {
   renameDriveFile,
   moveDriveFile,
   deleteDriveFile,
+  batchDeleteDriveItems,
+  batchMoveDriveItems,
   getDriveTrash,
   restoreDriveItem,
   permanentDeleteDriveItem,
@@ -726,7 +728,10 @@ const DriveMoveDialog = memo(function DriveMoveDialog({
   function renderNode(folder, depth = 0) {
     const isExpanded = expanded.has(folder.id);
     const children = childrenMap[folder.id] || [];
-    const isDisabled = folder.id === moveDialog?.item?.id;
+    // Tək item və ya bulk move-da seçilmiş folder-ləri disable et
+    const isDisabled = moveDialog?.isBulk
+      ? moveDialog.items.some((k) => k === `folder:${folder.id}`)
+      : folder.id === moveDialog?.item?.id;
 
     return (
       <div key={folder.id}>
@@ -832,16 +837,19 @@ const DriveRecycleBin = memo(function DriveRecycleBin({ onBack, onQuotaChange })
 
   useEffect(() => { loadTrash(); }, [loadTrash]);
 
+  // Restore — optimistic update
   const handleRestore = async (item) => {
     try {
       await restoreDriveItem(item.id);
       showToast("Item restored", "success");
-      loadTrash();
+      setTrashItems((prev) => prev.filter((t) => t.id !== item.id));
+      setSelectedIds((prev) => { const next = new Set(prev); next.delete(item.id); return next; });
     } catch {
       showToast("Failed to restore item", "error");
     }
   };
 
+  // Permanent delete — optimistic update
   const handlePermanentDelete = (item) => {
     setConfirmAction({
       message: "Permanently delete this item?",
@@ -851,7 +859,8 @@ const DriveRecycleBin = memo(function DriveRecycleBin({ onBack, onQuotaChange })
         try {
           await permanentDeleteDriveItem(item.id);
           showToast("Item permanently deleted", "success");
-          loadTrash();
+          setTrashItems((prev) => prev.filter((t) => t.id !== item.id));
+          setSelectedIds((prev) => { const next = new Set(prev); next.delete(item.id); return next; });
           onQuotaChange?.();
         } catch {
           showToast("Failed to delete permanently", "error");
@@ -1320,24 +1329,35 @@ export default function DrivePage() {
     });
   }, [showToast]);
 
-  // ── Çox seçimdə silmə — optimistic update ──
+  // ── Çox seçimdə silmə — 5+ item olduqda batch endpoint istifadə edir ──
   const handleBulkDelete = useCallback(() => {
     const items = Array.from(selectedItems);
     if (!items.length) return;
+    const folderIds = items.filter((k) => k.startsWith("folder:")).map((k) => k.split(":")[1]);
+    const fileIds = items.filter((k) => k.startsWith("file:")).map((k) => k.split(":")[1]);
+
     setConfirmAction({
       message: `Are you sure you want to delete ${items.length} ${items.length === 1 ? "item" : "items"}?`,
       onConfirm: async () => {
         setConfirmAction(null);
         try {
-          await Promise.all(items.map((key) => {
-            const [type, id] = key.split(":");
-            return type === "folder" ? deleteDriveFolder(id) : deleteDriveFile(id);
-          }));
+          // 5+ item olduqda batch endpoint, əks halda tək-tək
+          if (items.length > 5) {
+            await batchDeleteDriveItems(
+              folderIds.length ? folderIds : null,
+              fileIds.length ? fileIds : null,
+            );
+          } else {
+            await Promise.all(items.map((key) => {
+              const [type, id] = key.split(":");
+              return type === "folder" ? deleteDriveFolder(id) : deleteDriveFile(id);
+            }));
+          }
           // Optimistic: silinən elementləri state-dən çıxar
-          const deletedFolderIds = new Set(items.filter((k) => k.startsWith("folder:")).map((k) => k.split(":")[1]));
-          const deletedFileIds = new Set(items.filter((k) => k.startsWith("file:")).map((k) => k.split(":")[1]));
-          if (deletedFolderIds.size) setFolders((prev) => prev.filter((f) => !deletedFolderIds.has(f.id)));
-          if (deletedFileIds.size) setFiles((prev) => prev.filter((f) => !deletedFileIds.has(f.id)));
+          const deletedFolderSet = new Set(folderIds);
+          const deletedFileSet = new Set(fileIds);
+          if (deletedFolderSet.size) setFolders((prev) => prev.filter((f) => !deletedFolderSet.has(f.id)));
+          if (deletedFileSet.size) setFiles((prev) => prev.filter((f) => !deletedFileSet.has(f.id)));
           showToast(`${items.length} ${items.length === 1 ? "item" : "items"} deleted`, "success");
           setSelectedItems(new Set());
           getDriveQuota().then(setQuota).catch(() => {});
@@ -1368,19 +1388,46 @@ export default function DrivePage() {
     }
   }, [selectedItems, files, handleDownload]);
 
-  // ── Move — optimistic update ──
+  // ── Move — tək və çox seçim dəstəyi ilə optimistic update ──
   const handleMoveConfirm = useCallback(async (targetFolderId) => {
     if (!moveDialog) return;
-    const { item, isFolder } = moveDialog;
     try {
-      if (isFolder) {
-        await moveDriveFolder(item.id, targetFolderId);
-        setFolders((prev) => prev.filter((f) => f.id !== item.id));
+      if (moveDialog.isBulk) {
+        // Çox seçim — batch move
+        const items = moveDialog.items;
+        const folderIds = items.filter((k) => k.startsWith("folder:")).map((k) => k.split(":")[1]);
+        const fileIds = items.filter((k) => k.startsWith("file:")).map((k) => k.split(":")[1]);
+
+        if (items.length > 5) {
+          await batchMoveDriveItems(
+            folderIds.length ? folderIds : null,
+            fileIds.length ? fileIds : null,
+            targetFolderId,
+          );
+        } else {
+          await Promise.all([
+            ...folderIds.map((id) => moveDriveFolder(id, targetFolderId)),
+            ...fileIds.map((id) => moveDriveFile(id, targetFolderId)),
+          ]);
+        }
+
+        const movedFolderSet = new Set(folderIds);
+        const movedFileSet = new Set(fileIds);
+        if (movedFolderSet.size) setFolders((prev) => prev.filter((f) => !movedFolderSet.has(f.id)));
+        if (movedFileSet.size) setFiles((prev) => prev.filter((f) => !movedFileSet.has(f.id)));
+        showToast(`${items.length} ${items.length === 1 ? "item" : "items"} moved`, "success");
       } else {
-        await moveDriveFile(item.id, targetFolderId);
-        setFiles((prev) => prev.filter((f) => f.id !== item.id));
+        // Tək item
+        const { item, isFolder } = moveDialog;
+        if (isFolder) {
+          await moveDriveFolder(item.id, targetFolderId);
+          setFolders((prev) => prev.filter((f) => f.id !== item.id));
+        } else {
+          await moveDriveFile(item.id, targetFolderId);
+          setFiles((prev) => prev.filter((f) => f.id !== item.id));
+        }
+        showToast("Moved successfully", "success");
       }
-      showToast("Moved successfully", "success");
       setMoveDialog(null);
       setSelectedItems(new Set());
     } catch {
@@ -1434,9 +1481,17 @@ export default function DrivePage() {
   }, [getFirstSelectedItem]);
 
   const handleSelectionMove = useCallback(() => {
-    const sel = getFirstSelectedItem();
-    if (sel) setMoveDialog(sel);
-  }, [getFirstSelectedItem]);
+    if (selectedItems.size === 0) return;
+    if (selectedItems.size === 1) {
+      // Tək item — köhnə format (item, isFolder)
+      const sel = getFirstSelectedItem();
+      if (sel) setMoveDialog(sel);
+    } else {
+      // Çox seçim — bulk move
+      const items = Array.from(selectedItems);
+      setMoveDialog({ items, isBulk: true });
+    }
+  }, [selectedItems, getFirstSelectedItem]);
 
   // ── Boş vəziyyət ──
   const isEmpty = !loading && folders.length === 0 && files.length === 0;

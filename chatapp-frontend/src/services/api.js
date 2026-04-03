@@ -492,6 +492,10 @@ function renameDriveFile(id, name) { return apiPut(`/api/drive/files/${id}/renam
 function moveDriveFile(id, targetFolderId) { return apiPut(`/api/drive/files/${id}/move`, { targetFolderId }); }
 function deleteDriveFile(id) { return apiDelete(`/api/drive/files/${id}`); }
 
+// Batch əməliyyatlar — çoxlu fayl/folder üçün tək request
+function batchDeleteDriveItems(folderIds, fileIds) { return apiPost("/api/drive/batch/delete", { folderIds, fileIds }); }
+function batchMoveDriveItems(folderIds, fileIds, targetFolderId) { return apiPost("/api/drive/batch/move", { folderIds, fileIds, targetFolderId }); }
+
 function getDriveTrash() { return apiGet("/api/drive/trash"); }
 function restoreDriveItem(id) { return apiPut(`/api/drive/trash/${id}/restore`); }
 function permanentDeleteDriveItem(id) { return apiDelete(`/api/drive/trash/${id}`); }
@@ -500,4 +504,4 @@ function emptyDriveTrash() { return apiDelete("/api/drive/trash"); }
 function getDriveQuota() { return apiGet("/api/drive/quota"); }
 
 // Named exports
-export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, searchUsers, getUserById, createUser, updateUser, deleteUser, addSupervisor, removeSupervisor, removeUserFromDepartment, assignPermission, removePermission, getAllPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy, uploadDepartmentAvatar, getDriveContents, getDriveFolders, createDriveFolder, renameDriveFolder, moveDriveFolder, deleteDriveFolder, uploadDriveFile, renameDriveFile, moveDriveFile, deleteDriveFile, getDriveTrash, restoreDriveItem, permanentDeleteDriveItem, emptyDriveTrash, getDriveQuota };
+export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, searchUsers, getUserById, createUser, updateUser, deleteUser, addSupervisor, removeSupervisor, removeUserFromDepartment, assignPermission, removePermission, getAllPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy, uploadDepartmentAvatar, getDriveContents, getDriveFolders, createDriveFolder, renameDriveFolder, moveDriveFolder, deleteDriveFolder, uploadDriveFile, renameDriveFile, moveDriveFile, deleteDriveFile, batchDeleteDriveItems, batchMoveDriveItems, getDriveTrash, restoreDriveItem, permanentDeleteDriveItem, emptyDriveTrash, getDriveQuota };
