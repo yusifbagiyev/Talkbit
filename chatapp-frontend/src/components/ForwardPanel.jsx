@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { apiGet, getFileUrl } from "../services/api";
 import { getInitials, getAvatarColor } from "../utils/chatUtils";
+import { useToast } from "../context/ToastContext";
 import "./ForwardPanel.css";
 
 function ForwardPanel({ conversations, onForward, onClose }) {
+  const { showToast } = useToast();
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState(null);
   const searchInputRef = useRef(null);
@@ -83,7 +85,7 @@ function ForwardPanel({ conversations, onForward, onClose }) {
         setSearchResults([...convItems, ...newUsers]);
       } catch (err) {
         if (controller.signal.aborted) return;
-        alert(err ?? "Search failed");
+        showToast(err?.message || "Search failed", "error");
         setSearchResults([]);
       }
     }, 300);

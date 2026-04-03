@@ -7,10 +7,12 @@ import {
   deletePosition,
 } from "../../services/api";
 import { getAvatarColor } from "../../utils/chatUtils";
+import { useToast } from "../../context/ToastContext";
 import "./PositionManagement.css";
 
 // ─── PositionManagement — Departmentə görə hierarxik görünüş ─────────────────
 function PositionManagement() {
+  const { showToast } = useToast();
   const [positions, setPositions] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,11 +39,11 @@ function PositionManagement() {
       setPositions(pos ?? []);
       setDepartments(depts ?? []);
     } catch {
-      alert("Failed to load positions or departments.");
+      showToast("Failed to load positions or departments.", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     loadData();
@@ -155,10 +157,10 @@ function PositionManagement() {
         await deletePosition(pos.id);
         await loadData();
       } catch (err) {
-        alert(err?.message ?? "Delete failed.");
+        showToast(err?.message || "Delete failed.", "error");
       }
     },
-    [loadData],
+    [loadData, showToast],
   );
 
   return (

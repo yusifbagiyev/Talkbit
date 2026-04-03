@@ -10,6 +10,7 @@ import { renderTextWithEmojis } from "../utils/emojiConstants"; // Emoji → App
 // API servis — backend-ə HTTP GET request göndərmək üçün
 import { apiGet, getFileUrl } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import "./ConversationList.css";
 
 // ─── renderPreviewEmojis — preview mətndəki Unicode emojiləri Apple CDN img-ə çevirir ───
@@ -310,6 +311,7 @@ function ConversationList({
   // --- Search mode state-ləri ---
   // searchMode — true olduqda conversation siyahısı gizlənir, search nəticələri görünür
   const { hasPermission } = useAuth();
+  const { showToast } = useToast();
   const [searchMode, setSearchMode] = useState(false);
   // searchResults — backend-dən gələn nəticələr: { users: [], channels: [] }
   const [searchResults, setSearchResults] = useState(null);
@@ -372,7 +374,7 @@ function ConversationList({
         });
       } catch (err) {
         if (controller.signal.aborted) return;
-        alert(err ?? "Search failed. Please try again.");
+        showToast(err?.message || "Search failed. Please try again.", "error");
         setSearchResults({ users: [], channels: [] });
       }
     }, 300);
@@ -382,7 +384,7 @@ function ConversationList({
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
       if (searchAbortRef.current) searchAbortRef.current.abort();
     };
-  }, [searchText, searchMode]);
+  }, [searchText, searchMode, showToast]);
 
   // --- Filter dropdown kənar klik bağlama ---
   useEffect(() => {

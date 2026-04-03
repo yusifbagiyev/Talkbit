@@ -110,8 +110,8 @@ export default function useSidebarPanels(
         (a, b) => new Date(b.favoritedAtUtc) - new Date(a.favoritedAtUtc),
       );
       setFavoriteMessages(sorted);
-    } catch (err) {
-      alert("Failed to load favorite messages:", err);
+    } catch {
+      /* ignore */
       setFavoriteMessages([]);
     } finally {
       setFavoritesLoading(false);

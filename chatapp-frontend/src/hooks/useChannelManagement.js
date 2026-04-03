@@ -66,8 +66,8 @@ export default function useChannelManagement(
         if (showMembersPanelRef.current) {
           loadMembersPanelPage(channelId, 0, true);
         }
-      } catch (err) {
-        alert(err ?? "Failed to refresh channel members.");
+      } catch {
+        /* ignore */
       }
     },
     [setChannelMembers, loadMembersPanelPage],

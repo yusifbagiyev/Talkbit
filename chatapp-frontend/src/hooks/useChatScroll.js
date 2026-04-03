@@ -126,7 +126,7 @@ export default function useChatScroll(
         return merged;
       });
     } catch (err) {
-      alert(err?.message ?? "Failed to load older messages");
+      /* ignore */
       if (err.message === "Session expired") {
         hasMoreRef.current = false;
       }
@@ -197,7 +197,7 @@ export default function useChatScroll(
         return merged;
       });
     } catch (err) {
-      alert(err?.message ?? "Failed to load newer messages");
+      /* ignore */
       if (err.message === "Session expired") {
         hasMoreDownRef.current = false;
       }

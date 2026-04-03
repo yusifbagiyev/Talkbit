@@ -431,13 +431,13 @@ function ChannelPanel({
         const data = normalizeHierarchy(raw || []);
         setHierarchy(data);
       } catch {
-        alert("Failed to load organization hierarchy.");
+        showToast("Failed to load organization hierarchy.", "error");
       } finally {
         setHierarchyLoading(false);
       }
     }
     loadHierarchy();
-  }, [addOpen, hierarchy.length]);
+  }, [addOpen, hierarchy.length, showToast]);
 
   // Dropdown açıldıqda input-a focus
   useEffect(() => {

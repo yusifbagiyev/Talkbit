@@ -297,7 +297,7 @@ const DriveFileCard = memo(function DriveFileCard({
 
   return (
     <div
-      className={`drive-card${selected ? " selected" : ""}${viewMode === "grid-medium" ? " medium" : ""}`}
+      className={`drive-card${selected ? " selected" : ""}${viewMode === "grid-medium" ? " medium" : ""}${item._new ? " new-item" : ""}`}
       onClick={(e) => {
         if (isRenaming) return;
         if (e.ctrlKey || e.metaKey || hasSelection) { onSelect(item, isFolder); return; }
@@ -1096,11 +1096,28 @@ export default function DrivePage() {
       try {
         const formData = new FormData();
         formData.append("File", file);
-        await uploadDriveFile(formData, currentFolderId, (p) => {
+        const result = await uploadDriveFile(formData, currentFolderId, (p) => {
           const pct = p.total ? Math.round((p.loaded / p.total) * 100) : 0;
           setUploads((prev) => prev.map((u) => u.id === entryId ? { ...u, progress: pct } : u));
         });
         setUploads((prev) => prev.map((u) => u.id === entryId ? { ...u, progress: 100, status: "done" } : u));
+        // Yeni faylı birbaşa state-ə əlavə et — bütün siyahını yenidən yükləmə
+        if (result) {
+          setFiles((prev) => {
+            if (prev.some((f) => f.id === result.fileId)) return prev;
+            const newFile = {
+              id: result.fileId,
+              originalFileName: file.name,
+              fileSizeInBytes: file.size,
+              contentType: file.type,
+              folderId: currentFolderId,
+              serveUrl: result.serveUrl || result.downloadUrl,
+              createdAtUtc: new Date().toISOString(),
+              _new: true, // animasiya üçün flag
+            };
+            return [newFile, ...prev];
+          });
+        }
         successCount++;
       } catch {
         setUploads((prev) => prev.map((u) => u.id === entryId ? { ...u, status: "error" } : u));
@@ -1114,10 +1131,9 @@ export default function DrivePage() {
 
     if (successCount > 0) {
       showToast(`${successCount} file(s) uploaded`, "success");
-      loadData();
       getDriveQuota().then(setQuota).catch(() => {});
     }
-  }, [currentFolderId, loadData, showToast]);
+  }, [currentFolderId, showToast]);
 
   // ── Yeni qovluq dialog açma ──
   const handleNewFolder = useCallback(() => {

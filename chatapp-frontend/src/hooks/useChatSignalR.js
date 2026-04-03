@@ -560,7 +560,7 @@ export default function useChatSignalR(
           conn.on(event, handler);
         }
       })
-      .catch((err) => alert(err ?? "Failed to connect to real-time service."));
+      .catch(() => {});
 
     // ─── Cleanup Function ─────────────────────────────────────────────────────
     // useEffect-in return etdiyi funksiya — komponent unmount olduqda çağırılır.

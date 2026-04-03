@@ -50,9 +50,9 @@ export default function useSearchPanel(selectedChat) {
         setSearchResultsList(data.results || []);
         setSearchHasMore(data.hasNextPage || false);
         setSearchPage(1);
-      } catch (err) {
+      } catch {
         if (cancelled) return;
-        alert("Search failed:", err);
+        /* ignore */
         setSearchResultsList([]);
       } finally {
         if (!cancelled) setSearchLoading(false);
@@ -84,8 +84,8 @@ export default function useSearchPanel(selectedChat) {
       setSearchResultsList((prev) => [...prev, ...(data.results || [])]);
       setSearchHasMore(data.hasNextPage || false);
       setSearchPage(nextPage);
-    } catch (err) {
-      alert("Load more search results failed:", err);
+    } catch {
+      /* ignore */
     } finally {
       setSearchLoading(false);
     }

@@ -70,8 +70,8 @@ export default function useMessageSelection(
         prev.map((m) => (ids.includes(m.id) ? { ...m, isDeleted: true } : m)),
       );
       handleExitSelectMode();
-    } catch (err) {
-      alert("Failed to delete selected messages:", err);
+    } catch {
+      /* ignore */
     }
   }, [selectedChat, selectedMessages, handleExitSelectMode, setMessages]);
 

@@ -64,6 +64,7 @@ function HierarchySkeleton() {
 // ─── DeptDetailPanel ──────────────────────────────────────────────────────────
 function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, onOpenUser }) {
   const { hasPermission } = useAuth();
+  const { showToast } = useToast();
   const canUploadAvatar = hasPermission("Avatar.Upload");
   const [members, setMembers]               = useState(null); // null = loading
   const [deleteConfirm, setDeleteConfirm]   = useState(false);
@@ -103,7 +104,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
       await deleteDepartment(node.id);
       onClose(); onAfterMutation();
     } catch (err) {
-      alert(err.message || "Delete failed.");
+      showToast(err?.message || "Delete failed.", "error");
       setDeleting(false); setDeleteConfirm(false);
     }
   };
@@ -171,7 +172,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
       await assignDepartmentHead(node.id, selectedHeadId);
       setHeadMode(false); onClose(); onAfterMutation();
     } catch (err) {
-      alert(err?.message ?? "Assign failed.");
+      showToast(err?.message || "Assign failed.", "error");
     } finally { setHeadSaving(false); }
   };
 
@@ -181,7 +182,7 @@ function DeptDetailPanel({ node, allDepts, closing, onClose, onAfterMutation, on
       await removeDepartmentHead(node.id);
       setHeadMode(false); onClose(); onAfterMutation();
     } catch (err) {
-      alert(err?.message ?? "Remove failed.");
+      showToast(err?.message || "Remove failed.", "error");
     } finally { setHeadSaving(false); }
   };
 
