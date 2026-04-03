@@ -11,12 +11,12 @@ import {
   memo,
 } from "react";
 import {
+  getDriveContents,
   getDriveFolders,
   createDriveFolder,
   renameDriveFolder,
   moveDriveFolder,
   deleteDriveFolder,
-  getDriveFiles,
   uploadDriveFile,
   renameDriveFile,
   moveDriveFile,
@@ -1071,16 +1071,13 @@ export default function DrivePage() {
   useEffect(() => { localStorage.setItem("driveViewMode", viewMode); }, [viewMode]);
   useEffect(() => { localStorage.setItem("driveSortBy", sortBy); }, [sortBy]);
 
-  // ── Məlumatları yüklə ──
+  // ── Məlumatları yüklə — tək request ilə ──
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [foldersData, filesData] = await Promise.all([
-        getDriveFolders(currentFolderId, debouncedSearch || undefined),
-        getDriveFiles(currentFolderId, sortBy, sortOrder, debouncedSearch || undefined),
-      ]);
-      setFolders(foldersData || []);
-      setFiles(filesData || []);
+      const data = await getDriveContents(currentFolderId, sortBy, sortOrder, debouncedSearch || undefined);
+      setFolders(data?.folders || []);
+      setFiles(data?.files || []);
     } catch {
       showToast("Failed to load files", "error");
     } finally {
@@ -1250,16 +1247,27 @@ export default function DrivePage() {
     setNewFolderDialog(true);
   }, []);
 
-  // ── Yeni qovluq yaratma ──
+  // ── Yeni qovluq yaratma — optimistic update ──
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim()) return;
     setNewFolderSaving(true);
     try {
-      await createDriveFolder(newFolderName.trim(), currentFolderId);
+      const result = await createDriveFolder(newFolderName.trim(), currentFolderId);
       showToast("Folder created", "success");
       setNewFolderDialog(false);
       setNewFolderName("");
-      loadData();
+      // Optimistic: yeni folder-i birbaşa state-ə əlavə et
+      if (result?.id) {
+        setFolders((prev) => [...prev, {
+          id: result.id,
+          name: newFolderName.trim(),
+          parentFolderId: currentFolderId,
+          itemCount: 0,
+          createdAtUtc: new Date().toISOString(),
+        }]);
+      } else {
+        loadData();
+      }
     } catch {
       showToast("Failed to create folder", "error");
     } finally {
@@ -1267,26 +1275,27 @@ export default function DrivePage() {
     }
   }, [currentFolderId, newFolderName, loadData, showToast]);
 
-  // ── Rename ──
+  // ── Rename — optimistic update ──
   const handleRename = useCallback(async (item, newName, isFolder) => {
     if (!item) { setRenameItem(null); return; }
     if (!newName) { setRenameItem(null); return; }
     try {
       if (isFolder) {
         await renameDriveFolder(item.id, newName);
+        setFolders((prev) => prev.map((f) => f.id === item.id ? { ...f, name: newName } : f));
       } else {
         await renameDriveFile(item.id, newName);
+        setFiles((prev) => prev.map((f) => f.id === item.id ? { ...f, originalFileName: newName } : f));
       }
       showToast("Renamed successfully", "success");
       setRenameItem(null);
-      loadData();
     } catch {
       showToast("Failed to rename", "error");
       setRenameItem(null);
     }
-  }, [loadData, showToast]);
+  }, [showToast]);
 
-  // ── Silmə ──
+  // ── Silmə — optimistic update ──
   const handleDelete = useCallback((item, isFolder) => {
     setConfirmAction({
       message: "Are you sure you want to delete this item?",
@@ -1295,21 +1304,23 @@ export default function DrivePage() {
         try {
           if (isFolder) {
             await deleteDriveFolder(item.id);
+            setFolders((prev) => prev.filter((f) => f.id !== item.id));
           } else {
             await deleteDriveFile(item.id);
+            setFiles((prev) => prev.filter((f) => f.id !== item.id));
           }
           showToast("Moved to recycle bin", "success");
           setDetailItem(null);
           setSelectedItems(new Set());
-          loadData();
+          getDriveQuota().then(setQuota).catch(() => {});
         } catch {
           showToast("Failed to delete", "error");
         }
       },
     });
-  }, [loadData, showToast]);
+  }, [showToast]);
 
-  // ── Çox seçimdə silmə ──
+  // ── Çox seçimdə silmə — optimistic update ──
   const handleBulkDelete = useCallback(() => {
     const items = Array.from(selectedItems);
     if (!items.length) return;
@@ -1322,15 +1333,20 @@ export default function DrivePage() {
             const [type, id] = key.split(":");
             return type === "folder" ? deleteDriveFolder(id) : deleteDriveFile(id);
           }));
+          // Optimistic: silinən elementləri state-dən çıxar
+          const deletedFolderIds = new Set(items.filter((k) => k.startsWith("folder:")).map((k) => k.split(":")[1]));
+          const deletedFileIds = new Set(items.filter((k) => k.startsWith("file:")).map((k) => k.split(":")[1]));
+          if (deletedFolderIds.size) setFolders((prev) => prev.filter((f) => !deletedFolderIds.has(f.id)));
+          if (deletedFileIds.size) setFiles((prev) => prev.filter((f) => !deletedFileIds.has(f.id)));
           showToast(`${items.length} ${items.length === 1 ? "item" : "items"} deleted`, "success");
           setSelectedItems(new Set());
-          loadData();
+          getDriveQuota().then(setQuota).catch(() => {});
         } catch {
           showToast("Failed to delete items", "error");
         }
       },
     });
-  }, [selectedItems, loadData, showToast]);
+  }, [selectedItems, showToast]);
 
   // ── Yükləmə (download) ──
   const handleDownload = useCallback(async (item) => {
@@ -1352,24 +1368,25 @@ export default function DrivePage() {
     }
   }, [selectedItems, files, handleDownload]);
 
-  // ── Move ──
+  // ── Move — optimistic update ──
   const handleMoveConfirm = useCallback(async (targetFolderId) => {
     if (!moveDialog) return;
     const { item, isFolder } = moveDialog;
     try {
       if (isFolder) {
         await moveDriveFolder(item.id, targetFolderId);
+        setFolders((prev) => prev.filter((f) => f.id !== item.id));
       } else {
         await moveDriveFile(item.id, targetFolderId);
+        setFiles((prev) => prev.filter((f) => f.id !== item.id));
       }
       showToast("Moved successfully", "success");
       setMoveDialog(null);
       setSelectedItems(new Set());
-      loadData();
     } catch {
       showToast("Failed to move item", "error");
     }
-  }, [moveDialog, loadData, showToast]);
+  }, [moveDialog, showToast]);
 
   // ── Drag & Drop ──
   const handleDragOver = useCallback((e) => {

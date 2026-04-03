@@ -465,6 +465,14 @@ function updatePosition(id, data) { return apiPut(`/api/identity/positions/${id}
 function deletePosition(id) { return apiDelete(`/api/identity/positions/${id}`); }
 
 // ─── Drive API ────────────────────────────────────────────────────────────────
+function getDriveContents(folderId, sortBy, sortOrder, search) {
+  const params = new URLSearchParams();
+  if (folderId) params.set("folderId", folderId);
+  if (sortBy) params.set("sortBy", sortBy);
+  if (sortOrder) params.set("sortOrder", sortOrder);
+  if (search) params.set("search", search);
+  return apiGet(`/api/drive/contents?${params}`);
+}
 function getDriveFolders(parentId, search) {
   const params = new URLSearchParams();
   if (parentId) params.set("parentId", parentId);
@@ -476,14 +484,6 @@ function renameDriveFolder(id, name) { return apiPut(`/api/drive/folders/${id}`,
 function moveDriveFolder(id, targetFolderId) { return apiPut(`/api/drive/folders/${id}/move`, { targetFolderId }); }
 function deleteDriveFolder(id) { return apiDelete(`/api/drive/folders/${id}`); }
 
-function getDriveFiles(folderId, sortBy, sortOrder, search) {
-  const params = new URLSearchParams();
-  if (folderId) params.set("folderId", folderId);
-  if (sortBy) params.set("sortBy", sortBy);
-  if (sortOrder) params.set("sortOrder", sortOrder);
-  if (search) params.set("search", search);
-  return apiGet(`/api/drive/files?${params}`);
-}
 function uploadDriveFile(formData, folderId, onProgress) {
   const url = folderId ? `/api/drive/upload?folderId=${folderId}` : "/api/drive/upload";
   return apiUpload(url, formData, onProgress);
@@ -500,4 +500,4 @@ function emptyDriveTrash() { return apiDelete("/api/drive/trash"); }
 function getDriveQuota() { return apiGet("/api/drive/quota"); }
 
 // Named exports
-export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, searchUsers, getUserById, createUser, updateUser, deleteUser, addSupervisor, removeSupervisor, removeUserFromDepartment, assignPermission, removePermission, getAllPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy, uploadDepartmentAvatar, getDriveFolders, createDriveFolder, renameDriveFolder, moveDriveFolder, deleteDriveFolder, getDriveFiles, uploadDriveFile, renameDriveFile, moveDriveFile, deleteDriveFile, getDriveTrash, restoreDriveItem, permanentDeleteDriveItem, emptyDriveTrash, getDriveQuota };
+export { apiGet, apiPost, apiPut, apiDelete, apiUpload, getFileUrl, downloadFile, downloadFileByUrl, getUserProfile, getDepartments, getPositionsByDepartment, getSubordinates, changePassword, adminChangePassword, activateUser, deactivateUser, assignEmployeeToDepartment, scheduleRefresh, stopRefreshTimer, resetSessionExpired, getCompanies, getCompany, createCompany, updateCompany, deleteCompany, setCompanyStatus, assignCompanyAdmin, getUsers, searchUsers, getUserById, createUser, updateUser, deleteUser, addSupervisor, removeSupervisor, removeUserFromDepartment, assignPermission, removePermission, getAllPermissions, getUserStorageStats, createDepartment, updateDepartment, deleteDepartment, assignDepartmentHead, removeDepartmentHead, getAllPositions, createPosition, updatePosition, deletePosition, getOrganizationHierarchy, uploadDepartmentAvatar, getDriveContents, getDriveFolders, createDriveFolder, renameDriveFolder, moveDriveFolder, deleteDriveFolder, uploadDriveFile, renameDriveFile, moveDriveFile, deleteDriveFile, getDriveTrash, restoreDriveItem, permanentDeleteDriveItem, emptyDriveTrash, getDriveQuota };

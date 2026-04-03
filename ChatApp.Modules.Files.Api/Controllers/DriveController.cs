@@ -26,6 +26,46 @@ namespace ChatApp.Modules.Files.Api.Controllers
     {
         private const long DriveQuotaBytes = 3L * 1024 * 1024 * 1024; // 3GB
 
+        // ─── Contents — folder + faylları tək request-də qaytarır ───────────
+
+        [HttpGet("contents")]
+        public async Task<IActionResult> GetContents(
+            [FromQuery] Guid? folderId,
+            [FromQuery] string? sortBy,
+            [FromQuery] string? sortOrder,
+            [FromQuery] string? search,
+            CancellationToken cancellationToken)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == Guid.Empty) return Unauthorized();
+
+            // Folder-lər
+            List<DriveFolder> folders;
+            if (!string.IsNullOrWhiteSpace(search))
+                folders = await unitOfWork.DriveFolders.SearchAsync(userId, search, cancellationToken);
+            else
+                folders = await unitOfWork.DriveFolders.GetChildrenAsync(userId, folderId, cancellationToken);
+
+            var folderDtos = new List<DriveFolderDto>();
+            foreach (var f in folders)
+            {
+                var itemCount = await unitOfWork.DriveFolders.GetItemCountAsync(f.Id, cancellationToken);
+                folderDtos.Add(new DriveFolderDto(f.Id, f.Name, f.ParentFolderId, itemCount, f.CreatedAtUtc, f.UpdatedAtUtc));
+            }
+
+            // Fayllar
+            var files = await unitOfWork.Files.GetDriveFilesAsync(
+                userId, folderId, sortBy, sortOrder, search, cancellationToken);
+
+            var fileDtos = files.Select(f => new DriveFileDto(
+                f.Id, f.OriginalFileName, f.ContentType, f.FileSizeInBytes,
+                f.FileType, f.FolderId, f.Width, f.Height,
+                FileUrlHelper.ToServeUrl(f.Id)!,
+                f.CreatedAtUtc)).ToList();
+
+            return Ok(new DriveContentsDto(folderDtos, fileDtos));
+        }
+
         // ─── Folders ────────────────────────────────────────────────────────
 
         [HttpGet("folders")]
@@ -167,29 +207,6 @@ namespace ChatApp.Modules.Files.Api.Controllers
         }
 
         // ─── Files ──────────────────────────────────────────────────────────
-
-        [HttpGet("files")]
-        public async Task<IActionResult> GetFiles(
-            [FromQuery] Guid? folderId,
-            [FromQuery] string? sortBy,
-            [FromQuery] string? sortOrder,
-            [FromQuery] string? search,
-            CancellationToken cancellationToken)
-        {
-            var userId = GetCurrentUserId();
-            if (userId == Guid.Empty) return Unauthorized();
-
-            var files = await unitOfWork.Files.GetDriveFilesAsync(
-                userId, folderId, sortBy, sortOrder, search, cancellationToken);
-
-            var dtos = files.Select(f => new DriveFileDto(
-                f.Id, f.OriginalFileName, f.ContentType, f.FileSizeInBytes,
-                f.FileType, f.FolderId, f.Width, f.Height,
-                FileUrlHelper.ToServeUrl(f.Id)!,
-                f.CreatedAtUtc)).ToList();
-
-            return Ok(dtos);
-        }
 
         [HttpPost("upload")]
         [RequestSizeLimit(100 * 1024 * 1024)]
